@@ -469,7 +469,7 @@ function sceneState(T,t){
   s.camDist=lerp(5.5,5.0,sm(0,8,lt))-0.3*sm(R.qStart,R.qEnd,t)+0.3*sm(R.breakT,R.breakT+1.2,t);
   s.camH=0.75;s.camTY=1.48;
   if(spec.startsWith('egg')){s.camDist-=0.9;s.camTY=1.32;s.camH=0.6;}
-  if(spec==='egg_tray'){s.camDist+=0.1;s.camTY=1.15;s.camH=0.55;}
+  if(spec==='egg_tray'){s.camDist+=0.45;s.camTY=1.45;s.camH=0.7;}
   if(replay){const k=tReal-R.replayT0;s.camAng=0.95+0.10*k+(R.i%2?-0.45:0);s.camDist=2.9-0.08*k;s.camH=0.08;s.camTY=kind==='traction'?0.98:(spec==='egg_up'?0.7:0.62);if(spec==='egg_tray'){s.camDist=3.1-0.08*k;s.camH=0.25;s.camTY=0.6;}s.shake=[s.shake[0]*0.5,s.shake[1]*0.5];}
   s.replay=replay;
   if(showcase||outro){
