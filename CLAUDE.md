@@ -15,3 +15,16 @@ Chaîne YouTube/TikTok **Breakpoint Lab**, handle **@BreakpointLabTV**. Séries 
 ## Rendu
 - `.github/workflows/render.yml` (workflow_dispatch, `config_path` ou `config_json`) : rendu parallèle sur ~20 machines, son, MP4, Google Drive si le secret `RCLONE_CONF` et la variable `DRIVE_FOLDER_ID` existent, sinon la vidéo est un artefact du run.
 - Une PR séparée par modification.
+
+## Procédure « fais une vidéo »
+Liste des sujets : Google Sheet « Breakpoint Lab – 100 Experiments » (id `1hl-jYG9e2N5L2_xycGPkE_SprXOnQWE8BR-vbNOqrkk`), onglet `Experiments`, lignes 2–101. Colonnes : D réponse, K série, L moteur, M source, N statut, O Pick, P note, Q lien source, R lien vidéo.
+
+1. **Choisir** : lire `Experiments!A1:R101`. Écarter les statuts `Done`, `In progress`, `Needs test data`. Parmi `Verified` et `Corrected`, prendre d'abord les lignes Pick = TRUE, puis le score J le plus haut. Si l'utilisateur nomme un sujet, prendre celui-là.
+2. **Réserver** : passer N à `In progress` avant tout travail.
+3. **Construire** :
+   - L = `Tests (ready)` ou `Physics (ready)` : écrire `configs/<serie>_<num>_<slug>_en.json` à partir d'une config existante.
+   - L = `(extend)` ou `New engine` : coder la scène dans une PR séparée, vérifier les images clés (`render.js stills`), montrer les stills à l'utilisateur avant le rendu complet.
+   - Chiffres à l'écran : uniquement ceux des colonnes D, M, P (et leur source Q). Rien d'autre.
+4. **Rendre** : lancer `render.yml` (`config_path` ou `config_json`), suivre le run jusqu'à la fin.
+5. **Clore** : N = `Done`, R = lien du run + lien Drive de la vidéo.
+6. **Échec** : remettre N à son statut d'avant, noter la cause dans P, prévenir l'utilisateur.
