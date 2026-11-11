@@ -83,6 +83,12 @@
   ],
   "cta": "NEXT TEST? Comment ↓",
   "caption": "A 15 cm concrete cube: crushed, then pulled 🧱 What was your guess? What should we test next? 👇 #concrete #engineering #physics #science #satisfying #civilengineering #qualitycontrol #3d",
+  "description": [
+    "We test a standard 15 cm concrete cube of class C30/37, the kind used in buildings and bridges, first by crushing it and then by pulling it apart.",
+    "Crushed, it holds about 85 tonnes. Eurocode 2 gives this class a cube strength of 37 MPa: 37 MPa x 0.15 m x 0.15 m = 832 kN, about 85 t.",
+    "Pulled, the same concrete lets go at about 6.6 tonnes, roughly 13 times less. Its mean tensile strength is only 2.9 MPa.",
+    "That is why concrete is reinforced with steel bars: the concrete carries the compression, the steel carries the tension. The animation is a simulated test at the standard's values."
+  ],
   "sources_detail": [
     "EN 1992-1-1 (Eurocode 2), Table 3.1: C30/37 -> fck = 30 MPa, fck,cube = 37 MPa, fctm = 2.9 MPa",
     "37 MPa x 0.0225 m2 = 832 kN = 84.9 t ; 2.9 MPa x 0.0225 m2 = 65.3 kN = 6.65 t"

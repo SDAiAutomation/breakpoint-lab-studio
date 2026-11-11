@@ -100,6 +100,12 @@
   ],
   "cta": "NEXT TEST? Comment ↓",
   "caption": "Standing egg vs lying egg 🥚 Squeezed: a tie. Dropped: not even close. Which one did you pick? (MIT, 2025) What should we test next? 👇 #egg #physics #science #engineering #satisfying #mythbusting #3d",
+  "description": [
+    "We test the same egg two ways: standing on its tip and lying on its side. Most people expect the standing egg to be much stronger, because of the arch shape.",
+    "Squeezed slowly in a press, it's a tie. In MIT's lab tests, standing eggs cracked at 46.0 N on average (about 4.7 kg) and lying eggs at 45.2 N (about 4.6 kg). The difference is within the scatter between eggs.",
+    "Dropped, it's not close. From only 8 mm, far fewer lying eggs cracked. On its side the shell flexes more, like a spring, so it spreads the shock over a longer time and absorbs more energy before cracking. Strength (the load it can carry) and toughness (the energy it can soak up) are not the same thing.",
+    "The animation is a simulation using the lab averages from the study below."
+  ],
   "sources_detail": [
     "Sutanto, Cohen et al., 'Challenging common notions on how eggs break and the role of strength versus toughness', Communications Physics 8, 2025 (MIT)",
     "Static compression to first crack: vertical 46.0 +/- 6.6 N, horizontal 45.2 +/- 5.5 N; 46.0/9.81 = 4.69 kg, 45.2/9.81 = 4.61 kg",
