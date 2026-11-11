@@ -189,6 +189,20 @@ const lerp=(a,b,t)=>a+(b-a)*t;
 const G=9.81*5/7;                 // rolling solid ball: a = 5/7 g along the slope
 
 // logo texture (BREAKPOINT LAB) used as a decal in the scene
+function drawHandle(c,cfg){            // brand badge: frosted pill, bottom-left of the safe zone
+  if(!cfg.handle) return;
+  c.save(); c.font='700 26px P, DJ'; c.textBaseline='middle';
+  const tw=c.measureText(cfg.handle).width, h=46, x=44, y=1388-h/2, w=tw+64, r=h/2;
+  c.shadowColor='rgba(0,0,0,0.18)'; c.shadowBlur=14; c.shadowOffsetY=3;
+  c.fillStyle='rgba(255,255,255,0.82)';
+  c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); c.fill();
+  c.shadowColor='transparent';
+  const cx=x+25, cy=y+h/2;                // hazard dot, same yellow as the machine
+  c.fillStyle='#16181d'; c.beginPath(); c.arc(cx,cy,10,0,Math.PI*2); c.fill();
+  c.fillStyle='#f5c400'; c.beginPath(); c.arc(cx,cy,7,0,Math.PI*2); c.fill();
+  c.fillStyle='#16181d'; c.textAlign='left'; c.fillText(cfg.handle,x+43,cy+1);
+  c.restore();
+}
 function makeLogoTexture(){
   const cv=document.createElement('canvas');cv.width=1400;cv.height=220;const x=cv.getContext('2d');
   x.clearRect(0,0,1400,220);x.font='700 150px P, DJ';x.textAlign='center';x.textBaseline='middle';x.fillStyle='#fff';
@@ -329,8 +343,7 @@ function pill(s,x,y,size,fill,a=1){if(a<=0)return;const fs=size;c.font=`700 ${fs
 function overlay(cfg,T,t,s){
   const R=s.R, r=R.cfg;
   ctxt(cfg.series,W/2,292,34,COL.sub,0.9);
-  if(cfg.handle){c.save();c.globalAlpha=0.55;c.font='700 30px P, DJ';c.textAlign='center';c.textBaseline='middle';
-    c.fillStyle='#fff';c.shadowColor='rgba(0,0,0,0.45)';c.shadowBlur=6;c.fillText(cfg.handle,W/2,1395);c.restore();}
+  drawHandle(c,cfg);
   trails(s);arrows(s,t);
   if(t<T.hook[1]){const a=1-fade(T.hook[1]-0.3,t,0.3),hn=cfg.hook.length;
     cfg.hook.forEach((l,i)=>ctxt(l,W/2,365+i*90,fitText(l,960,82),i===hn-1?COL.red:COL.ink,a));
