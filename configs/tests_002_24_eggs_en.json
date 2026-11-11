@@ -1,0 +1,134 @@
+{
+  "id": "tests-002-24-eggs-en",
+  "series": "QUALITY CONTROL · TEST 003",
+  "decimal": ".",
+  "handle": "@BreakpointLabTV",
+  "hook": [
+    "24 eggs vs one person",
+    "Will they crack?"
+  ],
+  "hook_sub": "Guess in the comments ↓",
+  "replay_label": "SLOW-MO",
+  "rounds": [
+    {
+      "title": "ROUND 1 · ONE EGG",
+      "kind": "compression",
+      "specimen": "egg_up",
+      "material": "egg",
+      "label": "LOAD",
+      "unit": "kg",
+      "decimals": 1,
+      "gauge_max": 6,
+      "steps": [
+        1.5,
+        3,
+        4
+      ],
+      "question_value": 5,
+      "question": "5 kg?",
+      "question_sub": "YES or NO ↓",
+      "break_value": 4.7,
+      "threshold": null,
+      "stamp": {
+        "text": "4.7 kg",
+        "color": "red"
+      },
+      "result_chip": "4.7 kg",
+      "fact": [
+        "Lab average: 46 N ≈ 4.7 kg"
+      ]
+    },
+    {
+      "title": "ROUND 2 · 12 EGGS",
+      "kind": "compression",
+      "specimen": "egg_tray",
+      "eggs": 12,
+      "material": "egg",
+      "label": "LOAD",
+      "unit": "kg",
+      "decimals": 0,
+      "gauge_max": 130,
+      "steps": [
+        20,
+        35,
+        50
+      ],
+      "question_value": 80,
+      "question": "An 80 kg person?",
+      "question_sub": "YES or NO ↓",
+      "break_value": 56,
+      "threshold": {
+        "value": 80,
+        "label": "80 kg"
+      },
+      "stamp": {
+        "text": "ONLY 56 kg",
+        "color": "red"
+      },
+      "result_chip": "56 kg",
+      "fact": [
+        "12 × 4.7 kg ≈ 56 kg"
+      ]
+    },
+    {
+      "title": "ROUND 3 · 24 EGGS",
+      "kind": "compression",
+      "specimen": "egg_tray",
+      "eggs": 24,
+      "material": "egg",
+      "label": "LOAD",
+      "unit": "kg",
+      "decimals": 0,
+      "gauge_max": 130,
+      "steps": [
+        40,
+        60,
+        80
+      ],
+      "question_value": 100,
+      "question": "100 kg?",
+      "question_sub": "Still holding? ↓",
+      "break_value": 113,
+      "threshold": {
+        "value": 80,
+        "label": "80 kg"
+      },
+      "stamp": {
+        "text": "HOLDS A PERSON",
+        "color": "green"
+      },
+      "result_chip": "113 kg",
+      "fact": [
+        "24 × 4.7 kg ≈ 113 kg",
+        "Only if every egg shares the load"
+      ]
+    }
+  ],
+  "explain": {
+    "scene": "egg_tray",
+    "title": "WHY IT WORKS",
+    "lines": [
+      "Each egg is a tiny arch",
+      "24 eggs share the weight",
+      "Uneven load? They crack"
+    ]
+  },
+  "source": [
+    "Sutanto et al., Communications Physics (2025), MIT",
+    "Simulated: 46 N per egg, load shared evenly"
+  ],
+  "cta": "NEXT TEST? Comment ↓",
+  "caption": "Can 24 eggs hold a grown adult? 🥚 One egg: 4.7 kg. Twelve: 56 kg. Twenty-four: 113 kg. Would you stand on them? What should we test next? 👇 #egg #physics #science #engineering #satisfying #mythbusting #3d",
+  "description": [
+    "How much weight can eggs carry? We press one egg, then a carton of 12, then a carton of 24, all standing upright, and ask whether they could hold an 80 kg person.",
+    "One egg standing on its tip cracks at 46 N on average in MIT's lab tests, about 4.7 kg. The curved shell works like an arch: it turns the load into compression spread all around the shell.",
+    "Twelve eggs sharing the load can take about 12 x 4.7 = 56 kg: not enough for an 80 kg person. Twenty-four eggs take about 24 x 4.7 = 113 kg: enough to hold that person.",
+    "The catch: this only works if every egg carries the same share. If one egg sits higher, or a heel presses on one spot, that egg takes much more than its share and cracks first.",
+    "The animation is a simulation using the average crack load from the study below, multiplied by the number of eggs."
+  ],
+  "sources_detail": [
+    "Sutanto, Cohen et al., 'Challenging common notions on how eggs break and the role of strength versus toughness', Communications Physics 8, 182 (2025), MIT. doi:10.1038/s42005-025-02087-0",
+    "Static compression to first crack, egg standing (vertical): 46.0 +/- 6.6 N -> 46.0 / 9.81 = 4.69 kg",
+    "12 eggs: 12 x 46.0 N = 552 N = 56.3 kg ; 24 eggs: 24 x 46.0 N = 1104 N = 112.5 kg (shown as 113 kg). Assumes the load is shared equally."
+  ]
+}
