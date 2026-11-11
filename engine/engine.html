@@ -350,6 +350,16 @@ const D={hook:2.2,title:0.8,approach:0.9,ramp:1.0,hold:0.7,question:2.4,final:1.
 const DROP={show:0.6,hold:0.4,fall:0.15,settle:1.6,fact:3.0};
 // slow-motion replay of the break: shows [break-0.45 s, break+0.27 s] at 0.3x speed
 const RP={before:0.45,speed:0.3};
+function drawHandle(c,cfg){            // brand line in the top text band, above the series title: never over the scene
+  if(!cfg.handle) return;
+  c.save(); c.font='700 24px P, DJ'; c.textBaseline='middle'; c.textAlign='left';
+  const tw=c.measureText(cfg.handle).width, gap=12, dot=7, y=256;
+  const x=W/2-(tw+gap+2*dot)/2;
+  c.fillStyle='#f5c400'; c.beginPath(); c.arc(x+dot,y,dot,0,Math.PI*2); c.fill();
+  c.lineWidth=2; c.strokeStyle='rgba(22,24,29,0.85)'; c.stroke();
+  c.globalAlpha=0.8; c.fillStyle='#2a2e36'; c.fillText(cfg.handle,x+2*dot+gap,y+1);
+  c.restore();
+}
 function buildTimeline(cfg){
   const T={rounds:[],events:[]};let t=0;
   T.hook=[0,D.hook];t=D.hook;
@@ -531,8 +541,7 @@ function ctxt(s,x,y,size,color,alpha=1){            // text readable on the ligh
 function overlay(cfg,T,t,s){
   const R=s.R, r=R.cfg;
   ctxt(cfg.series,W/2,292,34,COL.sub,0.9);
-  if(cfg.handle){c.save();c.globalAlpha=0.55;c.font='700 30px P, DJ';c.textAlign='center';c.textBaseline='middle';
-    c.fillStyle='#ffffff';c.shadowColor='rgba(0,0,0,0.45)';c.shadowBlur=6;c.fillText(cfg.handle,W/2,1395);c.restore();}
+  drawHandle(c,cfg);
   const inExplain=t>=T.explain[0]&&t<T.outro[0], inOutro=t>=T.outro[0];
   if(t<T.hook[1]){
     const a=1-fade(T.hook[1]-0.3,t,0.3), hn=cfg.hook.length;

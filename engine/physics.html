@@ -189,6 +189,16 @@ const lerp=(a,b,t)=>a+(b-a)*t;
 const G=9.81*5/7;                 // rolling solid ball: a = 5/7 g along the slope
 
 // logo texture (BREAKPOINT LAB) used as a decal in the scene
+function drawHandle(c,cfg){            // brand line in the top text band, above the series title: never over the scene
+  if(!cfg.handle) return;
+  c.save(); c.font='700 24px P, DJ'; c.textBaseline='middle'; c.textAlign='left';
+  const tw=c.measureText(cfg.handle).width, gap=12, dot=7, y=256;
+  const x=W/2-(tw+gap+2*dot)/2;
+  c.fillStyle='#f5c400'; c.beginPath(); c.arc(x+dot,y,dot,0,Math.PI*2); c.fill();
+  c.lineWidth=2; c.strokeStyle='rgba(22,24,29,0.85)'; c.stroke();
+  c.globalAlpha=0.8; c.fillStyle='#2a2e36'; c.fillText(cfg.handle,x+2*dot+gap,y+1);
+  c.restore();
+}
 function makeLogoTexture(){
   const cv=document.createElement('canvas');cv.width=1400;cv.height=220;const x=cv.getContext('2d');
   x.clearRect(0,0,1400,220);x.font='700 150px P, DJ';x.textAlign='center';x.textBaseline='middle';x.fillStyle='#fff';
@@ -329,8 +339,7 @@ function pill(s,x,y,size,fill,a=1){if(a<=0)return;const fs=size;c.font=`700 ${fs
 function overlay(cfg,T,t,s){
   const R=s.R, r=R.cfg;
   ctxt(cfg.series,W/2,292,34,COL.sub,0.9);
-  if(cfg.handle){c.save();c.globalAlpha=0.55;c.font='700 30px P, DJ';c.textAlign='center';c.textBaseline='middle';
-    c.fillStyle='#fff';c.shadowColor='rgba(0,0,0,0.45)';c.shadowBlur=6;c.fillText(cfg.handle,W/2,1395);c.restore();}
+  drawHandle(c,cfg);
   trails(s);arrows(s,t);
   if(t<T.hook[1]){const a=1-fade(T.hook[1]-0.3,t,0.3),hn=cfg.hook.length;
     cfg.hook.forEach((l,i)=>ctxt(l,W/2,365+i*90,fitText(l,960,82),i===hn-1?COL.red:COL.ink,a));
