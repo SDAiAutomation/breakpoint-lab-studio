@@ -14,7 +14,8 @@ html,body{margin:0;background:#000}canvas{display:block}
 precision highp float;
 uniform vec2 R;
 uniform float mode;      // 0 compression, 1 traction, 2 showcase, 3 drop test
-uniform float spec;      // 0 egg side, 1 egg up, 2 cube, 3 prism
+uniform float spec;      // 0 egg side, 1 egg up, 2 cube, 3 prism, 4 egg tray
+uniform float trayRows;  // egg tray: 2 rows (12 eggs) or 4 rows (24 eggs), 6 per row
 uniform float plateY, jawY, snap, squash, crackAmt, broken, tb, camAng, camDist, camH, eggOff;
 uniform vec2 shake;
 uniform float camTY;
@@ -36,6 +37,44 @@ vec2 opU(vec2 a, vec2 b){ return a.x<b.x?a:b; }
 const float CUBE=0.22;
 const float PRB=0.48, PRT=1.38, PRH=0.12;     // prism bottom/top/half-width
 float crackY(vec3 p){ return 0.93+0.025*sin(p.x*37.0+1.3)*sin(p.z*29.0+0.4)+0.012*sin(p.x*91.0+p.z*73.0); }
+
+// ---- egg tray: 6 x trayRows eggs standing in a pulp carton (cells 0.2 apart)
+vec3 trayCell(vec3 p){
+  float cx=(clamp(floor(p.x/0.2),-3.0,2.0)+0.5)*0.2;
+  float hz=trayRows*0.5;
+  float cz=(clamp(floor(p.z/0.2),-hz,hz-1.0)+0.5)*0.2;
+  return vec3(cx,0.0,cz);
+}
+vec2 trayEgg(vec3 p, vec3 c, float sq, float brk, float t){
+  vec3 l=p-c;
+  if(brk<0.5){
+    vec3 e=l-vec3(eggOff,0.45+0.105*sq,0.0);
+    return vec2(sdEll(e,vec3(0.085,(e.y>0.0?0.13:0.105)*sq,0.085)),7.0);
+  }
+  float s=smoothstep(0.0,0.35,t);
+  float jag=0.006*sin(atan(l.z,l.x)*7.0+hash(c.x*7.0+c.z*13.0)*6.0);
+  vec2 r=vec2(sdEll(l-vec3(0.0,0.47,0.0),vec3(0.088,0.035+jag,0.088)),7.0);              // crushed shell left in the cup
+  r=opU(r,vec2(sdEll(l-vec3(0.0,0.49,0.0),vec3(0.07+0.035*s,0.011,0.07+0.035*s)),9.0)); // egg white spreading
+  r=opU(r,vec2(sdEll(l-vec3(0.012,0.50,0.01),vec3(0.038,0.014,0.034)*(0.6+0.4*s)),8.0));
+  return r;
+}
+vec2 tray(vec3 p, float sq, float brk, float t){
+  float hz=trayRows*0.1;
+  vec3 c=trayCell(p); vec3 l=p-c;
+  // carton: slab 0.42-0.47 with one cup per egg
+  float slab=sdRoundBox(p-vec3(0.0,0.445,0.0),vec3(0.61,0.022,hz+0.01),0.006);
+  float cup=sdCylY(l-vec3(0.0,0.50,0.0),0.05,0.074);
+  vec2 res=vec2(max(slab,-cup),14.0);
+  // eggs: cheap box bound far away, exact min over this cell and its 3 nearest neighbours up close
+  float bb=sdRoundBox(p-vec3(0.0,0.58,0.0),vec3(0.61,0.13,hz+0.01),0.0);
+  if(bb>0.04) return opU(res,vec2(bb,7.0));
+  vec3 dx=vec3(l.x>0.0?0.2:-0.2,0.0,0.0), dz=vec3(0.0,0.0,l.z>0.0?0.2:-0.2);
+  res=opU(res,trayEgg(p,c,sq,brk,t));
+  res=opU(res,trayEgg(p,trayCell(c+dx),sq,brk,t));
+  res=opU(res,trayEgg(p,trayCell(c+dz),sq,brk,t));
+  res=opU(res,trayEgg(p,trayCell(c+dx+dz),sq,brk,t));
+  return res;
+}
 
 vec2 specimen(vec3 p){
   vec2 res=vec2(1e5,0.0);
@@ -82,6 +121,8 @@ vec2 specimen(vec3 p){
       float upper=max(barU,cy-u.y);
       res=vec2(min(lower,upper)*0.9,12.0);
     }
+  } else if(spec<4.5){              // egg tray
+    res=tray(p,squash,broken,tb);
   }
   return res;
 }
@@ -102,14 +143,15 @@ vec2 map(vec3 p){
     res=opU(res,vec2(sdEll(b,vec3(b.x>0.0?0.31:0.255,0.2,0.2)),7.0));
     if(leak>0.0) res=opU(res,vec2(sdEll(p-vec3(-0.36,0.425,0.13),vec3(0.05+0.17*leak,0.011,0.04+0.13*leak)),9.0));
   } else if(mode<1.5){
-    res=opU(res,vec2(sdRoundBox(p-vec3(0,0.36,0),vec3(0.43,0.04,0.33),0.02),3.0));
+    vec3 pw=spec>3.5?vec3(0.66,0.04,0.46):vec3(0.43,0.04,0.33);
+    res=opU(res,vec2(sdRoundBox(p-vec3(0,0.36,0),pw,0.02),3.0));
     vec3 q=p; q.x=abs(q.x)-0.85;
     res=opU(res,vec2(sdCylY(q-vec3(0,1.08,0),0.78,0.06),4.0));
     res=opU(res,vec2(sdRoundBox(p-vec3(0,1.86,0),vec3(1.0,0.11,0.2),0.03),5.0));
     if(mode<0.5){
       float rodTop=1.74, rodBot=plateY+0.1;
       res=opU(res,vec2(sdCylY(p-vec3(0,(rodTop+rodBot)*0.5,0),(rodTop-rodBot)*0.5,0.085),4.0));
-      res=opU(res,vec2(sdRoundBox(p-vec3(0,plateY+0.05,0),vec3(0.42,0.035,0.32),0.015),6.0));
+      res=opU(res,vec2(sdRoundBox(p-vec3(0,plateY+0.05,0),spec>3.5?vec3(0.64,0.035,0.44):vec3(0.42,0.035,0.32),0.015),6.0));
     } else {
       // grips: lower fixed on the platen, upper on the rod
       vec3 g=p-vec3(0,0.52,0); g.x=abs(g.x);
@@ -127,6 +169,9 @@ vec2 map(vec3 p){
     vec2 s=specimen(p);
     if(mode>0.5) { if(spec>2.5){ s.x=max(s.x,-sdRoundBox(p-vec3(0,0.52,0),vec3(0.2,0.09,0.2),0.015)); } }
     res=opU(res,s);
+  } else if(spec<-3.5){
+    // showcase: the full tray of eggs on the bench
+    res=opU(res,tray(p+vec3(0.0,0.12,0.0),1.0,0.0,0.0));
   } else if(spec<-1.5){
     // showcase: two intact eggs, one standing (left), one lying (right), on small cups
     vec3 c=p; c.x=abs(c.x)-0.42;
@@ -215,6 +260,8 @@ vec3 shade(vec2 fc){
     float ao=calcAO(p,n);
     vec3 hal=normalize(sun-rd);
     float m=h.y;
+    if(abs(spec)>3.5 && (m>6.5 && m<10.5 || m>13.5)){   // egg tray sits under a wide plate: keep it readable
+      sh=max(sh,0.6); dif=clamp(dot(n,sun),0.0,1.0)*sh; ao=max(ao,0.7); }
     if(m<1.5){
       col=sky*mix(0.70,1.0,sh)*mix(0.82,1.0,ao);
     } else {
@@ -241,6 +288,11 @@ vec3 shade(vec2 fc){
             float c2=abs(f.x-0.07-0.5*(f.y+0.2)+0.02*sin(f.y*80.0));
             if(c1<w || (c2<w*0.8 && f.y<-0.02)) alb*=0.22;
           }
+        } else if(crackAmt>0.0 && spec>3.5){
+          vec3 f=p-trayCell(p)-vec3(0.0,0.56,0.0);
+          float w=0.0025+0.003*crackAmt;
+          float zz=f.x-0.012*sin(f.y*90.0)-0.006*sin(f.y*210.0);
+          if(abs(zz)<w && abs(f.y)<crackAmt*0.11 && f.z>0.0) alb*=0.25;
         } else if(crackAmt>0.0){
           float zz=(spec<0.5? e.z : e.x)-0.035*sin((spec<0.5?e.x:e.y)*38.0)-0.012*sin((spec<0.5?e.x:e.y)*97.0);
           float w=0.0035+0.004*crackAmt;
@@ -265,8 +317,9 @@ vec3 shade(vec2 fc){
           }
         }
       }
-      else { alb=vec3(0.36,0.33,0.31); spec_=0.9; gloss=50.0; refl=0.3;     // rebar: ribbed steel
+      else if(m<13.5){ alb=vec3(0.36,0.33,0.31); spec_=0.9; gloss=50.0; refl=0.3;     // rebar: ribbed steel
              float rib=step(0.6,fract(p.x*55.0)); alb*=0.85+0.25*rib; }
+      else { alb=vec3(0.70,0.66,0.60)*(0.93+0.07*hash3(floor(p*220.0)))*(0.97+0.03*hash3(floor(p*45.0))); spec_=0.03; gloss=6.0; }  // moulded pulp carton
       float amb=0.55+0.45*n.y;
       vec3 lin=1.25*dif*vec3(1.0,0.96,0.90)+0.62*amb*ao*vec3(0.88,0.92,0.98)+0.38*clamp(dot(n,normalize(vec3(0.55,0.25,0.8))),0.0,1.0)*ao;
       col=alb*lin;
@@ -289,7 +342,7 @@ void main(){
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const sm=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);};
 const lerp=(a,b,t)=>a+(b-a)*t;
-const SPEC={egg_side:0,egg_up:1,cube:2,prism:3};
+const SPEC={egg_side:0,egg_up:1,cube:2,prism:3,egg_tray:4};
 
 // ---------------------------------------------------------------- timeline
 // Every duration lives here; qc/audio.py reads the exported events, so sound stays in sync.
@@ -347,26 +400,27 @@ function valueAt(R,t){
 
 // ---------------------------------------------------------------- scene state
 function hash(n){const x=Math.sin(n*127.1)*43758.5453;return x-Math.floor(x);}
-function groundAt(x,z,mode){if(mode<1.5&&Math.abs(x)<0.47&&Math.abs(z)<0.37)return 0.42;if(Math.abs(x)<1.15&&Math.abs(z)<0.75)return 0.30;return 0;}
+function groundAt(x,z,mode,wide){if(mode<1.5&&wide&&Math.abs(x)<0.61&&Math.abs(z)<0.42)return 0.47;if(mode<1.5&&Math.abs(x)<(wide?0.68:0.47)&&Math.abs(z)<(wide?0.5:0.37))return 0.42;if(Math.abs(x)<1.15&&Math.abs(z)<0.75)return 0.30;return 0;}
 function frags(tb,specName,mode){
   const P=[],A=[];let n=12,y0=0.58,conc=false,vS=1.0,vyS=1.0,r0=0.2;
   if(specName==='cube'){n=14;y0=0.62;conc=true;vS=1.0;vyS=0.9;r0=0.2;}
   if(specName==='prism'){n=6;y0=0.93;conc=true;vS=0.7;vyS=0.6;r0=0.12;}
   if(specName==='egg_up'||specName==='egg_side'){n=14;vS=1.3;vyS=1.15;}
   if(specName==='egg_up'){y0=0.7;}
+  if(specName==='egg_tray'){n=14;y0=0.56;vS=0.7;vyS=0.8;r0=0.38;}
   for(let i=0;i<14;i++){
     if(i>=n){P.push(0,-10,0);A.push(0,0);continue;}
     const h=hash(i+1),h2=hash(i*3.7+2),a=i*2.39996+h*0.6;
     const dx=Math.cos(a),dz=Math.sin(a)*0.8,v=(0.9+h*1.3)*vS,vy=(1.2+h2*1.6)*vyS;
     const p0=[dx*r0,y0+(specName==='cube'?(h2-0.5)*0.3:0),dz*r0];let g=0,tl=0;
-    for(let k=0;k<3;k++){const disc=vy*vy+9.8*(p0[1]-g);tl=(vy+Math.sqrt(Math.max(disc,0)))/4.9;g=groundAt(p0[0]+dx*v*tl,p0[2]+dz*v*tl,mode)+0.02;}
+    for(let k=0;k<3;k++){const disc=vy*vy+9.8*(p0[1]-g);tl=(vy+Math.sqrt(Math.max(disc,0)))/4.9;g=groundAt(p0[0]+dx*v*tl,p0[2]+dz*v*tl,mode,specName==='egg_tray')+0.02;}
     const t=Math.min(tb,tl);let x=p0[0]+dx*v*t,y=p0[1]+vy*t-4.9*t*t,z=p0[2]+dz*v*t;
     const sl=Math.max(tb-tl,0),k2=v*0.12*(1-Math.exp(-sl*6));x+=dx*k2;z+=dz*k2;
     const an=(3+h*8)*t;P.push(x,y,z);A.push(an,an*0.7);
   }
   return {P,A,n,conc};
 }
-const CONTACT={egg_side:0.82,egg_up:0.98,cube:0.86};
+const CONTACT={egg_side:0.82,egg_up:0.98,cube:0.86,egg_tray:0.685};
 function sceneState(T,t){
   let R=T.rounds[0];
   for(const r of T.rounds) if(t>=r.start) R=r;
@@ -390,7 +444,7 @@ function sceneState(T,t){
     if(replay){const k=tReal-R.replayT0;s.camAng=0.08+0.05*k;s.camDist=2.6;s.camH=0.1;s.camTY=0.78;}
     s.replay=replay;s.R=R;s.L=0;return s;
   }
-  const s={mode:kind==='traction'?1:0,spec:SPEC[spec],dropH:0,trap:0,dropL:0,dropR:0,dcrack:0,leak:0,rockR:0,plateY:1.3,jawY:0.0,snap:0,squash:1,crackAmt:0,broken:0,tb:0,eggOff:0,shake:[0,0],frag:null};
+  const s={trayRows:spec==='egg_tray'?(r.eggs||24)/6:4,mode:kind==='traction'?1:0,spec:SPEC[spec],dropH:0,trap:0,dropL:0,dropR:0,dcrack:0,leak:0,rockR:0,plateY:1.3,jawY:0.0,snap:0,squash:1,crackAmt:0,broken:0,tb:0,eggOff:0,shake:[0,0],frag:null};
   const L=valueAt(R,t), frac=L/r.break_value;
   const broken=t>=R.breakT; s.broken=broken?1:0; s.tb=Math.max(0,t-R.breakT);
   if(kind==='compression'){
@@ -398,7 +452,7 @@ function sceneState(T,t){
     s.squash=1-(spec==='cube'?0.012:0.025)*frac;
     const rest=0.42+(c-0.42)*s.squash;
     s.plateY=t<R.titleEnd?1.32:(t<R.approachEnd?lerp(1.32,rest,sm(R.titleEnd,R.approachEnd,t)):rest);
-    if(broken){const k=sm(0,0.12,s.tb);const low=spec==='cube'?0.42+2*CUBE*0.97*s.squash:0.465;s.plateY=lerp(rest,low,k)+0.012*Math.exp(-s.tb*9)*Math.sin(s.tb*40)*k;}
+    if(broken){const k=sm(0,0.12,s.tb);const low=spec==='cube'?0.42+2*CUBE*0.97*s.squash:(spec==='egg_tray'?0.505:0.465);s.plateY=lerp(rest,low,k)+0.012*Math.exp(-s.tb*9)*Math.sin(s.tb*40)*k;}
   } else {
     s.jawY=t<R.titleEnd?0.12:(t<R.approachEnd?lerp(0.12,0,sm(R.titleEnd,R.approachEnd,t)):0)+0.004*frac;
     if(broken){s.snap=0.075*(1-Math.exp(-s.tb*18));}
@@ -415,12 +469,14 @@ function sceneState(T,t){
   s.camDist=lerp(5.5,5.0,sm(0,8,lt))-0.3*sm(R.qStart,R.qEnd,t)+0.3*sm(R.breakT,R.breakT+1.2,t);
   s.camH=0.75;s.camTY=1.48;
   if(spec.startsWith('egg')){s.camDist-=0.9;s.camTY=1.32;s.camH=0.6;}
-  if(replay){const k=tReal-R.replayT0;s.camAng=0.95+0.10*k+(R.i%2?-0.45:0);s.camDist=2.9-0.08*k;s.camH=0.08;s.camTY=kind==='traction'?0.98:(spec==='egg_up'?0.7:0.62);s.shake=[s.shake[0]*0.5,s.shake[1]*0.5];}
+  if(spec==='egg_tray'){s.camDist+=0.1;s.camTY=1.15;s.camH=0.55;}
+  if(replay){const k=tReal-R.replayT0;s.camAng=0.95+0.10*k+(R.i%2?-0.45:0);s.camDist=2.9-0.08*k;s.camH=0.08;s.camTY=kind==='traction'?0.98:(spec==='egg_up'?0.7:0.62);if(spec==='egg_tray'){s.camDist=3.1-0.08*k;s.camH=0.25;s.camTY=0.6;}s.shake=[s.shake[0]*0.5,s.shake[1]*0.5];}
   s.replay=replay;
   if(showcase||outro){
     const lt2=t-T.explain[0];
     s.mode=2;s.spec=-1;s.broken=0;s.frag=null;s.shake=[0,0];s.crackAmt=0;s.dropH=0;s.trap=0;s.dropL=0;s.dropR=0;s.dcrack=0;s.leak=0;s.rockR=0;
     s.camAng=0.5+0.35*Math.sin(lt2*0.18);s.camDist=lerp(3.6,3.2,sm(0,15,lt2));s.camH=1.0;s.camTY=1.25;
+    if(CFG.explain&&CFG.explain.scene==='egg_tray'){s.spec=-4;s.trayRows=4;s.squash=1;s.eggOff=0;s.camAng=0.55+0.3*Math.sin(lt2*0.2);s.camDist=lerp(2.9,2.5,sm(0,15,lt2));s.camH=1.0;s.camTY=0.62;}
     if(CFG.explain&&CFG.explain.scene==='egg_pair'){s.spec=-2;s.camAng=0.25*Math.sin(lt2*0.2);s.camDist=lerp(3.5,3.2,sm(0,15,lt2));s.camH=0.6;s.camTY=1.12;}
   }
   s.R=R;s.L=L;return s;
@@ -436,7 +492,7 @@ gl.linkProgram(prog);gl.useProgram(prog);
 const buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);
 gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
 const al=gl.getAttribLocation(prog,'a');gl.enableVertexAttribArray(al);gl.vertexAttribPointer(al,2,gl.FLOAT,false,0,0);
-const U={};['R','mode','spec','plateY','jawY','snap','squash','crackAmt','broken','tb','camAng','camDist','camH','camTY','eggOff','shake','fpos','fang','fcount','fconcrete','dropL','dropR','trap','dcrack','leak','rockR','dropH'].forEach(n=>U[n]=gl.getUniformLocation(prog,n));
+const U={};['R','mode','spec','trayRows','plateY','jawY','snap','squash','crackAmt','broken','tb','camAng','camDist','camH','camTY','eggOff','shake','fpos','fang','fcount','fconcrete','dropL','dropR','trap','dcrack','leak','rockR','dropH'].forEach(n=>U[n]=gl.getUniformLocation(prog,n));
 
 // logo texture (BREAKPOINT LAB) used as a decal in the scene
 function makeLogoTexture(){
@@ -581,7 +637,7 @@ window.renderFrame=function(t,type='image/jpeg'){
 function drawFrame(t){
   const s=sceneState(TL,sceneTime(t));
   gl.viewport(0,0,1080,1920);gl.uniform2f(U.R,1080,1920);
-  ['mode','spec','plateY','jawY','snap','squash','crackAmt','broken','tb','camAng','camDist','camH','camTY','eggOff','dropL','dropR','trap','dcrack','leak','rockR','dropH'].forEach(k=>gl.uniform1f(U[k],s[k]||0));
+  ['mode','spec','trayRows','plateY','jawY','snap','squash','crackAmt','broken','tb','camAng','camDist','camH','camTY','eggOff','dropL','dropR','trap','dcrack','leak','rockR','dropH'].forEach(k=>gl.uniform1f(U[k],s[k]||0));
   gl.uniform2f(U.shake,s.shake[0],s.shake[1]);
   const fr=s.frag||{P:new Array(42).fill(-10),A:new Array(28).fill(0),n:0,conc:false};
   gl.uniform3fv(U.fpos,new Float32Array(fr.P));gl.uniform2fv(U.fang,new Float32Array(fr.A));
