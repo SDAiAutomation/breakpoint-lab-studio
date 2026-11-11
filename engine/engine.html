@@ -460,6 +460,8 @@ function overlay(cfg,T,t,s){
     const a=1-fade(T.hook[1]-0.3,t,0.3), hn=cfg.hook.length;
     cfg.hook.forEach((l,i)=>ctxt(l,W/2,365+i*90,fitText(l,960,82),i===hn-1?COL.red:COL.ink,a));
     if(cfg.hook_sub) ctxt(cfg.hook_sub,W/2,365+hn*90-8,36,COL.sub,a*(0.75+0.25*Math.sin(t*6)));
+    { const lab=cfg.teaser_label||'WAIT FOR IT'; c.font='700 30px P, DJ'; const w=c.measureText(lab).width+34;
+      panel(W/2-w/2,654,w,52,26,'rgba(29,33,38,0.88)',a*(0.7+0.3*Math.sin(t*7))); ctxt(lab,W/2,681,30,'#fff',a); }
     return;
   }
   if(!inExplain&&!inOutro){
@@ -499,7 +501,7 @@ function overlay(cfg,T,t,s){
     }
     if(t>=R.factT){const a=fade(R.factT,t,0.3)*(1-fade(R.end-0.25,t));
       r.fact.forEach((l,i)=>ctxt(l,W/2,555+i*50,fitText(l,960,38),COL.ink,a));}
-    if(R.i>0&&t<R.start+0.3){c.save();c.globalAlpha=1-fade(R.start,t,0.3);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
+    if(t<R.start+0.3){c.save();c.globalAlpha=1-fade(R.start,t,0.3);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
     return;
   }
   if(t<T.explain[0]+0.3){c.save();c.globalAlpha=1-fade(T.explain[0],t,0.3);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
@@ -515,14 +517,47 @@ function overlay(cfg,T,t,s){
   if(t>=t0+1.4){const a=fade(t0+1.4,t,0.25),p=pop(t0+1.4,t);
     c.save();c.translate(W/2,540);c.scale(p,p);panel(-380,-50,760,100,50,COL.brand,a);c.restore();
     c.save();c.translate(W/2,540);c.scale(p,p);txt(cfg.cta,0,2,fitText(cfg.cta,700,42),COL.ink,'center',a);c.restore();}
-  if(t>T.duration-0.35){c.save();c.globalAlpha=fade(T.duration-0.35,t,0.35);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
 }
 
 // ---------------------------------------------------------------- API used by render.js
 let CFG=null,TL=null;
 window.setup=function(cfg){CFG=cfg;DEC=cfg.decimal||',';TL=buildTimeline(cfg);return {duration:TL.duration,events:TL.events};};
+const tmp=document.createElement('canvas');tmp.width=1080;tmp.height=1920;
+function sceneTime(t){                                  // the hook plays round 1's break in slow motion
+  if(t<TL.hook[1]){const R0=TL.rounds[0];return R0.replayT0+0.15+t*(D.replay-0.3)/D.hook;}
+  return t;
+}
+function projectE(s,p){                                 // same camera as the shader (720x1280 drawn at 1.5x)
+  const ta=[0,s.camTY,0],ro=[Math.sin(s.camAng)*s.camDist,s.camTY+s.camH,Math.cos(s.camAng)*s.camDist];
+  ro[0]+=s.shake[0];ro[1]+=s.shake[1];ta[0]+=s.shake[0]*0.6;ta[1]+=s.shake[1]*0.6;
+  const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+  const nrm=a=>{const l=Math.hypot(...a);return a.map(v=>v/l);},cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+  const ww=nrm(sub(ta,ro)),uu=nrm(cross(ww,[0,1,0])),vv=cross(uu,ww),d=sub(p,ro),z=dot(d,ww);
+  return [((dot(d,uu)/z*2.35)*1280+720)/2*1.5,(1280-((dot(d,vv)/z*2.35)*1280+1280)/2)*1.5];
+}
+function forceArrow(s,t){                               // load shown as a force arrow on the moving platen / grip
+  const R=s.R,r=R.cfg; if(r.kind==='drop'||s.broken>0.5||s.replay||t<R.approachEnd||t>=R.breakT||s.mode>1.5) return;
+  const f=clamp(s.L/r.break_value,0,1); if(f<=0.01) return;
+  const up=r.kind==='traction', y0=up?1.34+s.jawY+0.12:s.plateY+0.12;
+  const A=projectE(s,[0.27,y0,0.12]), len=80+f*200, dir=up?-1:1;
+  const sx=A[0], sy=up?A[1]-20:A[1]-len-20, ex=sx, ey=up?A[1]-20-len:A[1]-20;
+  const col=f>0.9?COL.red:'#E38A12';
+  c.save();c.strokeStyle=col;c.fillStyle=col;c.lineWidth=18;c.lineCap='round';c.globalAlpha=0.95;c.shadowColor='rgba(0,0,0,0.25)';c.shadowBlur=8;
+  if(up){c.beginPath();c.moveTo(sx,A[1]-20);c.lineTo(sx,ey+26);c.stroke();c.beginPath();c.moveTo(sx,ey);c.lineTo(sx-24,ey+34);c.lineTo(sx+24,ey+34);c.closePath();c.fill();}
+  else {c.beginPath();c.moveTo(sx,sy);c.lineTo(sx,ey-26);c.stroke();c.beginPath();c.moveTo(sx,ey);c.lineTo(sx-24,ey-34);c.lineTo(sx+24,ey-34);c.closePath();c.fill();}
+  c.restore();
+}
 window.renderFrame=function(t,type='image/jpeg'){
-  const s=sceneState(TL,t);
+  const L=0.45;
+  if(t>TL.duration-L){
+    drawFrame(t);tmp.getContext('2d').drawImage(out,0,0);
+    drawFrame(0);c.save();c.globalAlpha=1-clamp((t-(TL.duration-L))/L,0,1);c.drawImage(tmp,0,0);c.restore();
+    return out.toDataURL(type,0.93);
+  }
+  drawFrame(t);return out.toDataURL(type,0.93);
+};
+function drawFrame(t){
+  const s=sceneState(TL,sceneTime(t));
   gl.viewport(0,0,720,1280);gl.uniform2f(U.R,720,1280);
   ['mode','spec','plateY','jawY','snap','squash','crackAmt','broken','tb','camAng','camDist','camH','camTY','eggOff','dropL','dropR','trap','dcrack','leak','rockR','dropH'].forEach(k=>gl.uniform1f(U[k],s[k]||0));
   gl.uniform2f(U.shake,s.shake[0],s.shake[1]);
@@ -531,9 +566,8 @@ window.renderFrame=function(t,type='image/jpeg'){
   gl.uniform1f(U.fcount,fr.n);gl.uniform1f(U.fconcrete,fr.conc?1:0);
   gl.drawArrays(gl.TRIANGLES,0,3);gl.finish();
   c.imageSmoothingQuality='high';c.drawImage(document.getElementById('gl'),0,0,W,H);
-  overlay(CFG,TL,t,s);
-  return out.toDataURL(type,0.93);
-};
+  overlay(CFG,TL,t,s);forceArrow(s,t);
+}
 window.ready=Promise.all([document.fonts.load('700 40px P'),document.fonts.load('700 40px DJ')]).then(()=>true);
 </script>
 </body></html>

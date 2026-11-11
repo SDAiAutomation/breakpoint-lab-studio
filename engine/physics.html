@@ -306,11 +306,12 @@ function overlay(cfg,T,t,s){
   ctxt(cfg.series,W/2,292,28,COL.sub,0.9);
   if(cfg.handle){c.save();c.globalAlpha=0.55;c.font='700 30px P, DJ';c.textAlign='center';c.textBaseline='middle';
     c.fillStyle='#fff';c.shadowColor='rgba(0,0,0,0.45)';c.shadowBlur=6;c.fillText(cfg.handle,W/2,1395);c.restore();}
-  trails(s);
+  trails(s);arrows(s,t);
   if(t<T.hook[1]){const a=1-fade(T.hook[1]-0.3,t,0.3),hn=cfg.hook.length;
     cfg.hook.forEach((l,i)=>ctxt(l,W/2,365+i*90,fitText(l,960,82),i===hn-1?COL.red:COL.ink,a));
     if(cfg.hook_sub) ctxt(cfg.hook_sub,W/2,365+hn*90-8,36,COL.sub,a);
-    labels(s,a);return;}
+    pill(cfg.teaser_label||'WAIT FOR IT',W/2,680,30,'rgba(29,33,38,0.88)',a*(0.7+0.3*Math.sin(t*7)));return;}
+  if(t<T.hook[1]+0.18){c.save();c.globalAlpha=1-fade(T.hook[1],t,0.18);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
   if(t<T.explain[0]){
     const stampOn=t>=R.stampT;
     if(t<R.titleEnd+0.2){const a=1-fade(R.titleEnd-0.1,t,0.3),p=pop(R.start,t);c.save();c.translate(W/2,430);c.scale(p,p);ctxt(r.title,0,0,fitText(r.title,960,76),COL.ink,a);c.restore();}
@@ -331,7 +332,7 @@ function overlay(cfg,T,t,s){
       c.strokeStyle=col;c.lineWidth=10;rrect(-300,-72,600,144,22);c.stroke();c.fillStyle='rgba(255,255,255,0.7)';rrect(-300,-72,600,144,22);c.fill();
       const fs=fitText(r.stamp.text,540,84);c.font=`700 ${fs}px P, DJ`;c.textAlign='center';c.textBaseline='middle';c.fillStyle=col;c.fillText(r.stamp.text,0,5);c.restore();}
     if(t>=R.factT){const a=fade(R.factT,t,0.3)*(1-fade(R.end-0.25,t));factLines(R).forEach((l,i)=>ctxt(l,W/2,555+i*50,fitText(l,980,38),COL.ink,a));}
-    if(R.i>0&&t<R.start+0.3){c.save();c.globalAlpha=1-fade(R.start,t,0.3);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
+    if(t<R.start+0.3){c.save();c.globalAlpha=1-fade(R.start,t,0.3);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
     return;}
   if(t<T.explain[0]+0.3){c.save();c.globalAlpha=1-fade(T.explain[0],t,0.3);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
   if(t<T.outro[0]){const e=cfg.explain,t0=T.explain[0];
@@ -343,7 +344,6 @@ function overlay(cfg,T,t,s){
   if(t>=t0+1.4){const a=fade(t0+1.4,t,0.25),p=pop(t0+1.4,t);
     c.save();c.translate(W/2,560);c.scale(p,p);panel(-380,-50,760,100,50,COL.brand,a);
     c.font=`700 ${fitText(cfg.cta,700,42)}px P, DJ`;c.textAlign='center';c.textBaseline='middle';c.globalAlpha=a;c.fillStyle=COL.ink;c.fillText(cfg.cta,0,2);c.restore();}
-  if(t>T.duration-0.35){c.save();c.globalAlpha=fade(T.duration-0.35,t,0.35);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
 }
 function labels(s,a){                                   // lane names next to each start, in 3D
   if(a<=0)return;s.R.lanes.forEach((l,j)=>{const p=project(s,[s.g.xa-0.02,s.g.ya+0.2+(j-1)*0.0,l.z]);
@@ -356,6 +356,22 @@ function trails(s){                                    // fading colour trail be
     const pts=[];for(let k=2;k<=22;k++){const tk=end-k*0.018;if(tk<0)break;const p=posAt(l.sim,tk);pts.push(project(s,ballCenter(R.g,l.curve,p,l.z)));}
     for(let k=1;k<pts.length;k++){const a=(1-k/pts.length)*0.75*fadeOut;c.save();c.globalAlpha=a;c.strokeStyle=LANE_COL[j];c.lineCap='round';
       c.lineWidth=22*(1-k/pts.length)+3;c.beginPath();c.moveTo(...pts[k-1]);c.lineTo(...pts[k]);c.stroke();c.restore();}
+  });
+}
+function arrows(s,t){                                  // speed arrows: real speed from energy, v = sqrt(2 g' h)
+  const R=s.R, rt=s.rt, S=CFG.scale_m||2; if(rt<=0.03||rt>R.Tmax+0.3) return;
+  const a=(t<TL.hook[1]||s.replay||t>=TL.explain[0])?1:0.85;
+  R.lanes.forEach((l,j)=>{
+    if(rt>=l.sim.T) return;
+    const p=posAt(l.sim,rt), q=posAt(l.sim,Math.min(rt+0.01,l.sim.T));
+    const v=Math.sqrt(2*G*S*Math.max(l.sim.tab[0].y-p.y,0));
+    const A=project(s,ballCenter(R.g,l.curve,p,l.z)), B=project(s,ballCenter(R.g,l.curve,q,l.z));
+    let dx=B[0]-A[0],dy=B[1]-A[1];const L=Math.hypot(dx,dy);if(L<1e-6)return;dx/=L;dy/=L;
+    const len=Math.min(30+v*22,190), ox=A[0]+dx*44, oy=A[1]+dy*44, ex=ox+dx*len, ey=oy+dy*len;
+    c.save();c.globalAlpha=a;c.strokeStyle=LANE_COL[j];c.fillStyle=LANE_COL[j];c.lineWidth=9;c.lineCap='round';
+    c.beginPath();c.moveTo(ox,oy);c.lineTo(ex,ey);c.stroke();
+    c.beginPath();c.moveTo(ex+dx*22,ey+dy*22);c.lineTo(ex-dy*15,ey+dx*15);c.lineTo(ex+dy*15,ey-dx*15);c.closePath();c.fill();c.restore();
+    pill(fmt(v,1)+' m/s',ex+dx*40-dy*34,ey+dy*40+dx*34,24,LANE_COL[j],a);
   });
 }
 function timers(R,s,t){
@@ -379,8 +395,22 @@ let CFG=null,TL=null;
 window.setup=function(cfg){CFG=cfg;DEC=cfg.decimal||'.';TL=buildTimeline(cfg);
   const rounds=TL.rounds.map(R=>({title:R.cfg.title,times:R.lanes.map(l=>({name:l.name,T:+l.sim.T.toFixed(4)}))}));
   return {duration:TL.duration,events:TL.events,rounds};};
+const tmp=document.createElement('canvas');tmp.width=1080;tmp.height=1920;
+function sceneTime(t){                                  // the hook plays the climax of round 1 in slow motion
+  if(t<TL.hook[1]){const R0=TL.rounds[0];return R0.replayT0+Math.max(R0.Tmax-0.62,0.3)/SLOW+t;}
+  return t;
+}
 window.renderFrame=function(t,type='image/jpeg'){
-  const s=sceneState(TL,t), g=s.g, lanes=s.R.lanes;
+  const L=0.45;
+  if(t>TL.duration-L){                                 // loop: the last frames dissolve into the first one
+    drawFrame(t);tmp.getContext('2d').drawImage(out,0,0);
+    drawFrame(0);c.save();c.globalAlpha=1-clamp((t-(TL.duration-L))/L,0,1);c.drawImage(tmp,0,0);c.restore();
+    return out.toDataURL(type,0.93);
+  }
+  drawFrame(t);return out.toDataURL(type,0.93);
+};
+function drawFrame(t){
+  const s=sceneState(TL,sceneTime(t)), g=s.g, lanes=s.R.lanes;
   gl.viewport(0,0,1080,1920);gl.uniform2f(U.R,1080,1920);
   gl.uniform1f(U.camAng,s.camAng);gl.uniform1f(U.camDist,s.camDist);gl.uniform1f(U.camH,s.camH);gl.uniform1f(U.camTY,s.camTY);
   gl.uniform2f(U.shake,s.shake[0],s.shake[1]);gl.uniform4f(U.geo,g.xa,g.ya,g.xb,g.yb);gl.uniform2f(U.cyc,g.R,g.thB);
@@ -391,8 +421,7 @@ window.renderFrame=function(t,type='image/jpeg'){
   gl.drawArrays(gl.TRIANGLES,0,3);gl.finish();
   c.imageSmoothingQuality='high';c.drawImage(document.getElementById('gl'),0,0,W,H);
   overlay(CFG,TL,t,s);
-  return out.toDataURL(type,0.93);
-};
+}
 window.ready=Promise.all([document.fonts.load('700 40px P'),document.fonts.load('700 40px DJ')]).then(()=>true);
 </script>
 </body></html>
