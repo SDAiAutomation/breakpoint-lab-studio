@@ -52,7 +52,7 @@ jobs:
         run: |
           mkdir -p work
           if [ -n "$CONFIG_JSON" ]; then printf '%s' "$CONFIG_JSON" > work/config.json; else cp "$CONFIG_PATH" work/config.json; fi
-          python3 -c "import json;c=json.load(open('work/config.json'));assert c.get('source'), 'config sans source : refusé (chaque chiffre doit être sourcé)'"
+          python3 -c "import json;c=json.load(open('work/config.json'));assert c.get('source'), 'config sans source : refusé (chaque chiffre doit être sourcé)';assert c.get('description'), 'config sans description : refusé (explication de l expérience pour le .txt)'"
       - name: Timeline + stills
         run: |
           node engine/render.js timeline work/config.json work/timeline.json
@@ -141,7 +141,7 @@ jobs:
           python3 engine/audio.py work/timeline.json work/audio.wav
           ffmpeg -v error -y -framerate 30 -i work/frames/f_%05d.jpg -i work/audio.wav \
             -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -c:a aac -b:a 192k -shortest work/video.mp4
-          python3 -c "import json;c=json.load(open('work/config.json'));open('work/caption.txt','w').write(c.get('caption',''))"
+          python3 engine/caption.py work/config.json work/caption.txt
           ffprobe -v error -show_entries format=duration -of csv=p=0 work/video.mp4
       - name: Upload to Google Drive
         if: needs.render.result == 'success' && env.RCLONE_CONF != '' && env.DRIVE_FOLDER_ID != ''
@@ -179,7 +179,9 @@ jobs:
         if: always() && env.DRIVE_OK != '1'
         with:
           name: qc-${{ needs.prepare.outputs.tag }}-${{ github.run_number }}-video
-          path: work/video.mp4
+          path: |
+            work/video.mp4
+            work/caption.txt
           if-no-files-found: ignore
           retention-days: 3
       - uses: actions/upload-artifact@v4

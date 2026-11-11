@@ -83,6 +83,12 @@
   ],
   "cta": "PROCHAIN TEST ? Écris l'objet ↓",
   "caption": "Un cube de béton de 15 cm : écrasé puis tiré 🧱 Tu avais dit combien de tonnes ? Et on teste quoi au prochain ? 👇 #béton #ingénierie #génieCivil #physique #science #contrôlequalité #satisfying #3d",
+  "description": [
+    "On teste un cube de béton normalisé de 15 cm, classe C30/37, celui des bâtiments et des ponts : d'abord on l'écrase, puis on le tire.",
+    "Écrasé, il tient environ 85 tonnes. L'Eurocode 2 donne à cette classe une résistance sur cube de 37 MPa : 37 MPa x 0,15 m x 0,15 m = 832 kN, soit environ 85 t.",
+    "Tiré, le même béton lâche vers 6,6 tonnes, environ 13 fois moins : sa résistance moyenne en traction n'est que de 2,9 MPa.",
+    "C'est pour ça qu'on arme le béton avec de l'acier : le béton reprend la compression, l'acier la traction. L'animation est un essai simulé aux valeurs de la norme."
+  ],
   "sources_detail": [
     "EN 1992-1-1 (Eurocode 2), Table 3.1 : C30/37 -> fck = 30 MPa, fck,cube = 37 MPa, fctm = 2,9 MPa",
     "Calcul : 37 MPa x 0,0225 m2 = 832 kN = 84,9 t ; 2,9 MPa x 0,0225 m2 = 65,3 kN = 6,65 t"
