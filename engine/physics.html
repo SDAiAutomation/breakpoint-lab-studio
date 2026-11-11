@@ -22,6 +22,7 @@ uniform vec3 ctype;        // curve type per lane: 0 line, 1 cycloid, 2 steep
 uniform vec3 bpos0, bpos1, bpos2;
 uniform vec3 bang;         // rolling angle per ball
 uniform float showBalls;
+uniform sampler2D logo;
 uniform vec4 tops0, tops1, tops2;   // post heights per lane (-1 = no post)
 
 const float BR=0.075;      // ball radius
@@ -86,7 +87,10 @@ vec2 mapX(vec3 p, bool lanes){
   vec2 res=vec2(p.y,1.0);
   float xa=geo.x, ya=geo.y, xb=geo.z, yb=geo.w;
   // start tower: white column with a yellow band, finish stops with a checker top
-  res=opU(res,vec2(sdRoundBox(p-vec3(xa-0.11,(ya+0.08)*0.5,0),vec3(0.05,(ya+0.08)*0.5,0.56),0.02),5.0));
+  res=opU(res,vec2(sdRoundBox(p-vec3(xa-0.03,ya-0.035,0),vec3(0.03,0.026,0.6),0.008),5.0));          // start bar
+  vec3 gp=p-vec3(xa-0.03,0.0,0.0); gp.z=abs(gp.z)-0.6;
+  res=opU(res,vec2(sdCylY(gp-vec3(0.0,(ya-0.06)*0.5,0.0),(ya-0.06)*0.5,0.022),3.0));                    // two slim posts
+  res=opU(res,vec2(sdRoundBox(p-vec3(xa-0.03,0.012,0),vec3(0.07,0.012,0.66),0.006),3.0));                // foot
   res=opU(res,vec2(sdRoundBox(p-vec3(xb+0.105,(yb+0.09)*0.5,0),vec3(0.03,(yb+0.09)*0.5,0.56),0.015),6.0));
   float bx=max(xa-0.3-p.x,p.x-xb-0.3);
   if(!lanes){} else if(bx<0.0){
@@ -120,7 +124,13 @@ float calcAO(vec3 p, vec3 n){
   return clamp(1.0-2.2*occ,0.0,1.0);
 }
 vec3 bg(vec2 uv){ return mix(vec3(0.90,0.92,0.93),vec3(0.80,0.85,0.88),smoothstep(-1.0,1.0,uv.y)); }
-vec3 env(vec3 r){ float k=r.y*0.5+0.5; return mix(vec3(0.55,0.57,0.60),vec3(0.97,0.98,1.0),smoothstep(0.35,0.75,k)); }
+vec3 env(vec3 r){                                      // studio: gradient + two softboxes for crisp reflections
+  float k=r.y*0.5+0.5;
+  vec3 c=mix(vec3(0.48,0.50,0.53),vec3(0.96,0.97,0.99),smoothstep(0.30,0.80,k));
+  float s1=smoothstep(0.86,0.90,dot(r,normalize(vec3(-0.6,0.75,0.35))));
+  float s2=smoothstep(0.90,0.93,dot(r,normalize(vec3(0.75,0.45,0.5))));
+  return c+vec3(1.3)*s1+vec3(0.8)*s2;
+}
 vec3 laneCol(float i){ return i<0.5?vec3(0.88,0.20,0.25):(i<1.5?vec3(0.98,0.74,0.10):vec3(0.16,0.45,0.85)); }
 
 vec3 shade(vec2 fc){
@@ -139,12 +149,14 @@ vec3 shade(vec2 fc){
     float sh=softShadow(p+n*0.003,sun), dif=clamp(dot(n,sun),0.0,1.0)*sh, ao=calcAO(p,n);
     vec3 hal=normalize(sun-rd);
     float m=h.y;
-    if(m<1.5){ col=sky*mix(0.70,1.0,sh)*mix(0.82,1.0,ao); }
+    if(m<1.5){ col=sky*mix(0.70,1.0,sh)*mix(0.82,1.0,ao);
+      vec2 lu=vec2((p.x+0.78)/1.56,(0.88-p.z)/0.25);
+      if(lu.x>0.0&&lu.x<1.0&&lu.y>0.0&&lu.y<1.0){ float lg=texture2D(logo,vec2(lu.x,1.0-lu.y)).a; col=mix(col,lu.x>0.735?vec3(0.85,0.62,0.05):vec3(0.30,0.32,0.35),lg*0.55); } }
     else {
       vec3 alb=vec3(0.8); float sp=0.2, gl=16.0, refl=0.0;
-      if(m<3.5){ alb=vec3(0.80,0.81,0.83); sp=1.0; gl=80.0; refl=0.55; }                 // posts, ties
+      if(m<3.5){ alb=vec3(0.80,0.81,0.83)*(0.95+0.05*hash3(floor(vec3(p.x*8.0,p.y*500.0,p.z*8.0)))); sp=1.2; gl=110.0; refl=0.6; }                 // posts, ties
       else if(m<4.5){ alb=vec3(0.86,0.87,0.89); sp=1.6; gl=160.0; refl=0.85; }           // polished rails
-      else if(m<5.5){ alb=vec3(0.95,0.95,0.94); if(p.y>geo.y-0.06&&p.y<geo.y+0.0) alb=vec3(0.98,0.74,0.10); sp=0.3; gl=40.0; }
+      else if(m<5.5){ alb=mix(vec3(0.98,0.74,0.10),vec3(0.07),step(0.5,fract(p.z*7.0))); sp=0.5; gl=50.0; }
       else if(m<6.5){ alb=vec3(0.95,0.95,0.94); if(n.y>0.6||n.x>0.6) alb=mix(vec3(0.96),vec3(0.07),step(0.5,fract(floor(p.y*30.0)*0.5+floor(p.z*30.0)*0.5+floor(p.x*30.0)*0.5))); sp=0.3; gl=40.0; }
       else {                                              // balls: glossy lacquer with a white band that shows rolling
         float id=m-20.0; vec3 c=id<0.5?bpos0:(id<1.5?bpos1:bpos2);
@@ -175,6 +187,18 @@ const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const sm=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);};
 const lerp=(a,b,t)=>a+(b-a)*t;
 const G=9.81*5/7;                 // rolling solid ball: a = 5/7 g along the slope
+
+// logo texture (BREAKPOINT LAB) used as a decal in the scene
+function makeLogoTexture(){
+  const cv=document.createElement('canvas');cv.width=1400;cv.height=220;const x=cv.getContext('2d');
+  x.clearRect(0,0,1400,220);x.font='700 150px P, DJ';x.textAlign='center';x.textBaseline='middle';x.fillStyle='#fff';
+  x.fillText('BREAKPOINT',560,118);x.fillStyle='#fff';x.fillText('LAB',1205,118);
+  const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,cv);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  return tex;
+}
 const BR=0.075, BOFF=Math.sqrt((0.075+0.011)**2-0.045**2);
 const CT={line:0,cycloid:1,steep:2};
 const LANE_COL=['#E0303F','#E8A70F','#2A73D9'];
@@ -272,6 +296,7 @@ gl.attachShader(prog,sh(gl.VERTEX_SHADER,'attribute vec2 a;void main(){gl_Positi
 gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,document.getElementById('fs').textContent));
 gl.linkProgram(prog);gl.useProgram(prog);
 const buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+let LOGO=null;   // built in setup(), once the fonts are loaded
 const al=gl.getAttribLocation(prog,'a');gl.enableVertexAttribArray(al);gl.vertexAttribPointer(al,2,gl.FLOAT,false,0,0);
 const U={};['R','camAng','camDist','camH','camTY','shake','geo','cyc','ctype','bpos0','bpos1','bpos2','bang','showBalls','tops0','tops1','tops2'].forEach(n=>U[n]=gl.getUniformLocation(prog,n));
 
@@ -303,7 +328,7 @@ function pill(s,x,y,size,fill,a=1){if(a<=0)return;const fs=size;c.font=`700 ${fs
 
 function overlay(cfg,T,t,s){
   const R=s.R, r=R.cfg;
-  ctxt(cfg.series,W/2,292,28,COL.sub,0.9);
+  ctxt(cfg.series,W/2,292,34,COL.sub,0.9);
   if(cfg.handle){c.save();c.globalAlpha=0.55;c.font='700 30px P, DJ';c.textAlign='center';c.textBaseline='middle';
     c.fillStyle='#fff';c.shadowColor='rgba(0,0,0,0.45)';c.shadowBlur=6;c.fillText(cfg.handle,W/2,1395);c.restore();}
   trails(s);arrows(s,t);
@@ -347,7 +372,7 @@ function overlay(cfg,T,t,s){
 }
 function labels(s,a){                                   // lane names next to each start, in 3D
   if(a<=0)return;s.R.lanes.forEach((l,j)=>{const p=project(s,[s.g.xa-0.02,s.g.ya+0.2+(j-1)*0.0,l.z]);
-    const tp=s.balls[j].c;const q=project(s,[tp[0],tp[1]+0.17,tp[2]]);pill(s.R.cfg.kind==='tautochrone'?l.name+' · '+fmt(l.h,1)+' m':l.name,q[0],q[1],26,LANE_COL[j],a);});
+    const tp=s.balls[j].c;const q=project(s,[tp[0],tp[1]+0.17,tp[2]]);pill(s.R.cfg.kind==='tautochrone'?l.name+' · '+fmt(l.h,1)+' m':l.name,q[0],q[1],32,LANE_COL[j],a);});
 }
 function trails(s){                                    // fading colour trail behind each moving ball
   const R=s.R, rt=s.rt; if(rt<=0.02||rt>R.Tmax+0.6) return;
@@ -371,16 +396,16 @@ function arrows(s,t){                                  // speed arrows: real spe
     c.save();c.globalAlpha=a;c.strokeStyle=LANE_COL[j];c.fillStyle=LANE_COL[j];c.lineWidth=9;c.lineCap='round';
     c.beginPath();c.moveTo(ox,oy);c.lineTo(ex,ey);c.stroke();
     c.beginPath();c.moveTo(ex+dx*22,ey+dy*22);c.lineTo(ex-dy*15,ey+dx*15);c.lineTo(ex+dy*15,ey-dx*15);c.closePath();c.fill();c.restore();
-    pill(fmt(v,1)+' m/s',ex+dx*40-dy*34,ey+dy*40+dx*34,24,LANE_COL[j],a);
+    pill(fmt(v,1)+' m/s',ex+dx*48-dy*38,ey+dy*48+dx*38,30,LANE_COL[j],a);
   });
 }
 function timers(R,s,t){
   const order=R.lanes.map((l,j)=>[l.sim.T,j]).sort((a,b)=>a[0]-b[0]).map(x=>x[1]);
   R.lanes.forEach((l,j)=>{const x=W/2+(j-1)*330, tt=Math.min(Math.max(s.rt,0),l.sim.T), done=s.rt>=l.sim.T;
     c.save();c.fillStyle=LANE_COL[j];c.beginPath();c.arc(x-fitW(l.name,26)/2-18,352,9,0,7);c.fill();c.restore();
-    ctxt(l.name,x+6,352,26,COL.sub);
+    ctxt(l.name,x+6,350,30,COL.sub);
     const rank=order.indexOf(j);
-    ctxt(fmt(tt,2)+' s',x,425,64,done?(rank===0?COL.green:COL.ink):COL.ink);
+    ctxt(fmt(tt,2)+' s',x,428,74,done?(rank===0?COL.green:COL.ink):COL.ink);
     if(done) ctxt(['1st','2nd','3rd'][rank]||'',x,492,34,rank===0?COL.green:COL.sub);});
 }
 function fitW(s,size){c.font=`700 ${size}px P, DJ`;return c.measureText(s).width;}
@@ -392,7 +417,7 @@ function factLines(R){
 
 // ---------------------------------------------------------------- API used by render.js
 let CFG=null,TL=null;
-window.setup=function(cfg){CFG=cfg;DEC=cfg.decimal||'.';TL=buildTimeline(cfg);
+window.setup=function(cfg){if(!LOGO){LOGO=makeLogoTexture();gl.uniform1i(gl.getUniformLocation(prog,'logo'),0);}CFG=cfg;DEC=cfg.decimal||'.';TL=buildTimeline(cfg);
   const rounds=TL.rounds.map(R=>({title:R.cfg.title,times:R.lanes.map(l=>({name:l.name,T:+l.sim.T.toFixed(4)}))}));
   return {duration:TL.duration,events:TL.events,rounds};};
 const tmp=document.createElement('canvas');tmp.width=1080;tmp.height=1920;

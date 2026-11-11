@@ -8,7 +8,7 @@
 html,body{margin:0;background:#000}canvas{display:block}
 </style></head>
 <body>
-<canvas id="gl" width="720" height="1280"></canvas>
+<canvas id="gl" width="1080" height="1920"></canvas>
 <canvas id="out" width="1080" height="1920"></canvas>
 <script id="fs" type="x-shader/x-fragment">
 precision highp float;
@@ -18,6 +18,7 @@ uniform float spec;      // 0 egg side, 1 egg up, 2 cube, 3 prism
 uniform float plateY, jawY, snap, squash, crackAmt, broken, tb, camAng, camDist, camH, eggOff;
 uniform vec2 shake;
 uniform float camTY;
+uniform sampler2D logo;
 uniform float dropL, dropR, trap, dcrack, leak, rockR, dropH;   // drop round
 uniform vec3 fpos[14];
 uniform vec2 fang[14];
@@ -176,10 +177,12 @@ float calcAO(vec3 p, vec3 n){
   return clamp(1.0-2.2*occ,0.0,1.0);
 }
 vec3 bg(vec2 uv){ return mix(vec3(0.90,0.92,0.93),vec3(0.80,0.85,0.88),smoothstep(-1.0,1.0,uv.y)); }
-vec3 env(vec3 r){
+vec3 env(vec3 r){                                      // studio: gradient + two softboxes for crisp reflections
   float k=r.y*0.5+0.5;
-  vec3 c=mix(vec3(0.55,0.57,0.60),vec3(0.97,0.98,1.0),smoothstep(0.35,0.75,k));
-  return c+vec3(0.6)*smoothstep(0.92,0.97,k)*smoothstep(0.3,0.0,abs(r.x+0.3));
+  vec3 c=mix(vec3(0.48,0.50,0.53),vec3(0.96,0.97,0.99),smoothstep(0.30,0.80,k));
+  float s1=smoothstep(0.86,0.90,dot(r,normalize(vec3(-0.6,0.75,0.35))));
+  float s2=smoothstep(0.90,0.93,dot(r,normalize(vec3(0.75,0.45,0.5))));
+  return c+vec3(1.3)*s1+vec3(0.8)*s2;
 }
 vec3 concrete(vec3 p, float inner){
   float n1=hash3(floor(p*70.0)), n2=hash3(floor(p*23.0)+3.0), n3=hash3(floor(p*160.0)+7.0);
@@ -190,8 +193,8 @@ vec3 concrete(vec3 p, float inner){
   return c;
 }
 
-void main(){
-  vec2 uv=(2.0*gl_FragCoord.xy-R)/R.y;
+vec3 shade(vec2 fc){
+  vec2 uv=(2.0*fc-R)/R.y;
   vec3 ta=vec3(0.0,camTY,0.0);
   vec3 ro=ta+vec3(sin(camAng)*camDist,camH,cos(camAng)*camDist);
   ro.xy+=shake; ta.xy+=shake*0.6;
@@ -216,9 +219,11 @@ void main(){
       col=sky*mix(0.70,1.0,sh)*mix(0.82,1.0,ao);
     } else {
       vec3 alb=vec3(0.8); float spec_=0.2, gloss=16.0, refl=0.0;
-      if(m<2.5){ alb=vec3(0.86,0.86,0.84)*(0.96+0.04*hash3(floor(p*90.0))); spec_=0.05; }
-      else if(m<3.5){ alb=vec3(0.62,0.64,0.67); spec_=0.6; gloss=40.0; refl=0.25; }
-      else if(m<4.5){ alb=vec3(0.75,0.76,0.78); spec_=1.0; gloss=90.0; refl=0.7; }
+      if(m<2.5){ alb=vec3(0.86,0.86,0.84)*(0.96+0.04*hash3(floor(p*90.0))); spec_=0.05;
+        if(n.z>0.9 && mode<2.5){ vec2 lu=vec2((p.x+0.62)/1.24,(p.y-0.055)/0.19);
+          if(lu.x>0.0&&lu.x<1.0&&lu.y>0.0&&lu.y<1.0){ float lg=texture2D(logo,vec2(lu.x,1.0-lu.y)).a; alb=mix(alb,lu.x>0.735?vec3(0.85,0.62,0.05):vec3(0.16,0.17,0.19),lg*0.9); } } }
+      else if(m<3.5){ alb=vec3(0.62,0.64,0.67)*(0.94+0.06*hash3(floor(vec3(p.x*700.0,p.y*4.0,p.z*700.0)))); spec_=0.8; gloss=60.0; refl=0.35; }
+      else if(m<4.5){ alb=vec3(0.75,0.76,0.78)*(0.95+0.05*hash3(floor(vec3(p.x*6.0,p.y*500.0,p.z*6.0)))); spec_=1.3; gloss=140.0; refl=0.8; }
       else if(m<5.5){
         alb=vec3(0.98,0.74,0.10);
         if(n.z>0.6||abs(n.x)>0.6){ alb=mix(alb,vec3(0.07),step(0.5,fract((p.x+p.y)*3.2))); }
@@ -272,7 +277,11 @@ void main(){
   }
   col=pow(clamp(col,0.0,1.0),vec3(0.95));
   col*=1.0-0.12*dot(uv*vec2(0.9,0.55),uv*vec2(0.9,0.55));
-  gl_FragColor=vec4(col,1.0);
+  return col;
+}
+void main(){
+  vec3 c=shade(gl_FragCoord.xy+vec2(-0.25,0.25))+shade(gl_FragCoord.xy+vec2(0.25,-0.25));
+  gl_FragColor=vec4(c*0.5,1.0);
 }
 </script>
 <script>
@@ -428,7 +437,20 @@ const buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);
 gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
 const al=gl.getAttribLocation(prog,'a');gl.enableVertexAttribArray(al);gl.vertexAttribPointer(al,2,gl.FLOAT,false,0,0);
 const U={};['R','mode','spec','plateY','jawY','snap','squash','crackAmt','broken','tb','camAng','camDist','camH','camTY','eggOff','shake','fpos','fang','fcount','fconcrete','dropL','dropR','trap','dcrack','leak','rockR','dropH'].forEach(n=>U[n]=gl.getUniformLocation(prog,n));
+
+// logo texture (BREAKPOINT LAB) used as a decal in the scene
+function makeLogoTexture(){
+  const cv=document.createElement('canvas');cv.width=1400;cv.height=220;const x=cv.getContext('2d');
+  x.clearRect(0,0,1400,220);x.font='700 150px P, DJ';x.textAlign='center';x.textBaseline='middle';x.fillStyle='#fff';
+  x.fillText('BREAKPOINT',560,118);x.fillStyle='#fff';x.fillText('LAB',1205,118);
+  const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,cv);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  return tex;
+}
 const CUBE=0.22;
+let LOGO=null;   // built in setup(), once the fonts are loaded
 
 // ---------------------------------------------------------------- overlay
 const out=document.getElementById('out'),c=out.getContext('2d');const W=1080,H=1920;
@@ -452,7 +474,7 @@ function ctxt(s,x,y,size,color,alpha=1){            // text readable on the ligh
   c.shadowColor='rgba(0,0,0,0.18)';c.shadowBlur=size*0.12;c.shadowOffsetY=size*0.04;c.fillStyle=color;c.fillText(s,x,y);c.restore();}
 function overlay(cfg,T,t,s){
   const R=s.R, r=R.cfg;
-  ctxt(cfg.series,W/2,292,28,COL.sub,0.9);
+  ctxt(cfg.series,W/2,292,34,COL.sub,0.9);
   if(cfg.handle){c.save();c.globalAlpha=0.55;c.font='700 30px P, DJ';c.textAlign='center';c.textBaseline='middle';
     c.fillStyle='#ffffff';c.shadowColor='rgba(0,0,0,0.45)';c.shadowBlur=6;c.fillText(cfg.handle,W/2,1395);c.restore();}
   const inExplain=t>=T.explain[0]&&t<T.outro[0], inOutro=t>=T.outro[0];
@@ -521,7 +543,7 @@ function overlay(cfg,T,t,s){
 
 // ---------------------------------------------------------------- API used by render.js
 let CFG=null,TL=null;
-window.setup=function(cfg){CFG=cfg;DEC=cfg.decimal||',';TL=buildTimeline(cfg);return {duration:TL.duration,events:TL.events};};
+window.setup=function(cfg){if(!LOGO){LOGO=makeLogoTexture();gl.uniform1i(gl.getUniformLocation(prog,'logo'),0);}CFG=cfg;DEC=cfg.decimal||',';TL=buildTimeline(cfg);return {duration:TL.duration,events:TL.events};};
 const tmp=document.createElement('canvas');tmp.width=1080;tmp.height=1920;
 function sceneTime(t){                                  // the hook plays round 1's break in slow motion
   if(t<TL.hook[1]){const R0=TL.rounds[0];return R0.replayT0+0.15+t*(D.replay-0.3)/D.hook;}
@@ -533,7 +555,7 @@ function projectE(s,p){                                 // same camera as the sh
   const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
   const nrm=a=>{const l=Math.hypot(...a);return a.map(v=>v/l);},cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
   const ww=nrm(sub(ta,ro)),uu=nrm(cross(ww,[0,1,0])),vv=cross(uu,ww),d=sub(p,ro),z=dot(d,ww);
-  return [((dot(d,uu)/z*2.35)*1280+720)/2*1.5,(1280-((dot(d,vv)/z*2.35)*1280+1280)/2)*1.5];
+  return [((dot(d,uu)/z*2.35)*1920+1080)/2,(1920-((dot(d,vv)/z*2.35)*1920+1920)/2)];
 }
 function forceArrow(s,t){                               // load shown as a force arrow on the moving platen / grip
   const R=s.R,r=R.cfg; if(r.kind==='drop'||s.broken>0.5||s.replay||t<R.approachEnd||t>=R.breakT||s.mode>1.5) return;
@@ -558,7 +580,7 @@ window.renderFrame=function(t,type='image/jpeg'){
 };
 function drawFrame(t){
   const s=sceneState(TL,sceneTime(t));
-  gl.viewport(0,0,720,1280);gl.uniform2f(U.R,720,1280);
+  gl.viewport(0,0,1080,1920);gl.uniform2f(U.R,1080,1920);
   ['mode','spec','plateY','jawY','snap','squash','crackAmt','broken','tb','camAng','camDist','camH','camTY','eggOff','dropL','dropR','trap','dcrack','leak','rockR','dropH'].forEach(k=>gl.uniform1f(U[k],s[k]||0));
   gl.uniform2f(U.shake,s.shake[0],s.shake[1]);
   const fr=s.frag||{P:new Array(42).fill(-10),A:new Array(28).fill(0),n:0,conc:false};
