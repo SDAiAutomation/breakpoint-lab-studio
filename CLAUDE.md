@@ -20,7 +20,14 @@ Chaîne YouTube/TikTok **Breakpoint Lab**, handle **@BreakpointLabTV**. Séries 
 ## Procédure « fais une vidéo »
 Liste des sujets : Google Sheet « Breakpoint Lab – 100 Experiments » (id `1hl-jYG9e2N5L2_xycGPkE_SprXOnQWE8BR-vbNOqrkk`), onglet `Experiments`, lignes 2–101. Colonnes : D réponse, K série, L moteur, M source, N statut, O Pick, P note, Q lien source, R lien vidéo.
 
-1. **Choisir** : lire `Experiments!A1:R101`. Écarter les statuts `Done`, `In progress`, `Needs test data`. Parmi `Verified` et `Corrected`, prendre d'abord les lignes Pick = TRUE, puis le score J le plus haut. Si l'utilisateur nomme un sujet, prendre celui-là.
+1. **Choisir** : lire `Experiments!A1:R101` (et les lignes ajoutées après 101). Écarter les statuts `Done`, `In progress`, `Needs test data`, `Suggested`. Parmi `Verified` et `Corrected`, prendre d'abord les lignes Pick = TRUE, puis le score J le plus haut. Si l'utilisateur nomme un sujet, prendre celui-là.
+
+### Sujet proposé par un abonné (commentaire)
+Le commentaire épinglé promet : « Most liked comment = next experiment ». Quand l'utilisateur transmet une proposition :
+1. Chercher dans la Sheet si le sujet existe déjà (même question, même sous un autre nom). Si oui, mettre O = TRUE sur cette ligne et noter dans P « Viewer pick: <auteur>, <date> ».
+2. Sinon, ajouter une ligne à la fin : A = numéro suivant, B sujet, C question à l'écran, K série, L moteur (`Tests (ready)`, `Physics (ready)`, `(extend)` ou `New engine`), N = `Suggested`, P = « Viewer suggestion: <auteur>, <date> ».
+3. Chercher une source fiable (norme, étude, loi physique). Trouvée → remplir D, M, Q, les notes E–I et J, passer N à `Verified` et O à TRUE. Pas de source → N = `Needs test data`, cause dans P, et le dire à l'utilisateur (on ne fait pas d'épisode sans source).
+4. Une fois `Verified`, la suite est la procédure « fais une vidéo » normale. Dans la `description` de la vidéo, remercier l'auteur de l'idée (« Suggested by <auteur> »).
 2. **Réserver** : passer N à `In progress` avant tout travail.
 3. **Construire** :
    - L = `Tests (ready)` ou `Physics (ready)` : écrire `configs/<serie>_<num>_<slug>_en.json` à partir d'une config existante.
