@@ -27,7 +27,18 @@ def build(cfg):
     return "\n\n".join(parts) + "\n"
 
 
+PINNED_DEFAULT = ("Next test is your call 👇 Most liked comment = next experiment. "
+                  "Follow so you don't miss it!")
+
+
+def pinned(cfg):
+    """Commentaire à épingler sous la vidéo, séparé de la description (à ne pas y coller)."""
+    text = cfg.get("pinned_comment") or PINNED_DEFAULT
+    return "\n" + "=" * 40 + "\nPINNED COMMENT (post it, then pin it)\n" + text.strip() + "\n"
+
+
 if __name__ == "__main__":
     cfg = json.load(open(sys.argv[1], encoding="utf-8"))
     with open(sys.argv[2], "w", encoding="utf-8") as f:
         f.write(build(cfg))
+        f.write(pinned(cfg))
