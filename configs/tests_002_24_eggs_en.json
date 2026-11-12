@@ -4,10 +4,11 @@
   "decimal": ".",
   "handle": "@BreakpointLabTV",
   "hook": [
-    "24 eggs vs one person",
-    "Will they crack?"
+    "Can 24 eggs hold a person?"
   ],
-  "hook_sub": "Guess in the comments ↓",
+  "hook_series": false,
+  "teaser_label": "",
+  "hook_round": 2,
   "replay_label": "SLOW-MO",
   "rounds": [
     {
