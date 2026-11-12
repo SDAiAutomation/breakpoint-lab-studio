@@ -24,7 +24,11 @@ def build(cfg):
     sources = as_list(cfg.get("source")) + as_list(cfg.get("sources_detail"))
     if sources:
         parts.append("SOURCES\n" + "\n".join("- " + s.strip() for s in sources))
-    return "\n\n".join(parts) + "\n"
+    text = "\n\n".join(parts) + "\n"
+    # YouTube refuse < et > dans la description : flèches et comparaisons en Unicode.
+    for a, b in (("<->", "↔"), ("->", "→"), ("<-", "←"), (">=", "≥"), ("<=", "≤"), (">", "›"), ("<", "‹")):
+        text = text.replace(a, b)
+    return text
 
 
 if __name__ == "__main__":
