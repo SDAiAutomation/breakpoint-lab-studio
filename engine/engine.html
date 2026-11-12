@@ -195,7 +195,7 @@ vec2 map(vec3 p){
       if(float(i)>=fcount) break;
       vec3 l=p-fpos[i]; l.xy=rot(fang[i].x)*l.xy; l.xz=rot(fang[i].y)*l.xz;
       float sz=(fconcrete>0.5?0.045:0.05)+0.035*hash(float(i)*9.1);
-      float d=fconcrete>0.5 ? sdRoundBox(l,vec3(sz,sz*0.7,sz*0.85),0.012) : sdEll(l,vec3(sz,0.012,sz*0.8));
+      float d=fconcrete>0.5 ? sdRoundBox(l,vec3(sz,sz*0.7,sz*0.85),0.012) : sdEll(l,vec3(sz,0.018,sz*0.8));
       res=opU(res,vec2(d,fconcrete>0.5?12.0:10.0));
     }
   }
@@ -260,7 +260,7 @@ vec3 shade(vec2 fc){
     float ao=calcAO(p,n);
     vec3 hal=normalize(sun-rd);
     float m=h.y;
-    if(abs(spec)>3.5 && (m>6.5 && m<10.5 || m>13.5)){   // egg tray sits under a wide plate: keep it readable
+    if((abs(spec)>3.5 && m>13.5) || (m>6.5 && m<10.5 && mode<1.5 && spec>-0.5)){   // eggs sit under the platen: keep them readable
       sh=max(sh,0.6); dif=clamp(dot(n,sun),0.0,1.0)*sh; ao=max(ao,0.7); }
     if(m<1.5){
       col=sky*mix(0.70,1.0,sh)*mix(0.82,1.0,ao);
@@ -323,6 +323,7 @@ vec3 shade(vec2 fc){
       float amb=0.55+0.45*n.y;
       vec3 lin=1.25*dif*vec3(1.0,0.96,0.90)+0.62*amb*ao*vec3(0.88,0.92,0.98)+0.38*clamp(dot(n,normalize(vec3(0.55,0.25,0.8))),0.0,1.0)*ao;
       col=alb*lin;
+      if(m>9.5 && m<10.5) col=max(col,alb*0.62);        // thin shell shards: light passes through, never black
       float fre=pow(1.0-clamp(dot(n,-rd),0.0,1.0),4.0);
       col=mix(col,env(reflect(rd,n))*(0.5+0.5*ao),refl*(0.4+0.6*fre));
       col+=spec_*pow(clamp(dot(n,hal),0.0,1.0),gloss)*dif*vec3(1.0,0.97,0.92);
@@ -417,7 +418,7 @@ function frags(tb,specName,mode){
   if(specName==='prism'){n=6;y0=0.93;conc=true;vS=0.7;vyS=0.6;r0=0.12;}
   if(specName==='egg_up'||specName==='egg_side'){n=14;vS=1.3;vyS=1.15;}
   if(specName==='egg_up'){y0=0.7;}
-  if(specName==='egg_tray'){n=14;y0=0.56;vS=0.7;vyS=0.8;r0=0.38;}
+  if(specName==='egg_tray'){n=14;y0=0.5;vS=0.9;vyS=0.12;r0=0.6;}   // squeezed out sideways, under the plate
   for(let i=0;i<14;i++){
     if(i>=n){P.push(0,-10,0);A.push(0,0);continue;}
     const h=hash(i+1),h2=hash(i*3.7+2),a=i*2.39996+h*0.6;
@@ -540,14 +541,14 @@ function ctxt(s,x,y,size,color,alpha=1){            // text readable on the ligh
   c.shadowColor='rgba(0,0,0,0.18)';c.shadowBlur=size*0.12;c.shadowOffsetY=size*0.04;c.fillStyle=color;c.fillText(s,x,y);c.restore();}
 function overlay(cfg,T,t,s){
   const R=s.R, r=R.cfg;
-  ctxt(cfg.series,W/2,292,34,COL.sub,0.9);
   drawHandle(c,cfg);
+  if(t>=T.hook[1]||cfg.hook_series!==false) ctxt(cfg.series,W/2,292,34,COL.sub,0.9);
   const inExplain=t>=T.explain[0]&&t<T.outro[0], inOutro=t>=T.outro[0];
   if(t<T.hook[1]){
     const a=1-fade(T.hook[1]-0.3,t,0.3), hn=cfg.hook.length;
-    cfg.hook.forEach((l,i)=>ctxt(l,W/2,365+i*90,fitText(l,960,82),i===hn-1?COL.red:COL.ink,a));
+    cfg.hook.forEach((l,i)=>ctxt(l,W/2,365+i*90,fitText(l,960,82),hn>1&&i===hn-1?COL.red:COL.ink,a));
     if(cfg.hook_sub) ctxt(cfg.hook_sub,W/2,365+hn*90-8,36,COL.sub,a*(0.75+0.25*Math.sin(t*6)));
-    { const lab=cfg.teaser_label||'WAIT FOR IT'; c.font='700 30px P, DJ'; const w=c.measureText(lab).width+34;
+    if(cfg.teaser_label!==''){ const lab=cfg.teaser_label||'WAIT FOR IT'; c.font='700 30px P, DJ'; const w=c.measureText(lab).width+34;
       panel(W/2-w/2,654,w,52,26,'rgba(29,33,38,0.88)',a*(0.7+0.3*Math.sin(t*7))); ctxt(lab,W/2,681,30,'#fff',a); }
     return;
   }
@@ -611,6 +612,8 @@ let CFG=null,TL=null;
 window.setup=function(cfg){if(!LOGO){LOGO=makeLogoTexture();gl.uniform1i(gl.getUniformLocation(prog,'logo'),0);}CFG=cfg;DEC=cfg.decimal||',';TL=buildTimeline(cfg);return {duration:TL.duration,events:TL.events};};
 const tmp=document.createElement('canvas');tmp.width=1080;tmp.height=1920;
 function sceneTime(t){                                  // the hook plays round 1's break in slow motion
+  if(t<TL.hook[1]&&CFG.hook_round!=null){              // or a chosen round's slow-mo, stopped just before it breaks
+    const R=TL.rounds[CFG.hook_round];return R.replayT0+(t/D.hook)*(R.rpBefore/R.rpSpeed)*0.8;}
   if(t<TL.hook[1]){const R0=TL.rounds[0];return R0.replayT0+0.15+t*(D.replay-0.3)/D.hook;}
   return t;
 }
@@ -645,6 +648,7 @@ window.renderFrame=function(t,type='image/jpeg'){
 };
 function drawFrame(t){
   const s=sceneState(TL,sceneTime(t));
+  if(t<TL.hook[1]&&CFG.hook_round!=null) s.crackAmt=0;     // teaser: no crack shown before the test
   gl.viewport(0,0,1080,1920);gl.uniform2f(U.R,1080,1920);
   ['mode','spec','trayRows','plateY','jawY','snap','squash','crackAmt','broken','tb','camAng','camDist','camH','camTY','eggOff','dropL','dropR','trap','dcrack','leak','rockR','dropH'].forEach(k=>gl.uniform1f(U[k],s[k]||0));
   gl.uniform2f(U.shake,s.shake[0],s.shake[1]);
