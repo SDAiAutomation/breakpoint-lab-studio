@@ -1,0 +1,54 @@
+{
+  "id": "phy-003-ball-vs-feather-en",
+  "engine": "drop",
+  "series": "PHYSICS · TEST 003",
+  "decimal": ".",
+  "handle": "@BreakpointLabTV",
+  "drop_m": 2.0,
+  "air": {"vt": 0.5, "sway": 0.10, "freq": 0.6},
+  "hook": ["Ball or feather: which lands first?"],
+  "hook_series": false,
+  "names": ["BOWLING BALL", "FEATHER"],
+  "names_short": ["BALL", "FEATHER"],
+  "replay_label": "SLOW-MO",
+  "rounds": [
+    {
+      "title": "ROUND 1 · WITH AIR",
+      "kind": "air",
+      "subtitle": "Same drop · Normal air",
+      "question": "Which lands first?",
+      "question_sub": "BALL or FEATHER ↓",
+      "stamp": {"text": "BALL WINS", "color": "red"},
+      "fact": ["Air slows the feather down"]
+    },
+    {
+      "title": "ROUND 2 · NO AIR",
+      "kind": "vacuum",
+      "pump_text": "Pumping the air out…",
+      "vacuum_label": "VACUUM",
+      "question": "Now which lands first?",
+      "question_sub": "BALL or FEATHER ↓",
+      "stamp": {"text": "SAME TIME", "color": "green"},
+      "fact": ["Gravity pulls both the same"]
+    }
+  ],
+  "explain": {
+    "title": "WHY?",
+    "lines": ["Gravity speeds up everything equally", "Air pushes back on the feather", "No air: they land together"]
+  },
+  "source": ["NASA Space Power Facility · BBC Human Universe (2014)", "Apollo 15 hammer and feather (1971)", "Simulated: 2 m drop, t = √(2h/g)"],
+  "cta": "NEXT EXPERIMENT? Comment ↓",
+  "caption": "Bowling ball vs feather: which lands first? 🎳🪶 With air, the ball wins easily. Pump the air out and they land at the exact same time. What should we test next? 👇 #physics #science #gravity #vacuum #satisfying #nasa #3danimation",
+  "description": [
+    "We drop a bowling ball and a feather side by side from 2 m inside a glass chamber. First with normal air inside, then after pumping the air out.",
+    "With air, the ball hits the floor after 0.64 s while the feather drifts down slowly: air pushes back on it, and for something so light and wide that push almost cancels its weight. On a bowling ball the same air resistance is tiny compared with its weight, so it falls almost freely.",
+    "In a vacuum there is no air to push back. Gravity gives every object the same acceleration, 9.81 m/s², whatever its mass, so both fall 2 m in 0.64 s and land together, both at about 6.3 m/s. NASA filmed exactly this in its Space Power Facility vacuum chamber for the BBC's Human Universe (2014), and astronaut David Scott did it on the Moon with a hammer and a falcon feather during Apollo 15 (1971).",
+    "The animation is a simulation. The vacuum drop follows t = √(2h/g). The feather's drift in air is illustrative only, which is why no time is shown for it in round 1."
+  ],
+  "sources_detail": [
+    "NASA Glenn Space Power Facility (Plum Brook Station), world's largest vacuum chamber: bowling ball and feathers dropped together, filmed for BBC Two 'Human Universe' with Brian Cox (2014).",
+    "Apollo 15, 2 August 1971: David Scott drops a hammer and a falcon feather on the Moon; they land together (NASA NSSDC).",
+    "Free fall: t = √(2h/g) = √(2 × 2.0 / 9.81) = 0.639 s → shown as 0.64 s; impact speed v = g t = 6.26 m/s.",
+    "Simulated: 2 m drop, g = 9.81 m/s². In air the ball is treated as free fall; the feather's drift (slow terminal speed with sway) is illustrative, not measured."
+  ]
+}

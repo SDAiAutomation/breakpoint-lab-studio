@@ -3,7 +3,8 @@
     python qc/audio.py timeline.json out.wav
 
 Events (from qc/engine.html buildTimeline): round, approach, ramp, ok, question,
-break (material/kind), stamp (green/red), card, explain, cta.
+break (material/kind), stamp (green/red), card, explain, cta;
+drop engine: drop, land (heavy/light, speed), pump.
 """
 import json
 import sys
@@ -119,6 +120,25 @@ def main(tl_path, out_path):
                 tm = np.arange(mm) / SR
                 f0 = (1318.5, 1046.5, 880.0)[min(j, 2)] * (1 if sp == 1 else 0.5)
                 add(np.sin(2 * np.pi * f0 * tm) * env(mm, 0.002, 0.15) + 0.4 * np.sin(4 * np.pi * f0 * tm) * env(mm, 0.002, 0.06), tf, 0.22)
+        elif ty == "land":                                         # drop engine: impact on the base plate
+            sp = e.get("speed", 1)
+            if e.get("weight") == "heavy":                          # bowling ball: deep thud + short ring
+                n = int(0.9 / max(sp, 0.25) * SR)
+                t = np.arange(n) / SR
+                f = (62 - 20 * t) * (1 if sp == 1 else 0.6)
+                add(np.sin(2 * np.pi * f * t) * env(n, 0.001, 0.16 / max(sp, 0.25) ** 0.5), e["t"], 1.0)
+                add(lp(rng.standard_normal(n), 0.25) * env(n, 0.0004, 0.025 / sp ** 0.5), e["t"], 0.7)
+                m = int(0.6 * SR)
+                tm = np.arange(m) / SR
+                add(np.sin(2 * np.pi * 410 * (1 if sp == 1 else 0.6) * tm) * env(m, 0.002, 0.12), e["t"], 0.08)
+            else:                                                   # feather: barely a whisper
+                n = int(0.25 * SR)
+                add(lp(rng.standard_normal(n), 0.15) * env(n, 0.01, 0.05), e["t"], 0.12)
+        elif ty == "pump":                                         # vacuum pump: motor hum + hiss that fades out
+            m = (tt >= e["t0"]) & (tt < e["t1"])
+            k = (tt[m] - e["t0"]) / max(e["t1"] - e["t0"], 1e-3)
+            a = np.minimum(1, k / 0.08) * (1 - k) ** 1.5
+            out[m] += (np.sin(2 * np.pi * 50 * tt[m]) * 0.05 + lp(rng.standard_normal(int(m.sum())), 0.3) * 0.35) * a
         elif ty == "drop":                                         # trap doors snap open
             m = int(0.06 * SR)
             add(lp(rng.standard_normal(m), 0.6) * env(m, 0.0005, 0.01), e["t"], 0.5)
