@@ -1,0 +1,488 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<!-- Drop engine (Breakpoint Lab "Physics" series): a bowling ball and a feather dropped side by side
+     inside a glass chamber, first with air, then with the air pumped out. Raymarched (WebGL) with the
+     same clean overlay and the same API as physics.html.
+     Physics: in a vacuum both fall freely, y = h - g t^2 / 2, t = sqrt(2h/g). With air the ball is
+     treated as free fall (drag on a bowling ball over 2 m is tiny) and the feather drifts down at a slow
+     terminal speed with a sway: that part is illustrative, so no feather number is ever shown in air. -->
+<style>
+@font-face{font-family:P;src:url("fonts/Poppins-Bold.ttf");font-weight:700}
+@font-face{font-family:DJ;src:url("fonts/DejaVuSans-Bold.ttf");font-weight:700}
+html,body{margin:0;background:#000}canvas{display:block}
+</style></head>
+<body>
+<canvas id="gl" width="1080" height="1920"></canvas>
+<canvas id="out" width="1080" height="1920"></canvas>
+<script id="fs" type="x-shader/x-fragment">
+precision highp float;
+uniform vec2 R;
+uniform float camAng, camDist, camH, camTY;
+uniform vec2 shake;
+uniform vec3 ballP, featP;
+uniform mat3 featM;        // world -> feather local
+uniform float jaw;         // 0 closed, 1 open
+uniform sampler2D logo;
+
+const float BR=0.108;      // bowling ball radius (21.6 cm diameter)
+const float RC=0.72;       // glass chamber radius
+const float PT=0.06;       // base plate top
+float sdRoundBox(vec3 p, vec3 b, float r){ vec3 q=abs(p)-b; return length(max(q,0.0))+min(max(q.x,max(q.y,q.z)),0.0)-r; }
+float sdCylY(vec3 p, float h, float r){ vec2 d=abs(vec2(length(p.xz),p.y))-vec2(r,h); return min(max(d.x,d.y),0.0)+length(max(d,0.0)); }
+float sdCapX(vec3 p, float a, float b, float r){ p.x-=clamp(p.x,a,b); return length(p)-r; }
+float sdEll(vec2 p, vec2 r){ return (length(p/r)-1.0)*min(r.x,r.y); }
+float hash3(vec3 p){ return fract(sin(dot(p,vec3(12.9898,78.233,37.719)))*43758.5453); }
+vec2 opU(vec2 a, vec2 b){ return a.x<b.x?a:b; }
+
+vec3 HD0=normalize(vec3(-0.20,0.34,0.92)), HD1=normalize(vec3(0.13,0.37,0.92)), HD2=normalize(vec3(-0.02,0.02,1.0));
+float hole(vec3 q, vec3 d, float r){ float a=dot(q,d); return max(length(q-d*a)-r, 0.055-a); }
+
+// feather, local frame: shaft along x, vane in the xy plane, thin along z (slightly cupped)
+float fys(float x){ return 0.020*(x/0.17)*(x/0.17); }                          // shaft curve
+float fvw(float x, float top){ float u=clamp((x+0.13)/0.30,0.0,1.0);            // vane half-width: round base, pointed tip
+  return (top>0.0?0.050:0.032)*pow(sin(3.14159*pow(u,0.72)),0.55); }
+vec2 feather(vec3 q){
+  float zc=0.010*(q.x/0.15)*(q.x/0.15);
+  float dz=abs(q.z-zc)-0.0022;
+  float dy=q.y-fys(q.x);
+  float w=fvw(q.x,dy)*(1.0-0.10*smoothstep(0.55,1.0,sin(q.x*48.0+(dy>0.0?0.0:1.9))));   // a few splits in the edge
+  float e=max((abs(dy)-w)*0.7,max(-0.13-q.x,q.x-0.17));
+  float vane=length(max(vec2(e,dz),0.0))+min(max(e,dz),0.0);
+  float x=clamp(q.x,-0.20,0.17), r=mix(0.0045,0.0015,(x+0.20)/0.37);
+  float shaft=length(vec3(q.x-x,q.y-fys(x),q.z-zc))-r;
+  return shaft<vane?vec2(shaft,22.0):vec2(vane,21.0);
+}
+
+vec2 map(vec3 p){
+  vec2 res=vec2(p.y,1.0);
+  float rr=length(p.xz);
+  res=opU(res,vec2(sdCylY(p-vec3(0,PT*0.5,0),PT*0.5-0.006,0.80)-0.006,3.0));                       // base plate
+  res=opU(res,vec2(max(sdCylY(p-vec3(0,0.10,0),0.04,0.765),0.70-rr),7.0));                         // base ring
+  res=opU(res,vec2(max(sdCylY(p-vec3(0,2.55,0),0.04,0.765),0.70-rr),7.0));                         // top ring
+  res=opU(res,vec2(sdCylY(p-vec3(0,2.63,0),0.03,0.78)-0.004,7.0));                                  // lid
+  // holders under the lid: rods + yellow jaws that open at release
+  res=opU(res,vec2(sdCylY(p-vec3(-0.30,2.44,0),0.17,0.012),3.0));
+  res=opU(res,vec2(sdCylY(p-vec3( 0.30,2.39,0),0.22,0.009),3.0));
+  res=opU(res,vec2(sdRoundBox(p-vec3(-0.30,2.30,0),vec3(0.10,0.012,0.03),0.006),3.0));
+  vec3 jb=p-vec3(-0.30,2.255,0); jb.x=abs(jb.x)-(0.078+0.07*jaw);
+  res=opU(res,vec2(sdRoundBox(jb,vec3(0.010,0.045,0.026),0.006),5.0));
+  vec3 jf=p-vec3(0.30,2.152,0); jf.x=abs(jf.x)-(0.014+0.045*jaw);
+  res=opU(res,vec2(sdRoundBox(jf,vec3(0.006,0.018,0.014),0.004),5.0));
+  // vacuum line + pump on the right
+  res=opU(res,vec2(sdCapX(p-vec3(0,0.12,0),0.74,1.42,0.028),3.0));
+  res=opU(res,vec2(sdRoundBox(p-vec3(1.58,0.21,0),vec3(0.14,0.19,0.16),0.03),7.0));
+  // bowling ball with finger holes
+  vec3 q=p-ballP; float b=length(q)-BR;
+  if(b<0.02){ b=max(b,-min(hole(q,HD0,0.0125),min(hole(q,HD1,0.0125),hole(q,HD2,0.014)))); }
+  res=opU(res,vec2(b,20.0));
+  // feather
+  vec3 f=p-featP; float fb=length(f)-0.23;
+  if(fb<0.02) res=opU(res,feather(featM*f)); else res=opU(res,vec2(fb+0.01,0.0));
+  return res;
+}
+vec3 calcNormal(vec3 p){
+  vec2 e=vec2(0.0005,-0.0005);
+  return normalize(e.xyy*map(p+e.xyy).x+e.yyx*map(p+e.yyx).x+e.yxy*map(p+e.yxy).x+e.xxx*map(p+e.xxx).x);
+}
+float softShadow(vec3 ro, vec3 rd){
+  float res=1.0, t=0.02;
+  for(int i=0;i<48;i++){ float h=map(ro+rd*t).x; res=min(res,9.0*h/t); t+=clamp(h,0.012,0.25); if(res<0.002||t>6.0) break; }
+  return clamp(res,0.0,1.0);
+}
+float calcAO(vec3 p, vec3 n){
+  float occ=0.0, sca=1.0;
+  for(int i=0;i<4;i++){ float h=0.015+0.08*float(i); occ+=(h-map(p+n*h).x)*sca; sca*=0.8; }
+  return clamp(1.0-2.0*occ,0.0,1.0);
+}
+vec3 bg(vec2 uv){ return mix(vec3(0.90,0.92,0.93),vec3(0.80,0.85,0.88),smoothstep(-1.0,1.0,uv.y)); }
+vec3 env(vec3 r){
+  float k=r.y*0.5+0.5;
+  vec3 c=mix(vec3(0.48,0.50,0.53),vec3(0.96,0.97,0.99),smoothstep(0.30,0.80,k));
+  float s1=smoothstep(0.86,0.90,dot(r,normalize(vec3(-0.6,0.75,0.35))));
+  float s2=smoothstep(0.90,0.93,dot(r,normalize(vec3(0.75,0.45,0.5))));
+  return c+vec3(1.3)*s1+vec3(0.8)*s2;
+}
+// thin glass wall: no geometry, only a reflective sheen added along the ray (clean edges, no refraction)
+vec3 glassWall(vec3 col, vec3 ro, vec3 rd, float tHit){
+  float a=dot(rd.xz,rd.xz), b=2.0*dot(ro.xz,rd.xz), c=dot(ro.xz,ro.xz)-RC*RC, d=b*b-4.0*a*c;
+  if(d<0.0||a<1e-6) return col;
+  float s=sqrt(d);
+  for(int i=0;i<2;i++){
+    float t=i==0?(-b+s)/(2.0*a):(-b-s)/(2.0*a);           // far wall first, then near wall
+    if(t<0.0||t>tHit) continue;
+    vec3 p=ro+rd*t; if(p.y<0.14||p.y>2.51) continue;
+    vec3 n=normalize(vec3(p.x,0.0,p.z)); if(dot(n,rd)>0.0) n=-n;
+    float f=pow(1.0-abs(dot(n,rd)),3.0);
+    col=col*vec3(0.975,0.988,0.995);
+    col=mix(col,env(reflect(rd,n)),0.035+0.55*f);
+  }
+  return col;
+}
+
+vec3 shade(vec2 fc){
+  vec2 uv=(2.0*fc-R)/R.y;
+  vec3 ta=vec3(0.0,camTY,0.0);
+  vec3 ro=ta+vec3(sin(camAng)*camDist,camH,cos(camAng)*camDist);
+  ro.xy+=shake; ta.xy+=shake*0.6;
+  vec3 ww=normalize(ta-ro), uu=normalize(cross(ww,vec3(0,1,0))), vv=cross(uu,ww);
+  vec3 rd=normalize(uv.x*uu+uv.y*vv+2.35*ww);
+  vec3 sky=bg(uv), col=sky;
+  float t=0.0; vec2 h=vec2(0.0); bool hit=false;
+  for(int i=0;i<220;i++){ h=map(ro+rd*t); if(h.x<0.00025*t){hit=true;break;} t+=h.x*0.85; if(t>30.0) break; }
+  if(hit){
+    vec3 p=ro+rd*t, n=calcNormal(p);
+    float m=h.y;
+    if(m>20.5&&dot(n,rd)>0.0) n=-n;                        // feather vane: two-sided
+    vec3 sun=normalize(vec3(-0.5,0.95,0.6));
+    float sh=softShadow(p+n*0.003,sun), dif=clamp(dot(n,sun),0.0,1.0)*sh, ao=calcAO(p,n);
+    vec3 hal=normalize(sun-rd);
+    if(m<1.5){ col=sky*mix(0.70,1.0,sh)*mix(0.80,1.0,ao);
+      vec2 lu=vec2((p.x+0.78)/1.56,(1.28-p.z)/0.25);
+      if(lu.x>0.0&&lu.x<1.0&&lu.y>0.0&&lu.y<1.0){ float lg=texture2D(logo,vec2(lu.x,1.0-lu.y)).a; col=mix(col,lu.x>0.735?vec3(0.85,0.62,0.05):vec3(0.30,0.32,0.35),lg*0.55); } }
+    else {
+      vec3 alb=vec3(0.8); float sp=0.2, gl=16.0, refl=0.0, wrap=0.0;
+      if(m<3.5){ alb=vec3(0.80,0.81,0.83)*(0.95+0.05*hash3(floor(p*vec3(9.0,300.0,9.0)))); sp=1.2; gl=110.0; refl=0.55; }   // brushed steel
+      else if(m<5.5){ alb=vec3(0.98,0.74,0.10); sp=0.6; gl=60.0; }                                                         // yellow jaws
+      else if(m<7.5){ alb=vec3(0.13,0.14,0.16); sp=0.9; gl=80.0; refl=0.25; }                                              // dark anodised
+      else if(m<20.5){                                                                                                      // bowling ball
+        vec3 q=p-ballP;
+        float w=sin(dot(q,vec3(23.0,9.0,17.0))+3.0*sin(q.y*31.0+q.x*19.0)+2.0*sin(q.z*27.0));
+        alb=mix(vec3(0.06,0.09,0.34),vec3(0.30,0.12,0.52),0.5+0.5*w);
+        if(length(q)<BR-0.002) { alb=vec3(0.02); sp=0.1; }                                                                // inside a hole
+        else { sp=1.8; gl=170.0; refl=0.35; }
+      }
+      else if(m<21.5){                                                                                                      // feather vane: barbs
+        vec3 q=featM*(p-featP);
+        float dyv=abs(q.y-fys(q.x));
+        float barb=0.5+0.5*sin((q.x*0.9+dyv)*620.0);
+        float edge=smoothstep(0.6,1.0,dyv/max(fvw(q.x,q.y-fys(q.x)),1e-3));
+        alb=vec3(0.99,0.98,0.95)*(0.92+0.08*barb)*(1.0-0.10*edge);
+        if(q.x<-0.10) alb=mix(alb,vec3(1.0,0.99,0.97),0.6);              // downy base
+        sp=0.25; gl=20.0; wrap=0.55;
+      }
+      else { alb=vec3(0.86,0.85,0.80); sp=0.5; gl=40.0; }                                                                   // shaft
+      float amb=0.55+0.45*n.y;
+      vec3 lin=1.25*dif*vec3(1.0,0.96,0.90)+0.62*amb*ao*vec3(0.88,0.92,0.98)+0.38*clamp(dot(n,normalize(vec3(0.55,0.25,0.8))),0.0,1.0)*ao+wrap*ao;
+      col=alb*lin;
+      float fre=pow(1.0-clamp(dot(n,-rd),0.0,1.0),4.0);
+      col=mix(col,env(reflect(rd,n))*(0.5+0.5*ao),refl*(0.4+0.6*fre));
+      col+=sp*pow(clamp(dot(n,hal),0.0,1.0),gl)*dif*vec3(1.0,0.97,0.92);
+    }
+  }
+  col=glassWall(col,ro,rd,hit?t:1e4);
+  col=pow(clamp(col,0.0,1.0),vec3(0.95));
+  col*=1.0-0.12*dot(uv*vec2(0.9,0.55),uv*vec2(0.9,0.55));
+  return col;
+}
+void main(){
+  vec3 c=shade(gl_FragCoord.xy+vec2(-0.25,0.25))+shade(gl_FragCoord.xy+vec2(0.25,-0.25));
+  gl_FragColor=vec4(c*0.5,1.0);
+}
+</script>
+<script>
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const sm=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);};
+const lerp=(a,b,t)=>a+(b-a)*t;
+const g=9.81;
+
+function drawHandle(c,cfg){            // brand line in the top text band, above the series title: never over the scene
+  if(!cfg.handle) return;
+  c.save(); c.font='700 24px P, DJ'; c.textBaseline='middle'; c.textAlign='left';
+  const tw=c.measureText(cfg.handle).width, gap=12, dot=7, y=256;
+  const x=W/2-(tw+gap+2*dot)/2;
+  c.fillStyle='#f5c400'; c.beginPath(); c.arc(x+dot,y,dot,0,Math.PI*2); c.fill();
+  c.lineWidth=2; c.strokeStyle='rgba(22,24,29,0.85)'; c.stroke();
+  c.globalAlpha=0.8; c.fillStyle='#2a2e36'; c.fillText(cfg.handle,x+2*dot+gap,y+1);
+  c.restore();
+}
+function makeLogoTexture(){
+  const cv=document.createElement('canvas');cv.width=1400;cv.height=220;const x=cv.getContext('2d');
+  x.clearRect(0,0,1400,220);x.font='700 150px P, DJ';x.textAlign='center';x.textBaseline='middle';x.fillStyle='#fff';
+  x.fillText('BREAKPOINT',560,118);x.fillText('LAB',1205,118);
+  const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,cv);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  return tex;
+}
+
+// ---------------------------------------------------------------- physics
+const BR=0.108, PT=0.06, XB=-0.30, XF=0.30, ROLL0=-0.20;
+function featherLow(roll){                        // distance from the feather centre down to its lowest point
+  const ys=x=>0.020*(x/0.17)**2, vw=x=>{const u=clamp((x+0.13)/0.30,0,1);return 0.032*Math.pow(Math.sin(Math.PI*Math.pow(u,0.72)),0.55);};
+  const pts=[[-0.20,ys(-0.20)],[0.17,ys(0.17)]];
+  for(let i=0;i<=120;i++){const x=-0.13+0.30*i/120;pts.push([x,ys(x)-vw(x)]);}
+  let m=0;pts.forEach(([x,y])=>{m=Math.min(m,x*Math.sin(roll)+y*Math.cos(roll));});return -m;
+}
+const LF=featherLow(ROLL0);
+const OBJ_COL=['#2E3FA8','#E8A70F'];          // ball, feather
+function makeDrop(h,kind,air){                    // h: fall height of the lowest point (m)
+  const Tb=Math.sqrt(2*h/g), D={h,kind,Tb};
+  const vt=air.vt||0.5, tau=vt/g, A=air.sway||0.10, w=2*Math.PI*(air.freq||0.6);
+  D.yB0=PT+h+BR; D.yF0=PT+h+LF;
+  D.fallF=t=>kind==='vacuum'?0.5*g*t*t:vt*(t-tau*(1-Math.exp(-t/tau)));
+  let Tf=Tb; if(kind!=='vacuum'){let lo=0,hi=60;for(let i=0;i<80;i++){const m=(lo+hi)/2;(D.fallF(m)<h)?lo=m:hi=m;}Tf=(lo+hi)/2;}
+  D.Tf=Tf; D.Tmax=Math.max(Tb,Tf); D.A=A; D.w=w;
+  return D;
+}
+function ballAt(D,rt){const t=clamp(rt,0,D.Tb);return {p:[XB,D.yB0-0.5*g*t*t,0],v:g*t,landed:rt>=D.Tb};}
+function rotM(roll,yaw,flop){                     // world-from-local = Ry(yaw) Rz(roll) Rx(flop); returns its transpose (world -> local), column-major
+  const cr=Math.cos(roll),sr=Math.sin(roll),cy=Math.cos(yaw),sy=Math.sin(yaw),cf=Math.cos(flop),sf=Math.sin(flop);
+  const Rz=[[cr,-sr,0],[sr,cr,0],[0,0,1]],Ry=[[cy,0,sy],[0,1,0],[-sy,0,cy]],Rx=[[1,0,0],[0,cf,-sf],[0,sf,cf]];
+  const mul=(A,B)=>A.map((r,i)=>[0,1,2].map(j=>r[0]*B[0][j]+r[1]*B[1][j]+r[2]*B[2][j]));
+  const Wm=mul(Ry,mul(Rz,Rx));                    // world = Wm * local ; local = Wm^T * world
+  // column-major of Wm^T: column j of Wm^T = row j of Wm
+  return [Wm[0][0],Wm[0][1],Wm[0][2],Wm[1][0],Wm[1][1],Wm[1][2],Wm[2][0],Wm[2][1],Wm[2][2]];
+}
+function featherAt(D,rt){
+  const t=clamp(rt,0,D.Tf), fall=D.fallF(t);
+  let x=XF,roll=ROLL0,yaw=0.12,flop=0.0;
+  if(D.kind!=='vacuum'){
+    const hAbove=D.h-fall, damp=(1-Math.exp(-t/0.45))*sm(0.0,0.35,hAbove);
+    x+=D.A*Math.sin(D.w*t)*damp; roll+=0.42*Math.cos(D.w*t)*damp; yaw+=0.55*Math.sin(0.5*D.w*t+0.6)*damp;
+  }
+  let y=D.yF0-fall;
+  const after=rt-D.Tf;                             // after landing: the feather tips over and lies flat
+  if(after>0){const k=sm(0,0.45,after);flop=-1.5*k;roll=lerp(roll,0,k);yaw=lerp(yaw,0.35,k);y=lerp(PT+LF,PT+0.012,k);}
+  return {p:[x,y,0],M:rotM(roll,yaw,flop),v:D.kind==='vacuum'?g*t:null,landed:rt>=D.Tf};
+}
+
+// ---------------------------------------------------------------- timeline
+const D_={hook:2.6,title:1.4,show:2.4,pump:3.6,question:3.0,go:0.25,after:0.9,stampHold:0.9,fact:4.2,explain:9.5,outro:6.0};
+const SLOW=0.25;
+function buildTimeline(cfg){
+  const T={rounds:[],events:[]};let t=0;const h=cfg.drop_m||2.0;
+  T.hook=[0,D_.hook];t=D_.hook;
+  cfg.rounds.forEach((r,i)=>{
+    const D=makeDrop(h,r.kind,cfg.air||{}), R={cfg:r,i,start:t,D};
+    T.events.push({type:'round',t});
+    R.titleEnd=t+D_.title;R.showEnd=R.titleEnd+D_.show;
+    if(r.kind==='vacuum'){R.pump=[R.showEnd,R.showEnd+D_.pump];T.events.push({type:'pump',t0:R.pump[0],t1:R.pump[1]});R.qStart=R.pump[1];}
+    else R.qStart=R.showEnd;
+    R.qEnd=R.qStart+D_.question;T.events.push({type:'question',t0:R.qStart,t1:R.qEnd});
+    R.go=R.qEnd+D_.go;T.events.push({type:'drop',t:R.go});
+    T.events.push({type:'land',t:R.go+D.Tb,weight:'heavy',speed:1});
+    T.events.push({type:'land',t:R.go+D.Tf,weight:'light',speed:1});
+    R.raceEnd=R.go+D.Tmax+D_.after;
+    R.window=D.Tb+(r.kind==='vacuum'?0.45:0.55);   // slow-mo covers the fall and the impact
+    R.replayT0=R.raceEnd+0.3;R.replayT1=R.replayT0+(R.window+0.1)/SLOW;
+    T.events.push({type:'replay',t0:R.replayT0,t1:R.replayT1});
+    T.events.push({type:'drop',t:R.replayT0+0.1/SLOW});
+    T.events.push({type:'land',t:R.replayT0+(0.1+D.Tb)/SLOW,weight:'heavy',speed:SLOW});
+    if(D.Tf<=R.window) T.events.push({type:'land',t:R.replayT0+(0.1+D.Tf)/SLOW,weight:'light',speed:SLOW});
+    R.stampT=R.replayT1+0.1;T.events.push({type:'stamp',t:R.stampT,color:r.stamp.color});
+    R.factT=R.stampT+D_.stampHold;T.events.push({type:'card',t:R.factT});
+    R.end=R.factT+D_.fact;t=R.end;T.rounds.push(R);
+  });
+  T.explain=[t,t+D_.explain];T.events.push({type:'explain',t0:t,t1:t+D_.explain});t+=D_.explain;
+  T.outro=[t,t+D_.outro];T.events.push({type:'card',t});T.events.push({type:'cta',t:t+1.4});t+=D_.outro;
+  T.duration=t;return T;
+}
+
+// ---------------------------------------------------------------- scene state
+function sceneState(T,t){
+  let R=T.rounds[0];for(const r of T.rounds) if(t>=r.start) R=r;
+  const inExplain=t>=T.explain[0], D=R.D;
+  const replay=t>=R.replayT0&&t<R.replayT1;
+  let rt;
+  if(inExplain){const per=D.Tb+1.6;rt=((t-T.explain[0])%per)-0.6;}
+  else if(replay) rt=(t-R.replayT0)*SLOW-0.1; else if(t>=R.replayT1) rt=99; else rt=t-R.go;
+  const s={R,D,rt,replay,inExplain,shake:[0,0]};
+  s.ball=ballAt(D,Math.max(rt,0));s.feat=featherAt(D,Math.max(rt,0));
+  if(inExplain) s.feat=featherAt(D,Math.min(Math.max(rt,0),D.Tf+0.2));
+  // jaws: open at release, closed again before the next drop
+  const lt=t-R.start;
+  s.jaw=rt<0?0:sm(0,0.12,rt); if(rt>D.Tmax+0.8&&!replay&&!inExplain&&t>=R.replayT1) s.jaw=1;
+  // camera
+  const wide={ang:0.26,dist:7.6,h:0.75,ty:1.40};
+  const close={ang:0.20,dist:3.1,h:0.35,ty:2.02};
+  let cam={...wide};
+  if(t<R.showEnd){const k=sm(R.start,R.showEnd,t);cam={ang:lerp(0.34,0.22,k),dist:lerp(3.4,2.9,k),h:0.35,ty:2.0};}
+  else if(R.pump&&t<R.pump[1]){const k=sm(R.pump[0],R.pump[0]+1.4,t);cam={ang:lerp(0.22,0.30,k),dist:lerp(2.9,wide.dist,k),h:lerp(0.35,wide.h,k),ty:lerp(2.0,wide.ty,k)};}
+  else if(t<R.qEnd){const k=sm(R.qStart,R.qEnd-0.2,t),from=R.pump?{ang:0.30,dist:wide.dist,h:wide.h,ty:wide.ty}:{ang:0.22,dist:2.9,h:0.35,ty:2.0};
+    cam={ang:lerp(from.ang,wide.ang,k),dist:lerp(from.dist,wide.dist,k),h:lerp(from.h,wide.h,k),ty:lerp(from.ty,wide.ty,k)};}
+  if(replay){const k=t-R.replayT0, yb=s.ball.p[1], yf=s.feat.p[1];
+    const vac=D.kind==='vacuum';
+    cam={ang:0.12+0.012*k,dist:vac?2.7:4.2,h:0.18,ty:vac?clamp((yb+yf)/2,0.42,2.05):clamp((yb+yf)/2,0.9,2.05)};}
+  if(t>=R.replayT1&&!inExplain){const k=sm(R.replayT1,R.replayT1+1.5,t);cam={ang:lerp(0.14,0.30,k),dist:lerp(2.7,3.4,k),h:lerp(0.18,0.45,k),ty:0.42};}
+  if(inExplain){const k=t-T.explain[0];cam={ang:0.22+0.06*Math.sin(k*0.3),dist:7.6,h:0.75,ty:1.40};}
+  if(t>=R.go&&t<R.raceEnd&&!replay) cam.ang+=0.01*Math.sin(lt*0.4);
+  // impact shake (real time and slow motion)
+  const tb=D.Tb, dt=rt-tb; if(dt>0&&dt<0.25){const a=0.012*Math.exp(-dt*18);s.shake=[a*Math.sin(dt*120),a*Math.cos(dt*95)];}
+  Object.assign(s,{camAng:cam.ang,camDist:cam.dist,camH:cam.h,camTY:cam.ty});
+  return s;
+}
+
+// ---------------------------------------------------------------- WebGL
+const gl=document.getElementById('gl').getContext('webgl',{preserveDrawingBuffer:true,antialias:false});
+function sh(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s;}
+const prog=gl.createProgram();
+gl.attachShader(prog,sh(gl.VERTEX_SHADER,'attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}'));
+gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,document.getElementById('fs').textContent));
+gl.linkProgram(prog);if(!gl.getProgramParameter(prog,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(prog));gl.useProgram(prog);
+const buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+let LOGO=null;
+const al=gl.getAttribLocation(prog,'a');gl.enableVertexAttribArray(al);gl.vertexAttribPointer(al,2,gl.FLOAT,false,0,0);
+const U={};['R','camAng','camDist','camH','camTY','shake','ballP','featP','featM','jaw'].forEach(n=>U[n]=gl.getUniformLocation(prog,n));
+
+function project(s,p){
+  const ta=[0,s.camTY,0], ro=[ta[0]+Math.sin(s.camAng)*s.camDist,ta[1]+s.camH,ta[2]+Math.cos(s.camAng)*s.camDist];
+  const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+  const nrm=a=>{const l=Math.hypot(...a);return a.map(v=>v/l);},cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+  const ww=nrm(sub(ta,ro)),uu=nrm(cross(ww,[0,1,0])),vv=cross(uu,ww),d=sub(p,ro);
+  const z=dot(d,ww),ux=dot(d,uu)/z*2.35,uy=dot(d,vv)/z*2.35;
+  return [(ux*1920+1080)/2,(1920-(uy*1920+1920)/2),z];
+}
+
+// ---------------------------------------------------------------- overlay
+const out=document.getElementById('out'),c=out.getContext('2d');const W=1080,H=1920;
+const COL={green:'#1F9D55',red:'#E0303F',ink:'#1d2126',sub:'#5b636c',brand:'#F7C21A'};
+let DEC='.';
+const fmt=(v,d)=>v.toFixed(d).replace('.',DEC);
+const fade=(t0,t,d=0.25)=>clamp((t-t0)/d,0,1);
+const pop=(t0,t)=>{const k=clamp((t-t0)/0.25,0,1);return 1+0.18*Math.sin(k*Math.PI)*(1-k);};
+function rrect(x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+function panel(x,y,w,h,r,fill,a=1){if(a<=0)return;c.save();c.globalAlpha=a;c.fillStyle=fill;rrect(x,y,w,h,r);c.fill();c.restore();}
+function fitText(s,maxW,size){c.font=`700 ${size}px P, DJ`;while(c.measureText(s).width>maxW&&size>18){size-=2;c.font=`700 ${size}px P, DJ`;}return size;}
+function ctxt(s,x,y,size,color,a=1){if(a<=0)return;c.save();c.globalAlpha=a;c.font=`700 ${size}px P, DJ`;c.textAlign='center';c.textBaseline='middle';
+  c.lineJoin='round';c.lineWidth=size*0.16;c.strokeStyle='rgba(255,255,255,0.85)';c.strokeText(s,x,y);
+  c.shadowColor='rgba(0,0,0,0.18)';c.shadowBlur=size*0.12;c.shadowOffsetY=size*0.04;c.fillStyle=color;c.fillText(s,x,y);c.restore();}
+function pill(s,x,y,size,fill,a=1){if(a<=0)return;const fs=size;c.font=`700 ${fs}px P, DJ`;const w=c.measureText(s).width+fs*1.1;
+  panel(x-w/2,y-fs*0.85,w,fs*1.7,fs*0.85,fill,a);c.save();c.globalAlpha=a;c.font=`700 ${fs}px P, DJ`;c.textAlign='center';c.textBaseline='middle';c.fillStyle='#fff';c.fillText(s,x,y+1);c.restore();}
+function fitW(s,size){c.font=`700 ${size}px P, DJ`;return c.measureText(s).width;}
+
+// air: faint specks inside the chamber (drawn in 3D, projected); pumped out through the base line in round 2
+const SPECK=[...Array(46)].map((_,i)=>{const r=(k)=>{const x=Math.sin(i*127.1+k*311.7)*43758.5453;return x-Math.floor(x);};
+  const a=r(1)*6.283,rad=0.12+0.52*Math.sqrt(r(2));return {x:Math.cos(a)*rad,z:Math.sin(a)*rad,y:0.25+2.2*r(3),ph:r(4)*6.283,d:r(5)};});
+function airAmount(s,t){                                 // 1 = full air, 0 = vacuum
+  const R=s.R;if(s.inExplain||t<TL.hook[1]) return 0;
+  if(R.cfg.kind!=='vacuum') return 1;
+  if(!R.pump||t<R.pump[0]) return 1; return 1-sm(R.pump[0]+0.3,R.pump[1]-0.4,t);
+}
+function specks(s,t){
+  const R=s.R;let air=1,suck=0;
+  if(s.inExplain||t<TL.hook[1]) return;
+  if(R.cfg.kind==='vacuum'){if(t>=R.pump[1]) return; if(t>=R.pump[0]) suck=1;}
+  SPECK.forEach(p=>{
+    let x=p.x+0.03*Math.sin(t*0.7+p.ph),y=p.y+0.04*Math.sin(t*0.5+p.ph*1.7),z=p.z+0.03*Math.cos(t*0.6+p.ph);let a=0.45;
+    if(suck){const k=sm(R.pump[0]+0.2+p.d*1.8,R.pump[0]+1.4+p.d*1.8,t);x=lerp(x,0.72,k);y=lerp(y,0.12,k);z=lerp(z,0,k);a*=1-sm(0.75,1,k);}
+    if(a<=0.01) return;
+    const q=project(s,[x,y,z]),r=Math.max(2.5,22/q[2]);
+    c.save();c.globalAlpha=a;c.fillStyle='#ffffff';c.beginPath();c.arc(q[0],q[1],r,0,7);c.fill();
+    c.globalAlpha=a*0.5;c.strokeStyle='#8a96a3';c.lineWidth=1.5;c.stroke();c.restore();});
+}
+function objLabels(s,a){
+  if(a<=0)return;const n=CFG.names||['BOWLING BALL','FEATHER'];
+  const b=s.ball.p,f=s.feat.p,qb=project(s,[b[0],b[1]+BR+0.10,0]),qf=project(s,[f[0],f[1]+0.13,0]);
+  pill(n[0],qb[0],qb[1],30,OBJ_COL[0],a);pill(n[1],qf[0],qf[1],30,OBJ_COL[1],a);
+}
+function arrows(s,t){                                  // speed arrows: v = g t (free fall only)
+  const rt=s.rt;if(rt<=0.04) return;
+  const items=[[s.ball,0,s.ball.p,BR]];if(s.feat.v!=null) items.push([s.feat,1,s.feat.p,0.05]);
+  items.forEach(([o,j,p,rad])=>{
+    if(o.landed) return;
+    const A=project(s,[p[0],p[1]-rad-0.03,0]),B=project(s,[p[0],p[1]-rad-0.13,0]);
+    const len=Math.min(24+o.v*20,170);
+    c.save();c.strokeStyle=OBJ_COL[j];c.fillStyle=OBJ_COL[j];c.lineWidth=9;c.lineCap='round';
+    c.beginPath();c.moveTo(A[0],A[1]);c.lineTo(A[0],A[1]+len);c.stroke();
+    c.beginPath();c.moveTo(A[0],A[1]+len+22);c.lineTo(A[0]-15,A[1]+len);c.lineTo(A[0]+15,A[1]+len);c.closePath();c.fill();c.restore();
+    pill(fmt(o.v,1)+' m/s',A[0]+(j===0?-118:118),A[1]+len*0.5,28,OBJ_COL[j]);
+  });
+}
+function timers(s,t){
+  const D=s.D,n=CFG.names_short||['BALL','FEATHER'];
+  [[D.Tb,0],[D.Tf,1]].forEach(([T,j])=>{
+    const x=W/2+(j===0?-210:210),done=s.rt>=T;
+    c.save();c.fillStyle=OBJ_COL[j];c.beginPath();c.arc(x-fitW(n[j],26)/2-18,352,9,0,7);c.fill();c.restore();
+    ctxt(n[j],x+6,350,30,COL.sub);
+    if(j===1&&D.kind!=='vacuum'){                     // no feather number in air (illustrative motion)
+      ctxt(done?'LANDED':'still falling…',x,428,done?60:48,done?COL.ink:COL.red);return;}
+    const tt=Math.min(Math.max(s.rt,0),T);
+    ctxt(fmt(tt,2)+' s',x,428,74,done?COL.green:COL.ink);
+  });
+}
+function factLines(R){
+  const r=R.cfg,D=R.D,n=CFG.names_short||['BALL','FEATHER'];
+  const cap=w=>w.charAt(0)+w.slice(1).toLowerCase();
+  const first=D.kind==='vacuum'?cap(n[0])+' '+fmt(D.Tb,2)+' s · '+cap(n[1])+' '+fmt(D.Tf,2)+' s':cap(n[0])+' '+fmt(D.Tb,2)+' s · '+cap(n[1])+' much later';
+  return [first].concat(r.fact||[]);
+}
+
+function overlay(cfg,T,t,s){
+  const R=s.R, r=R.cfg;
+  { const gr=c.createLinearGradient(0,0,0,690);gr.addColorStop(0,'rgba(236,240,243,0.92)');gr.addColorStop(0.78,'rgba(236,240,243,0.80)');gr.addColorStop(1,'rgba(236,240,243,0)');
+    c.save();c.fillStyle=gr;c.fillRect(0,0,W,690);c.restore(); }
+  if(t>=T.hook[1]||cfg.hook_series!==false) ctxt(cfg.series,W/2,292,34,COL.sub,0.9);
+  drawHandle(c,cfg);
+  specks(s,t);
+  if(t<T.hook[1]){const a=1-fade(T.hook[1]-0.3,t,0.3),hn=cfg.hook.length;
+    cfg.hook.forEach((l,i)=>ctxt(l,W/2,390+i*90,fitText(l,960,82),hn>1&&i===hn-1?COL.red:COL.ink,a));
+    objLabels(s,a);return;}
+  if(t<T.hook[1]+0.18){c.save();c.globalAlpha=1-fade(T.hook[1],t,0.18);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
+  if(t<T.explain[0]){
+    const stampOn=t>=R.stampT;
+    arrows(s,t);
+    if(t<R.titleEnd+0.2){const a=1-fade(R.titleEnd-0.1,t,0.3),p=pop(R.start,t);c.save();c.translate(W/2,430);c.scale(p,p);ctxt(r.title,0,0,fitText(r.title,960,76),COL.ink,a);c.restore();}
+    else if(t<R.qStart){
+      if(R.pump&&t>=R.pump[0]){                          // pumping the air out: a gauge without numbers
+        const air=airAmount(s,t),a=fade(R.pump[0],t);
+        ctxt(r.pump_text||'Pumping the air out…',W/2,400,fitText(r.pump_text||'Pumping the air out…',960,54),COL.ink,a);
+        const bx=W/2-260,by=480;panel(bx,by,520,30,15,'rgba(29,33,38,0.15)',a);if(air>0.01) panel(bx,by,520*air,30,15,'#5b8fd9',a);
+        ctxt('AIR',bx-50,by+15,30,COL.sub,a);
+        if(air<=0.01) pill(r.vacuum_label||'VACUUM',W/2,575,34,COL.green,fade(R.pump[1]-0.4,t,0.2));
+      } else if(r.subtitle) ctxt(r.subtitle,W/2,430,fitText(r.subtitle,960,52),COL.ink,fade(R.titleEnd,t));}
+    else if(t<R.go){const a=fade(R.qStart,t)*(1-fade(R.go-0.15,t,0.15)),p=1+0.05*Math.sin((t-R.qStart)*Math.PI*4);
+      c.save();c.translate(W/2,415);c.scale(p,p);ctxt(r.question,0,0,fitText(r.question,960,104),COL.red,a);c.restore();
+      ctxt(r.question_sub,W/2,515,fitText(r.question_sub,900,40),COL.ink,a);
+      const n=Math.ceil(R.qEnd-t);if(n>=1&&n<=3&&t>R.qEnd-3) ctxt(String(n),W/2,590,56,COL.ink,a);}
+    else if(!stampOn){ timers(s,t); }
+    if(t<R.go&&t>=R.titleEnd) objLabels(s,fade(R.titleEnd,t)*(t>=R.qStart?1-fade(R.go-0.2,t,0.2):1));
+    if(s.replay){const a=fade(R.replayT0,t,0.15)*(1-fade(R.replayT1-0.15,t,0.15));
+      c.save();c.globalAlpha=a*0.9;c.fillStyle='#000';c.fillRect(0,640,W,16);c.fillRect(0,1424,W,16);c.restore();
+      pill((cfg.replay_label||'SLOW-MO')+' ×'+Math.round(1/SLOW),W/2,700,28,'rgba(224,48,63,0.92)',a);}
+    if(stampOn){
+      const k=clamp((t-R.stampT)/0.18,0,1),sc2=lerp(2.2,1,k*k)+(k>=1?0.05*Math.exp(-(t-R.stampT-0.18)*10)*Math.sin((t-R.stampT-0.18)*40):0);
+      const col=r.stamp.color==='green'?COL.green:COL.red;
+      c.save();c.translate(W/2,425);c.rotate(-0.08);c.scale(sc2,sc2);c.globalAlpha=Math.min(1,k*1.5);
+      c.strokeStyle=col;c.lineWidth=10;rrect(-300,-72,600,144,22);c.stroke();c.fillStyle='rgba(255,255,255,0.7)';rrect(-300,-72,600,144,22);c.fill();
+      const fs=fitText(r.stamp.text,540,84);c.font=`700 ${fs}px P, DJ`;c.textAlign='center';c.textBaseline='middle';c.fillStyle=col;c.fillText(r.stamp.text,0,5);c.restore();}
+    if(t>=R.factT){const a=fade(R.factT,t,0.3)*(1-fade(R.end-0.25,t));factLines(R).forEach((l,i)=>ctxt(l,W/2,555+i*50,fitText(l,980,38),COL.ink,a));}
+    if(t<R.start+0.3){c.save();c.globalAlpha=1-fade(R.start,t,0.3);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
+    return;}
+  if(t<T.explain[0]+0.3){c.save();c.globalAlpha=1-fade(T.explain[0],t,0.3);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
+  if(t<T.outro[0]){const e=cfg.explain,t0=T.explain[0];
+    ctxt(e.title,W/2,370,fitText(e.title,960,64),COL.ink,fade(t0,t));
+    e.lines.forEach((l,i)=>ctxt(l,W/2,450+i*58,fitText(l,960,42),i===e.lines.length-1?COL.green:COL.sub,fade(t0+0.8+i*2.0,t,0.3)));return;}
+  const t0=T.outro[0];
+  ctxt('SOURCE',W/2,345,28,COL.sub,fade(t0,t));
+  cfg.source.forEach((l,i)=>ctxt(l,W/2,395+i*48,fitText(l,980,32),COL.ink,fade(t0,t)));
+  if(t>=t0+1.4){const a=fade(t0+1.4,t,0.25),p=pop(t0+1.4,t);
+    c.save();c.translate(W/2,560);c.scale(p,p);panel(-380,-50,760,100,50,COL.brand,a);
+    c.font=`700 ${fitText(cfg.cta,700,42)}px P, DJ`;c.textAlign='center';c.textBaseline='middle';c.globalAlpha=a;c.fillStyle=COL.ink;c.fillText(cfg.cta,0,2);c.restore();}
+}
+
+// ---------------------------------------------------------------- API used by render.js
+let CFG=null,TL=null;
+window.setup=function(cfg){if(!LOGO){LOGO=makeLogoTexture();gl.uniform1i(gl.getUniformLocation(prog,'logo'),0);}CFG=cfg;DEC=cfg.decimal||'.';TL=buildTimeline(cfg);
+  const rounds=TL.rounds.map(R=>({title:R.cfg.title,times:[{name:'ball',T:+R.D.Tb.toFixed(4)},{name:'feather',T:+R.D.Tf.toFixed(4)}]}));
+  return {duration:TL.duration,events:TL.events,rounds};};
+function sceneTime(t){                                  // the hook: the vacuum drop in slow motion, cut before the impact
+  if(t<TL.hook[1]){const R=TL.rounds[TL.rounds.length-1];const rt=0.02+(t/TL.hook[1])*(R.D.Tb-0.10);return R.replayT0+(rt+0.1)/SLOW;}
+  return t;
+}
+window.renderFrame=function(t,type='image/jpeg'){drawFrame(t);return out.toDataURL(type,0.93);};
+function drawFrame(t){
+  const s=sceneState(TL,sceneTime(t));
+  gl.viewport(0,0,1080,1920);gl.uniform2f(U.R,1080,1920);
+  gl.uniform1f(U.camAng,s.camAng);gl.uniform1f(U.camDist,s.camDist);gl.uniform1f(U.camH,s.camH);gl.uniform1f(U.camTY,s.camTY);
+  gl.uniform2f(U.shake,s.shake[0],s.shake[1]);
+  gl.uniform3f(U.ballP,...s.ball.p);gl.uniform3f(U.featP,...s.feat.p);gl.uniformMatrix3fv(U.featM,false,new Float32Array(s.feat.M));
+  gl.uniform1f(U.jaw,s.jaw);
+  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,LOGO);
+  gl.drawArrays(gl.TRIANGLES,0,3);gl.finish();
+  c.imageSmoothingQuality='high';c.drawImage(document.getElementById('gl'),0,0,W,H);
+  overlay(CFG,TL,t,s);
+}
+window.ready=Promise.all([document.fonts.load('700 40px P'),document.fonts.load('700 40px DJ')]).then(()=>true);
+</script>
+</body></html>
