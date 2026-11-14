@@ -16,7 +16,7 @@ html,body{margin:0;background:#000}canvas{display:block}
 <script id="fs" type="x-shader/x-fragment">
 precision highp float;
 uniform vec2 R;
-uniform float camAng, camDist, camH, camTY;
+uniform float camAng, camDist, camH, camTY, camTX;
 uniform vec2 shake;
 uniform vec4 sa[40];       // segment start (xyz) + radius
 uniform vec3 sb[40];       // segment end
@@ -89,7 +89,7 @@ vec3 segB(int i){ for(int k=0;k<40;k++){ if(k==i) return sb[k]; } return vec3(0.
 
 vec3 shade(vec2 fc){
   vec2 uv=(2.0*fc-R)/R.y;
-  vec3 ta=vec3(0.0,camTY,0.0);
+  vec3 ta=vec3(camTX,camTY,0.0);
   vec3 ro=ta+vec3(sin(camAng)*camDist,camH,cos(camAng)*camDist);
   ro.xy+=shake; ta.xy+=shake*0.6;
   vec3 ww=normalize(ta-ro), uu=normalize(cross(ww,vec3(0,1,0))), vv=cross(uu,ww);
@@ -204,7 +204,7 @@ function rodState(R,phase){
       const D=Math.exp(-tau/0.55)*Math.cos(2*Math.PI*tau/0.42);
       // two straightened halves cannot both lie on the clamp line (the clamps are closer than L): they pass side by side
       const zs=kind==='twist'?0.05:0;
-      P2=pts.map((q,k)=>{const s=(a+k)/NS;const straight=left?[XL+s*L,Y0,-zs*s/0.5]:[xR-(1-s)*L,Y0,zs*(1-s)/0.5];
+      P2=pts.map((q,k)=>{const s=(a+k)/NS;const ys=kind==='twist'?0.10:0;const straight=left?[XL+s*L,Y0+ys*s/0.5,-zs*s/0.5]:[xR-(1-s)*L,Y0-ys*(1-s)/0.5,zs*(1-s)/0.5];
         return [lerp(straight[0],q[0],D),lerp(straight[1],q[1],D),lerp(straight[2],0,D)];});
     } else {                                                      // free piece: flies off, spins, lands on the bench
       const c0=pts.reduce((m,q)=>[m[0]+q[0]/pts.length,m[1]+q[1]/pts.length,0],[0,0,0]);
@@ -293,15 +293,15 @@ function sceneState(T,t){
   const lt=t-R.start;
   if(!inExplain){
     if(t<R.showEnd){const k=sm(R.start,R.showEnd,t);cam={ang:lerp(0.45,0.22,k),dist:lerp(2.6,3.4,k),h:0.30,ty:lerp(0.95,0.85,k)};}
-    else if(R.twist&&t<R.twist[1]){cam={ang:lerp(-0.55,-0.45,sm(R.twist[0],R.twist[1],t)),dist:1.7,h:0.16,ty:0.95};}
-    else if(t<R.qEnd){const k=sm(R.qStart,R.qEnd-0.3,t),f=R.twist?{ang:-0.45,dist:1.7,h:0.16,ty:0.95}:{ang:0.22,dist:3.4,h:0.30,ty:0.85};
-      cam={ang:lerp(f.ang,wide.ang,k),dist:lerp(f.dist,wide.dist,k),h:lerp(f.h,wide.h,k),ty:lerp(f.ty,wide.ty,k)};}
+    else if(R.twist&&t<R.twist[1]){cam={ang:lerp(0.55,0.45,sm(R.twist[0],R.twist[1],t)),dist:1.25,h:0.12,ty:0.93,tx:-0.38};}
+    else if(t<R.qEnd){const k=sm(R.qStart,R.qEnd-0.3,t),f=R.twist?{ang:0.45,dist:1.25,h:0.12,ty:0.93,tx:-0.38}:{ang:0.22,dist:3.4,h:0.30,ty:0.85,tx:0};
+      cam={ang:lerp(f.ang,wide.ang,k),dist:lerp(f.dist,wide.dist,k),h:lerp(f.h,wide.h,k),ty:lerp(f.ty,wide.ty,k),tx:lerp(f.tx,0,k)};}
     else if(t<R.bend[1]){cam={...wide};cam.dist-=0.35*sm(R.bend[0],R.bend[1],t);}
     if(s.replay){const k=t-R.replayT0;cam={ang:0.10+0.015*k,dist:2.55-0.03*k,h:0.10,ty:0.98};}
-    if(t>=R.replayT1&&!outro){const k=sm(R.replayT1,R.replayT1+1.2,t);cam={ang:lerp(0.115,0.25,k),dist:lerp(2.37,3.3,k),h:lerp(0.10,0.55,k),ty:lerp(0.98,0.72,k)};}
+    if(t>=R.replayT1&&!outro){const k=sm(R.replayT1,R.replayT1+1.2,t);cam={ang:lerp(0.115,0.12,k),dist:lerp(2.37,3.9,k),h:lerp(0.10,0.55,k),ty:lerp(0.98,0.75,k),tx:lerp(0,-0.05,k)};}
     if(t>=R.breakT&&t<R.breakT+0.3){const d=0.012*Math.exp(-(t-R.breakT)*14);s.shake=[d*Math.sin(t*170),d*Math.cos(t*150)];}
   } else {const k=t-T.explain[0];cam={ang:0.10+0.05*Math.sin(k*0.3),dist:2.9,h:0.25,ty:0.95};}
-  Object.assign(s,{camAng:cam.ang,camDist:cam.dist,camH:cam.h,camTY:cam.ty});
+  Object.assign(s,{camAng:cam.ang,camDist:cam.dist,camH:cam.h,camTY:cam.ty,camTX:cam.tx||0});
   return s;
 }
 
@@ -315,10 +315,10 @@ gl.linkProgram(prog);if(!gl.getProgramParameter(prog,gl.LINK_STATUS))throw new E
 const buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
 let LOGO=null;
 const al=gl.getAttribLocation(prog,'a');gl.enableVertexAttribArray(al);gl.vertexAttribPointer(al,2,gl.FLOAT,false,0,0);
-const U={};['R','camAng','camDist','camH','camTY','shake','sa','sb','tw','nseg','rodB','clampX','clampRot'].forEach(n=>U[n]=gl.getUniformLocation(prog,n));
+const U={};['R','camAng','camDist','camH','camTY','camTX','shake','sa','sb','tw','nseg','rodB','clampX','clampRot'].forEach(n=>U[n]=gl.getUniformLocation(prog,n));
 
 function project(s,p){
-  const ta=[0,s.camTY,0], ro=[ta[0]+Math.sin(s.camAng)*s.camDist,ta[1]+s.camH,ta[2]+Math.cos(s.camAng)*s.camDist];
+  const ta=[s.camTX||0,s.camTY,0], ro=[ta[0]+Math.sin(s.camAng)*s.camDist,ta[1]+s.camH,ta[2]+Math.cos(s.camAng)*s.camDist];
   const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
   const nrm=a=>{const l=Math.hypot(...a);return a.map(v=>v/l);},cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
   const ww=nrm(sub(ta,ro)),uu=nrm(cross(ww,[0,1,0])),vv=cross(uu,ww),d=sub(p,ro);
@@ -412,7 +412,7 @@ window.renderFrame=function(t,type='image/jpeg'){drawFrame(t);return out.toDataU
 function drawFrame(t){
   const s=sceneState(TL,sceneTime(t));
   gl.viewport(0,0,1080,1920);gl.uniform2f(U.R,1080,1920);
-  gl.uniform1f(U.camAng,s.camAng);gl.uniform1f(U.camDist,s.camDist);gl.uniform1f(U.camH,s.camH);gl.uniform1f(U.camTY,s.camTY);
+  gl.uniform1f(U.camAng,s.camAng);gl.uniform1f(U.camDist,s.camDist);gl.uniform1f(U.camH,s.camH);gl.uniform1f(U.camTY,s.camTY);gl.uniform1f(U.camTX,s.camTX||0);
   gl.uniform2f(U.shake,s.shake[0],s.shake[1]);
   const A=new Float32Array(160),B=new Float32Array(120),TW=new Float32Array(80);
   let mn=[9,9,9],mx=[-9,-9,-9];
