@@ -20,7 +20,7 @@ Chaîne YouTube/TikTok **Breakpoint Lab**, handle **@BreakpointLabTV**. Séries 
 ## Procédure « fais une vidéo »
 Liste des sujets : Google Sheet « Breakpoint Lab – 100 Experiments » (id `1hl-jYG9e2N5L2_xycGPkE_SprXOnQWE8BR-vbNOqrkk`), onglet `Experiments`, lignes 2–101. Colonnes : D réponse, K série, L moteur, M source, N statut, O Pick, P note, Q lien source, R lien vidéo.
 
-1. **Choisir** : lire `Experiments!A1:R101` (et les lignes ajoutées après 101). Écarter les statuts `Done`, `In progress`, `Needs test data`, `Suggested`. Parmi `Verified` et `Corrected`, prendre d'abord les lignes Pick = TRUE, puis le score J le plus haut. Si l'utilisateur nomme un sujet, prendre celui-là.
+1. **Choisir** : lire `Experiments!A1:R101` (et les lignes ajoutées après 101). Écarter les statuts `Done`, `In progress`, `Needs test data`, `Suggested`. Parmi `Verified` et `Corrected`, prendre d'abord les lignes Pick = TRUE, puis le score J le plus haut ; à score égal, le plus petit numéro (colonne A, ordre croissant). Si l'utilisateur nomme un sujet, prendre celui-là.
 
 ### Sujet proposé par un abonné (commentaire)
 Le commentaire épinglé promet : « Most liked comment = next experiment ». Quand l'utilisateur transmet une proposition :
