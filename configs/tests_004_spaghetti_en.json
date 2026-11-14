@@ -1,0 +1,56 @@
+{
+  "id": "tests-004-spaghetti-en",
+  "engine": "snap",
+  "series": "QUALITY CONTROL · TEST 004",
+  "handle": "@BreakpointLabTV",
+  "hook": ["Can spaghetti break in two?"],
+  "hook_series": false,
+  "replay_label": "ULTRA SLOW-MO",
+  "rounds": [
+    {
+      "title": "ROUND 1 · JUST BEND IT",
+      "kind": "bend",
+      "subtitle": "Dry spaghetti · both ends clamped",
+      "question": "How many pieces?",
+      "question_sub": "2, 3 or MORE? ↓",
+      "bend_label": "BENDING…",
+      "snap_text": "SNAP!",
+      "stamp": {"text": "NEVER IN TWO", "color": "red"},
+      "fact": ["Bent alone: 3 pieces or more", "The first snap sends a wave"]
+    },
+    {
+      "title": "ROUND 2 · TWIST IT FIRST",
+      "kind": "twist",
+      "twist_deg": 270,
+      "twist_text": "Twist it first",
+      "question": "Now how many pieces?",
+      "question_sub": "2, 3 or MORE? ↓",
+      "bend_label": "BENDING…",
+      "snap_text": "SNAP!",
+      "stamp": {"text": "CLEAN IN TWO", "color": "green"},
+      "fact": ["Twisted about 270°: 2 pieces", "MIT, PNAS 2018"]
+    }
+  ],
+  "explain": {
+    "title": "WHY?",
+    "lines": ["Bending stores energy", "The snap sends a bending wave", "The wave breaks it again", "Twisting lets energy escape"]
+  },
+  "source": [
+    "Audoly & Neukirch, Phys. Rev. Lett. (2005)",
+    "Heisser et al., PNAS (2018), MIT",
+    "Simulated: break pattern from these studies"
+  ],
+  "cta": "NEXT TEST? Comment ↓",
+  "caption": "Try it: you can't snap dry spaghetti in two. 🍝 Bend it and it breaks into 3 pieces or more. Twist it about 270° first and it breaks cleanly in two. What should we test next? 👇 #spaghetti #physics #science #mit #satisfying #mythbusting #3danimation",
+  "description": [
+    "Can you break a dry spaghetti into exactly two pieces? We clamp both ends and bend it until it snaps. Then we do it again, but twist it first.",
+    "Bent on its own, the spaghetti almost never breaks in two: it breaks into three pieces or more. When the first crack opens, the two halves suddenly spring back, and that sends a bending wave along each half. The wave bends the stick even more for an instant and breaks it again. Basile Audoly and Sébastien Neukirch explained this in 2005; Richard Feynman had spent an evening breaking pasta without finding the answer.",
+    "In 2018 an MIT team built a machine that clamps a spaghetti at both ends, twists it, then bends it, filmed at up to a million frames per second. Twisted by about 270 degrees first, the spaghetti breaks cleanly into two pieces: part of the stored energy escapes as a twisting wave, which leaves too little for a second break.",
+    "The animation is a simulation. The number of pieces follows these studies; the motion is slowed down enormously so you can see it."
+  ],
+  "sources_detail": [
+    "B. Audoly and S. Neukirch, 'Fragmentation of rods by cascading cracks: why spaghetti does not break in half', Physical Review Letters 95, 095505 (2005).",
+    "R. Heisser, V. Patil, N. Stoop, E. Villermaux, J. Dunkel, 'Controlling fracture cascades through twisting and quenching', PNAS 115 (2018). MIT News (13 Aug 2018): bending alone usually gives three or more fragments; model predicts about 270 degrees of twist to break a stick in two (experiments used almost 360 degrees); clamps at both ends, one rotates, one slides to bend; cameras up to a million frames per second.",
+    "Simulated: 3 pieces when bent alone, 2 pieces when twisted 270 degrees first; motion illustrative and slowed down."
+  ]
+}
