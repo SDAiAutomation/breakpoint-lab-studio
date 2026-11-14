@@ -1,0 +1,94 @@
+{
+  "id": "tests-010-lego-brick-en",
+  "series": "QUALITY CONTROL · TEST 004",
+  "decimal": ".",
+  "handle": "@BreakpointLabTV",
+  "hook": ["One Lego brick: how much weight?"],
+  "hook_series": false,
+  "teaser_label": "",
+  "hook_round": 0,
+  "replay_label": "SLOW-MO",
+  "rounds": [
+    {
+      "title": "ROUND 1 · ONE BRICK",
+      "kind": "compression",
+      "specimen": "brick",
+      "material": "plastic",
+      "label": "LOAD",
+      "unit": "kg",
+      "decimals": 0,
+      "gauge_max": 500,
+      "steps": [20, 80, 200],
+      "question_value": 300,
+      "question": "300 kg?",
+      "question_sub": "YES or NO ↓",
+      "break_value": 432,
+      "threshold": {"value": 80, "label": "80 kg"},
+      "stamp": {"text": "432 kg", "color": "green"},
+      "result_chip": "432 kg",
+      "fact": ["4,240 N on one 2×2 brick", "Open University test for the BBC"]
+    },
+    {
+      "title": "ROUND 2 · FOUR BRICKS",
+      "kind": "compression",
+      "specimen": "brick4",
+      "material": "plastic",
+      "label": "LOAD",
+      "unit": "t",
+      "decimals": 2,
+      "gauge_max": 2.2,
+      "steps": [0.4, 0.8, 1.2],
+      "question_value": 2,
+      "question": "2 tonnes?",
+      "question_sub": "YES or NO ↓",
+      "break_value": 1.728,
+      "threshold": {"value": 1, "label": "1 t"},
+      "stamp": {"text": "1.73 t", "color": "red"},
+      "result_chip": "1.73 t",
+      "fact": ["4 × 432 kg ≈ 1.73 t", "Only if the load is shared"]
+    },
+    {
+      "title": "ROUND 3 · THE TOWER",
+      "kind": "compression",
+      "specimen": "brick",
+      "material": "plastic",
+      "label": "BRICKS STACKED ON TOP",
+      "unit": "",
+      "group": true,
+      "decimals": 0,
+      "gauge_max": 420000,
+      "steps": [10000, 100000, 250000],
+      "question_value": 400000,
+      "question": "400,000 bricks?",
+      "question_sub": "YES or NO ↓",
+      "break_value": 375000,
+      "threshold": null,
+      "stamp": {"text": "375,000", "color": "red"},
+      "result_chip": "375,000",
+      "fact": ["A tower 3.5 km tall", "Then the bottom brick breaks"]
+    }
+  ],
+  "explain": {
+    "scene": "brick_tower",
+    "title": "WHY SO STRONG?",
+    "lines": ["Hard ABS plastic, solid walls", "375,000 bricks ≈ 3.5 km tall", "Only then the bottom breaks"]
+  },
+  "source": [
+    "Open University test for the BBC (2012)",
+    "Simulated: 432 kg per brick, 4 bricks share evenly"
+  ],
+  "cta": "NEXT TEST? Comment ↓",
+  "caption": "How much weight can ONE Lego brick hold? 🧱 432 kg. Four bricks: 1.73 tonnes. You could stack 375,000 bricks before the bottom one breaks. What should we test next? 👇 #lego #physics #science #engineering #satisfying #mythbusting #3danimation",
+  "description": [
+    "How much can a single 2x2 Lego brick take? We put one brick under a press, then four bricks side by side, and finally ask how many bricks you could stack on top of one before it gives way.",
+    "In a test for the BBC in 2012, a team at the Open University crushed standard 2x2 bricks with a hydraulic press. On average a brick held 4,240 N, about 432 kg, before the ABS plastic failed.",
+    "Four bricks sharing the load evenly would take about 4 x 432 kg = 1.73 tonnes. That only works if every brick carries exactly the same share: in real life, the brick that sits slightly higher breaks first.",
+    "Turned into a tower: the team worked out that you would need about 375,000 bricks stacked on top of each other, a tower about 3.5 km tall, before the weight crushes the bottom brick.",
+    "The animation is a simulation using the average crush load from the test, multiplied by the number of bricks."
+  ],
+  "sources_detail": [
+    "Open University team for BBC News, December 2012: 2x2 bricks crushed with a hydraulic ram; average failure load 4,240 N (about 432 kg); tower of about 375,000 bricks, about 3.5 km, before the bottom brick fails. Reported by Smithsonian Magazine and The Brothers Brick (5 Dec 2012).",
+    "4,240 N / 9.81 = 432 kg.",
+    "Four bricks: 4 x 432 kg = 1,728 kg = 1.73 t. Assumes the load is shared equally."
+  ]
+}

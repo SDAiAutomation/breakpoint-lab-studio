@@ -14,7 +14,7 @@ html,body{margin:0;background:#000}canvas{display:block}
 precision highp float;
 uniform vec2 R;
 uniform float mode;      // 0 compression, 1 traction, 2 showcase, 3 drop test
-uniform float spec;      // 0 egg side, 1 egg up, 2 cube, 3 prism, 4 egg tray
+uniform float spec;      // 0 egg side, 1 egg up, 2 cube, 3 prism, 4 egg tray, 5 toy brick 2x2, 6 four bricks
 uniform float trayRows;  // egg tray: 2 rows (12 eggs) or 4 rows (24 eggs), 6 per row
 uniform float plateY, jawY, snap, squash, crackAmt, broken, tb, camAng, camDist, camH, eggOff;
 uniform vec2 shake;
@@ -76,6 +76,26 @@ vec2 tray(vec3 p, float sq, float brk, float t){
   return res;
 }
 
+const float BKW=0.253, BKH=0.154, STR=0.077, STH=0.027, STO=0.128;   // 2x2 toy brick at 32x scale
+float brickBody(vec3 q, float sq, float brk){              // q relative to the brick's base centre
+  if(brk<0.5){
+    float hb=BKH*sq;
+    float d=sdRoundBox(q-vec3(0.0,hb,0.0),vec3(BKW-0.004,hb-0.004,BKW-0.004),0.004);
+    vec3 s=q; s.xz=abs(s.xz)-STO;
+    d=min(d,sdCylY(s-vec3(0.0,2.0*hb+STH,0.0),STH-0.003,STR-0.003)-0.003);
+    return d;
+  }
+  // crushed: lower, walls bulged and split, studs pushed flat
+  float hb=BKH*0.62;
+  vec3 r=q-vec3(0.0,hb,0.0);
+  float bulge=1.0+0.07*(1.0-pow(abs(r.y)/hb,2.0));
+  float d=sdRoundBox(vec3(r.x/bulge,r.y,r.z/bulge),vec3(BKW-0.004,hb-0.004,BKW-0.004),0.006)*0.9;
+  float a=atan(r.z,r.x);
+  d+=0.005*(hash3(floor(q*45.0))-0.5)+0.008*smoothstep(0.92,1.0,sin(a*5.0+1.3))*step(abs(r.y),hb*0.9);
+  vec3 s=q; s.xz=abs(s.xz)-STO;
+  d=min(d,sdCylY(s-vec3(0.0,2.0*hb+0.005,0.0),0.005,STR+0.01));
+  return d;
+}
 vec2 specimen(vec3 p){
   vec2 res=vec2(1e5,0.0);
   if(spec<0.5){                     // egg on its side
@@ -123,6 +143,11 @@ vec2 specimen(vec3 p){
     }
   } else if(spec<4.5){              // egg tray
     res=tray(p,squash,broken,tb);
+  } else if(spec<5.5){              // one 2x2 toy brick
+    res=vec2(brickBody(p-vec3(eggOff,0.42,0.0),squash,broken),15.0);
+  } else {                          // four bricks side by side, sharing the platen
+    vec3 q=p-vec3(eggOff,0.42,0.0); q.xz=abs(q.xz)-0.273;
+    res=vec2(brickBody(q,squash,broken),15.0);
   }
   return res;
 }
@@ -143,7 +168,7 @@ vec2 map(vec3 p){
     res=opU(res,vec2(sdEll(b,vec3(b.x>0.0?0.31:0.255,0.2,0.2)),7.0));
     if(leak>0.0) res=opU(res,vec2(sdEll(p-vec3(-0.36,0.425,0.13),vec3(0.05+0.17*leak,0.011,0.04+0.13*leak)),9.0));
   } else if(mode<1.5){
-    vec3 pw=spec>3.5?vec3(0.66,0.04,0.46):vec3(0.43,0.04,0.33);
+    vec3 pw=spec>5.5?vec3(0.64,0.04,0.62):(spec>3.5&&spec<4.5?vec3(0.66,0.04,0.46):vec3(0.43,0.04,0.33));
     res=opU(res,vec2(sdRoundBox(p-vec3(0,0.36,0),pw,0.02),3.0));
     vec3 q=p; q.x=abs(q.x)-0.85;
     res=opU(res,vec2(sdCylY(q-vec3(0,1.08,0),0.78,0.06),4.0));
@@ -151,7 +176,7 @@ vec2 map(vec3 p){
     if(mode<0.5){
       float rodTop=1.74, rodBot=plateY+0.1;
       res=opU(res,vec2(sdCylY(p-vec3(0,(rodTop+rodBot)*0.5,0),(rodTop-rodBot)*0.5,0.085),4.0));
-      res=opU(res,vec2(sdRoundBox(p-vec3(0,plateY+0.05,0),spec>3.5?vec3(0.64,0.035,0.44):vec3(0.42,0.035,0.32),0.015),6.0));
+      res=opU(res,vec2(sdRoundBox(p-vec3(0,plateY+0.05,0),spec>5.5?vec3(0.62,0.035,0.6):(spec>3.5&&spec<4.5?vec3(0.64,0.035,0.44):vec3(0.42,0.035,0.32)),0.015),6.0));
     } else {
       // grips: lower fixed on the platen, upper on the rod
       vec3 g=p-vec3(0,0.52,0); g.x=abs(g.x);
@@ -169,6 +194,14 @@ vec2 map(vec3 p){
     vec2 s=specimen(p);
     if(mode>0.5) { if(spec>2.5){ s.x=max(s.x,-sdRoundBox(p-vec3(0,0.52,0),vec3(0.2,0.09,0.2),0.015)); } }
     res=opU(res,s);
+  } else if(spec<-4.5){
+    // showcase: a tower of 2x2 bricks on the bench, going up out of frame
+    float y=p.y-0.30;
+    float k=clamp(floor(y/(2.0*BKH)),0.0,1e4);   // studs nest into the brick above
+    vec3 q=vec3(p.x,y-k*2.0*BKH,p.z);
+    float d=brickBody(q,1.0,0.0);
+    if(k>0.5) d=min(d,brickBody(q+vec3(0.0,2.0*BKH,0.0),1.0,0.0));
+    res=opU(res,vec2(y<0.0?1e5:d,15.0));
   } else if(spec<-3.5){
     // showcase: the full tray of eggs on the bench
     res=opU(res,tray(p+vec3(0.0,0.12,0.0),1.0,0.0,0.0));
@@ -195,8 +228,8 @@ vec2 map(vec3 p){
       if(float(i)>=fcount) break;
       vec3 l=p-fpos[i]; l.xy=rot(fang[i].x)*l.xy; l.xz=rot(fang[i].y)*l.xz;
       float sz=(fconcrete>0.5?0.045:0.05)+0.035*hash(float(i)*9.1);
-      float d=fconcrete>0.5 ? sdRoundBox(l,vec3(sz,sz*0.7,sz*0.85),0.012) : sdEll(l,vec3(sz,0.018,sz*0.8));
-      res=opU(res,vec2(d,fconcrete>0.5?12.0:10.0));
+      float d=fconcrete>1.5 ? sdRoundBox(l,vec3(sz*0.55,sz*0.22,sz*0.4),0.005) : (fconcrete>0.5 ? sdRoundBox(l,vec3(sz,sz*0.7,sz*0.85),0.012) : sdEll(l,vec3(sz,0.018,sz*0.8)));
+      res=opU(res,vec2(d,fconcrete>1.5?16.0:(fconcrete>0.5?12.0:10.0)));
     }
   }
   return res;
@@ -319,6 +352,17 @@ vec3 shade(vec2 fc){
       }
       else if(m<13.5){ alb=vec3(0.36,0.33,0.31); spec_=0.9; gloss=50.0; refl=0.3;     // rebar: ribbed steel
              float rib=step(0.6,fract(p.x*55.0)); alb*=0.85+0.25*rib; }
+      else if(m>14.5){                                   // toy brick: glossy ABS (red), shards a little paler inside
+        alb=vec3(0.80,0.06,0.07); spec_=1.1; gloss=90.0; refl=0.12;
+        if(abs(spec)>5.5||spec<-4.5){ float id=spec<-4.5?floor((p.y-0.30)/0.308):dot(step(0.0,p.xz),vec2(1.0,2.0));
+          float hc=hash(id*3.1+0.7); alb=hc<0.3?vec3(0.80,0.06,0.07):(hc<0.55?vec3(0.95,0.75,0.05):(hc<0.8?vec3(0.05,0.30,0.70):vec3(0.95,0.95,0.93))); }
+        if(m>15.5) alb=mix(alb,vec3(0.95,0.85,0.85),0.25);
+        if(spec>4.5 && crackAmt>0.0){
+          alb=mix(alb,vec3(0.95,0.78,0.78),0.30*smoothstep(0.4,1.0,crackAmt)*(0.6+0.4*hash3(floor(p*30.0))));   // ABS stress-whitening
+          float sp=abs(fract(atan(p.z-0.0,p.x-eggOff)*0.796+0.1)-0.5);
+          if(sp<0.006+0.01*crackAmt && crackAmt>0.6) alb*=0.35;
+        }
+      }
       else { alb=vec3(0.70,0.66,0.60)*(0.93+0.07*hash3(floor(p*220.0)))*(0.97+0.03*hash3(floor(p*45.0))); spec_=0.03; gloss=6.0; }  // moulded pulp carton
       float amb=0.55+0.45*n.y;
       vec3 lin=1.25*dif*vec3(1.0,0.96,0.90)+0.62*amb*ao*vec3(0.88,0.92,0.98)+0.38*clamp(dot(n,normalize(vec3(0.55,0.25,0.8))),0.0,1.0)*ao;
@@ -343,7 +387,7 @@ void main(){
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const sm=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);};
 const lerp=(a,b,t)=>a+(b-a)*t;
-const SPEC={egg_side:0,egg_up:1,cube:2,prism:3,egg_tray:4};
+const SPEC={egg_side:0,egg_up:1,cube:2,prism:3,egg_tray:4,brick:5,brick4:6};
 
 // ---------------------------------------------------------------- timeline
 // Every duration lives here; qc/audio.py reads the exported events, so sound stays in sync.
@@ -419,6 +463,9 @@ function frags(tb,specName,mode){
   if(specName==='egg_up'||specName==='egg_side'){n=14;vS=1.3;vyS=1.15;}
   if(specName==='egg_up'){y0=0.7;}
   if(specName==='egg_tray'){n=14;y0=0.5;vS=0.9;vyS=0.12;r0=0.6;}   // squeezed out sideways, under the plate
+  let plastic=false;
+  if(specName==='brick'){n=10;y0=0.56;vS=1.3;vyS=0.7;r0=0.27;plastic=true;}
+  if(specName==='brick4'){n=14;y0=0.56;vS=1.3;vyS=0.6;r0=0.55;plastic=true;}
   for(let i=0;i<14;i++){
     if(i>=n){P.push(0,-10,0);A.push(0,0);continue;}
     const h=hash(i+1),h2=hash(i*3.7+2),a=i*2.39996+h*0.6;
@@ -429,9 +476,9 @@ function frags(tb,specName,mode){
     const sl=Math.max(tb-tl,0),k2=v*0.12*(1-Math.exp(-sl*6));x+=dx*k2;z+=dz*k2;
     const an=(3+h*8)*t;P.push(x,y,z);A.push(an,an*0.7);
   }
-  return {P,A,n,conc};
+  return {P,A,n,conc,plastic};
 }
-const CONTACT={egg_side:0.82,egg_up:0.98,cube:0.86,egg_tray:0.685};
+const CONTACT={egg_side:0.82,egg_up:0.98,cube:0.86,egg_tray:0.685,brick:0.766,brick4:0.766};
 function sceneState(T,t){
   let R=T.rounds[0];
   for(const r of T.rounds) if(t>=r.start) R=r;
@@ -460,10 +507,10 @@ function sceneState(T,t){
   const broken=t>=R.breakT; s.broken=broken?1:0; s.tb=Math.max(0,t-R.breakT);
   if(kind==='compression'){
     const c=CONTACT[spec];
-    s.squash=1-(spec==='cube'?0.012:0.025)*frac;
+    s.squash=1-(spec==='cube'?0.012:(spec.startsWith('brick')?0.03:0.025))*frac;
     const rest=0.42+(c-0.42)*s.squash;
     s.plateY=t<R.titleEnd?1.32:(t<R.approachEnd?lerp(1.32,rest,sm(R.titleEnd,R.approachEnd,t)):rest);
-    if(broken){const k=sm(0,0.12,s.tb);const low=spec==='cube'?0.42+2*CUBE*0.97*s.squash:(spec==='egg_tray'?0.505:0.465);s.plateY=lerp(rest,low,k)+0.012*Math.exp(-s.tb*9)*Math.sin(s.tb*40)*k;}
+    if(broken){const k=sm(0,0.12,s.tb);const low=spec==='cube'?0.42+2*CUBE*0.97*s.squash:(spec==='egg_tray'?0.505:(spec.startsWith('brick')?0.42+2*0.154*0.62+0.010-0.015:0.465));s.plateY=lerp(rest,low,k)+0.012*Math.exp(-s.tb*9)*Math.sin(s.tb*40)*k;}
   } else {
     s.jawY=t<R.titleEnd?0.12:(t<R.approachEnd?lerp(0.12,0,sm(R.titleEnd,R.approachEnd,t)):0)+0.004*frac;
     if(broken){s.snap=0.075*(1-Math.exp(-s.tb*18));}
@@ -481,13 +528,15 @@ function sceneState(T,t){
   s.camH=0.75;s.camTY=1.48;
   if(spec.startsWith('egg')){s.camDist-=0.9;s.camTY=1.32;s.camH=0.6;}
   if(spec==='egg_tray'){s.camDist+=0.45;s.camTY=1.45;s.camH=0.7;}
-  if(replay){const k=tReal-R.replayT0;s.camAng=0.95+0.10*k+(R.i%2?-0.45:0);s.camDist=2.9-0.08*k;s.camH=0.08;s.camTY=kind==='traction'?0.98:(spec==='egg_up'?0.7:0.62);if(spec==='egg_tray'){s.camDist=3.1-0.08*k;s.camH=0.25;s.camTY=0.6;}s.shake=[s.shake[0]*0.5,s.shake[1]*0.5];}
+  if(spec.startsWith('brick')){s.camDist-=(spec==='brick4'?0.6:1.0);s.camTY=1.2;s.camH=0.45;}
+  if(replay){const k=tReal-R.replayT0;s.camAng=0.95+0.10*k+(R.i%2?-0.45:0);s.camDist=2.9-0.08*k;s.camH=0.08;s.camTY=kind==='traction'?0.98:(spec==='egg_up'?0.7:0.62);if(spec==='egg_tray'){s.camDist=3.1-0.08*k;s.camH=0.25;s.camTY=0.6;}if(spec.startsWith('brick')){s.camDist=(spec==='brick4'?3.0:2.5)-0.08*k;s.camH=0.15;s.camTY=0.66;}s.shake=[s.shake[0]*0.5,s.shake[1]*0.5];}
   s.replay=replay;
   if(showcase||outro){
     const lt2=t-T.explain[0];
     s.mode=2;s.spec=-1;s.broken=0;s.frag=null;s.shake=[0,0];s.crackAmt=0;s.dropH=0;s.trap=0;s.dropL=0;s.dropR=0;s.dcrack=0;s.leak=0;s.rockR=0;
     s.camAng=0.5+0.35*Math.sin(lt2*0.18);s.camDist=lerp(3.6,3.2,sm(0,15,lt2));s.camH=1.0;s.camTY=1.25;
     if(CFG.explain&&CFG.explain.scene==='egg_tray'){s.spec=-4;s.trayRows=4;s.squash=1;s.eggOff=0;s.camAng=0.55+0.3*Math.sin(lt2*0.2);s.camDist=lerp(2.9,2.5,sm(0,15,lt2));s.camH=1.0;s.camTY=0.62;}
+    if(CFG.explain&&CFG.explain.scene==='brick_tower'){s.spec=-5;s.camAng=0.45+0.12*Math.sin(lt2*0.25);s.camDist=3.4;s.camTY=lerp(1.0,4.2,sm(0,T.explain[1]-T.explain[0],lt2));s.camH=-0.55;}
     if(CFG.explain&&CFG.explain.scene==='egg_pair'){s.spec=-2;s.camAng=0.25*Math.sin(lt2*0.2);s.camDist=lerp(3.5,3.2,sm(0,15,lt2));s.camH=0.6;s.camTY=1.12;}
   }
   s.R=R;s.L=L;return s;
@@ -565,7 +614,7 @@ function overlay(cfg,T,t,s){
       const sc=broke?pop(R.breakT,t):1;
       const vcol=broke?(r.stamp.color==='green'?COL.green:COL.red):(s.L>=r.steps[r.steps.length-1]-1e-6?'#E38A12':COL.ink);
       ctxt(r.label,W/2,350,30,COL.sub);
-      c.save();c.translate(W/2,430);c.scale(sc,sc);ctxt(fmt(s.L,r.decimals)+' '+r.unit,0,0,130,vcol);c.restore();
+      c.save();c.translate(W/2,430);c.scale(sc,sc);{const vs=(r.group?Math.round(s.L).toLocaleString('en-US'):fmt(s.L,r.decimals))+(r.unit?' '+r.unit:'');ctxt(vs,0,0,fitText(vs,960,130),vcol);}c.restore();
       const gx=W/2-300,gy=508,gw=600,gh=12,f=clamp(s.L/r.gauge_max,0,1);
       panel(gx,gy,gw,gh,6,'rgba(29,33,38,0.15)');
       const grd=c.createLinearGradient(gx,0,gx+gw,0);grd.addColorStop(0,'#2BB673');grd.addColorStop(0.55,'#F2B21A');grd.addColorStop(0.85,'#E0303F');
@@ -573,7 +622,7 @@ function overlay(cfg,T,t,s){
       if(r.threshold){const x=gx+gw*r.threshold.value/r.gauge_max;c.save();c.fillStyle=COL.ink;c.fillRect(x-2,gy-8,4,gh+16);c.restore();}
       // last step passed: a small tick under the gauge
       const passed=R.steps.filter(q=>t>=q[1]);
-      if(passed.length&&!broke){const q=passed[passed.length-1];ctxt('✓ '+fmt(q[0],q[0]%1?1:0)+' '+r.unit,W/2,560,34,COL.green,fade(q[1],t,0.2)*(1-fade(q[1]+1.0,t,0.3)));}
+      if(passed.length&&!broke){const q=passed[passed.length-1];ctxt('✓ '+(r.group?q[0].toLocaleString('en-US'):fmt(q[0],q[0]%1?1:0))+(r.unit?' '+r.unit:''),W/2,560,34,COL.green,fade(q[1],t,0.2)*(1-fade(q[1]+1.0,t,0.3)));}
     }
     if(s.replay){const a=fade(R.replayT0,t,0.15)*(1-fade(R.replayT1-0.15,t,0.15));
       c.save();c.globalAlpha=a*0.9;c.fillStyle='#000';c.fillRect(0,600,W,18);c.fillRect(0,1422,W,18);c.restore();
@@ -654,7 +703,7 @@ function drawFrame(t){
   gl.uniform2f(U.shake,s.shake[0],s.shake[1]);
   const fr=s.frag||{P:new Array(42).fill(-10),A:new Array(28).fill(0),n:0,conc:false};
   gl.uniform3fv(U.fpos,new Float32Array(fr.P));gl.uniform2fv(U.fang,new Float32Array(fr.A));
-  gl.uniform1f(U.fcount,fr.n);gl.uniform1f(U.fconcrete,fr.conc?1:0);
+  gl.uniform1f(U.fcount,fr.n);gl.uniform1f(U.fconcrete,fr.plastic?2:(fr.conc?1:0));
   gl.drawArrays(gl.TRIANGLES,0,3);gl.finish();
   c.imageSmoothingQuality='high';c.drawImage(document.getElementById('gl'),0,0,W,H);
   overlay(CFG,TL,t,s);forceArrow(s,t);
