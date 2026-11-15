@@ -4,7 +4,8 @@
 
 Events (from qc/engine.html buildTimeline): round, approach, ramp, ok, question,
 break (material/kind), stamp (green/red), card, explain, cta;
-drop engine: drop, land (heavy/light, speed), pump.
+drop engine: drop, land (heavy/light, speed), pump;
+snap engine: snap (n breaks, speed), bend, twist.
 """
 import json
 import sys
@@ -120,6 +121,46 @@ def main(tl_path, out_path):
                 tm = np.arange(mm) / SR
                 f0 = (1318.5, 1046.5, 880.0)[min(j, 2)] * (1 if sp == 1 else 0.5)
                 add(np.sin(2 * np.pi * f0 * tm) * env(mm, 0.002, 0.15) + 0.4 * np.sin(4 * np.pi * f0 * tm) * env(mm, 0.002, 0.06), tf, 0.22)
+        elif ty == "snap":                                         # snap engine: dry spaghetti cracking
+            sp = e.get("speed", 1)
+            slow = 1.0 / max(sp, 0.1)                              # slow motion: longer, lower, cracks spread apart
+            def crack(t0, gain):
+                n = int(0.004 * slow * SR) + 8
+                cl = rng.standard_normal(n)
+                cl = cl - lp(cl, 0.35 if sp == 1 else 0.15)       # crisp high-pass click
+                add(cl * env(n, 0.0001, 0.0012 * slow), t0, 1.6 * gain)
+                m = int(0.09 * slow * SR)
+                tm = np.arange(m) / SR
+                f = 2600 / (slow ** 0.35)
+                add(np.sin(2 * np.pi * f * tm) * env(m, 0.0002, 0.012 * slow ** 0.6), t0, 0.35 * gain)   # woody "tick" ring
+                k = int(0.03 * slow * SR)
+                cr = rng.standard_normal(k)
+                add((cr - lp(cr, 0.2)) * env(k, 0.0005, 0.008 * slow), t0 + 0.001 * slow, 0.6 * gain)   # fibres tearing
+            crack(e["t"], 1.0)
+            for j in range(e.get("n", 1) - 1):                    # each extra break, a few ms later in real time
+                crack(e["t"] + (0.006 + 0.004 * j) * slow * 8, 0.8)
+            n = int(0.35 * slow * SR)                              # air whip of the pieces
+            add(lp(rng.standard_normal(n), 0.05) * env(n, 0.01 * slow, 0.08 * slow), e["t"], 0.25)
+        elif ty == "bend":                                         # snap engine: creak building up until the break
+            m = (tt >= e["t0"]) & (tt < e["t1"])
+            k = (tt[m] - e["t0"]) / max(e["t1"] - e["t0"], 1e-3)
+            cr = rng.standard_normal(int(m.sum()))
+            out[m] += (cr - lp(cr, 0.3)) * 0.04 * k ** 2
+            for j in range(int(18 * (e["t1"] - e["t0"]))):        # tiny fibre crackles, denser near the end
+                u = (j / max(1, int(18 * (e["t1"] - e["t0"])))) ** 0.5
+                if rng.random() < u:
+                    q = int(0.002 * SR)
+                    c2 = rng.standard_normal(q)
+                    add((c2 - lp(c2, 0.4)) * env(q, 0.0001, 0.0006), e["t0"] + u * (e["t1"] - e["t0"]) * 0.98, 0.25 * u)
+        elif ty == "twist":                                        # snap engine: clamp turning, ratchet clicks
+            tc = e["t0"] + 0.2
+            while tc < e["t1"] - 0.3:
+                q = int(0.012 * SR)
+                c2 = rng.standard_normal(q)
+                add((c2 - lp(c2, 0.3)) * env(q, 0.0002, 0.002), tc, 0.35)
+                tq = np.arange(q) / SR
+                add(np.sin(2 * np.pi * 1800 * tq) * env(q, 0.0002, 0.003), tc, 0.12)
+                tc += 0.11
         elif ty == "land":                                         # drop engine: impact on the base plate
             sp = e.get("speed", 1)
             if e.get("weight") == "heavy":                          # bowling ball: deep thud + short ring
