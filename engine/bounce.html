@@ -1,0 +1,422 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<!-- Bounce engine (Breakpoint Lab "Physics" series): a basketball, a tennis ball, then the tennis ball sitting
+     on the basketball, dropped from 1 m next to a tall measuring pole. Raymarched (WebGL), same overlay style
+     and API as drop.html.
+     Physics, ideal case (perfectly elastic, basketball much heavier than the tennis ball): each ball alone
+     bounces back to 1 m. Stacked, the basketball rebounds at v while the tennis ball still falls at v; the
+     tennis ball leaves at 3v and rises 3^2 = 9 times the drop height above the point where it bounced. -->
+<style>
+@font-face{font-family:P;src:url("fonts/Poppins-Bold.ttf");font-weight:700}
+@font-face{font-family:DJ;src:url("fonts/DejaVuSans-Bold.ttf");font-weight:700}
+html,body{margin:0;background:#000}canvas{display:block}
+</style></head>
+<body>
+<canvas id="gl" width="1080" height="1920"></canvas>
+<canvas id="out" width="1080" height="1920"></canvas>
+<script id="fs" type="x-shader/x-fragment">
+precision highp float;
+uniform vec2 R;
+uniform float camAng, camDist, camH, camTY;
+uniform vec2 shake;
+uniform vec4 bball;        // basketball centre + visible (w)
+uniform vec4 tball;        // tennis ball centre + visible (w)
+uniform vec2 squash;       // vertical squash of basketball / tennis ball (1 = round)
+uniform float holder;      // release cup lift (0 holding, 1 released)
+uniform float holderY;     // height of the top of the held stack
+uniform float dropH;       // drop height: red mark on the pole
+uniform sampler2D logo;
+
+const float RB=0.12, RT=0.034, PX=0.40;
+float sdRoundBox(vec3 p, vec3 b, float r){ vec3 q=abs(p)-b; return length(max(q,0.0))+min(max(q.x,max(q.y,q.z)),0.0)-r; }
+float sdCylY(vec3 p, float h, float r){ vec2 d=abs(vec2(length(p.xz),p.y))-vec2(r,h); return min(max(d.x,d.y),0.0)+length(max(d,0.0)); }
+float hash3(vec3 p){ return fract(sin(dot(p,vec3(12.9898,78.233,37.719)))*43758.5453); }
+vec2 opU(vec2 a, vec2 b){ return a.x<b.x?a:b; }
+float sqBall(vec3 q, float r, float s){            // squashed sphere, bottom stays put (q relative to the centre of the round ball)
+  vec3 k=vec3(1.0/sqrt(s),s,1.0/sqrt(s));
+  q.y+=r*(1.0-s);
+  return (length(q/k)-r)*min(min(k.x,k.y),k.z);
+}
+vec2 map(vec3 p){
+  vec2 res=vec2(p.y,1.0);
+  res=opU(res,vec2(sdCylY(p-vec3(0.0,0.006,0.0),0.006,0.24)-0.004,8.0));                        // rubber pad
+  res=opU(res,vec2(sdRoundBox(p-vec3(PX,5.25,-0.02),vec3(0.055,5.25,0.012),0.004),2.0));        // measuring pole
+  res=opU(res,vec2(sdRoundBox(p-vec3(PX,0.02,-0.02),vec3(0.11,0.02,0.09),0.006),7.0));          // pole foot
+  // holder: arm from the pole, rod down, yellow cup on top of the stack
+  float hy=holderY+0.012+0.08*holder;
+  res=opU(res,vec2(sdRoundBox(p-vec3(PX*0.5,hy+0.12,-0.02),vec3(PX*0.5,0.012,0.012),0.004),3.0));
+  res=opU(res,vec2(sdCylY(p-vec3(0.0,hy+0.07,0.0),0.05,0.008),3.0));
+  res=opU(res,vec2(max(sdCylY(p-vec3(0.0,hy+0.008,0.0),0.012,0.032)-0.004,-(length(p-vec3(0.0,hy-0.03,0.0))-0.038)),5.0));
+  if(bball.w>0.5){ vec3 q=p-bball.xyz; float d=length(q)-RB-0.03; if(d<0.02) d=sqBall(q,RB,squash.x); res=opU(res,vec2(d,20.0)); }
+  if(tball.w>0.5){ vec3 q=p-tball.xyz; float d=length(q)-RT-0.02; if(d<0.02) d=sqBall(q,RT,squash.y); res=opU(res,vec2(d,21.0)); }
+  return res;
+}
+vec3 calcNormal(vec3 p){
+  vec2 e=vec2(0.0005,-0.0005);
+  return normalize(e.xyy*map(p+e.xyy).x+e.yyx*map(p+e.yyx).x+e.yxy*map(p+e.yxy).x+e.xxx*map(p+e.xxx).x);
+}
+float softShadow(vec3 ro, vec3 rd){
+  float res=1.0, t=0.02;
+  for(int i=0;i<44;i++){ float h=map(ro+rd*t).x; res=min(res,9.0*h/t); t+=clamp(h,0.012,0.3); if(res<0.002||t>8.0) break; }
+  return clamp(res,0.0,1.0);
+}
+float calcAO(vec3 p, vec3 n){
+  float occ=0.0, sca=1.0;
+  for(int i=0;i<4;i++){ float h=0.015+0.08*float(i); occ+=(h-map(p+n*h).x)*sca; sca*=0.8; }
+  return clamp(1.0-2.0*occ,0.0,1.0);
+}
+vec3 bg(vec2 uv){ return mix(vec3(0.90,0.92,0.93),vec3(0.80,0.85,0.88),smoothstep(-1.0,1.0,uv.y)); }
+vec3 env(vec3 r){
+  float k=r.y*0.5+0.5;
+  vec3 c=mix(vec3(0.48,0.50,0.53),vec3(0.96,0.97,0.99),smoothstep(0.30,0.80,k));
+  float s1=smoothstep(0.86,0.90,dot(r,normalize(vec3(-0.6,0.75,0.35))));
+  float s2=smoothstep(0.90,0.93,dot(r,normalize(vec3(0.75,0.45,0.5))));
+  return c+vec3(1.3)*s1+vec3(0.8)*s2;
+}
+vec3 shade(vec2 fc){
+  vec2 uv=(2.0*fc-R)/R.y;
+  vec3 ta=vec3(0.06,camTY,0.0);
+  vec3 ro=ta+vec3(sin(camAng)*camDist,camH,cos(camAng)*camDist);
+  ro.xy+=shake; ta.xy+=shake*0.6;
+  vec3 ww=normalize(ta-ro), uu=normalize(cross(ww,vec3(0,1,0))), vv=cross(uu,ww);
+  vec3 rd=normalize(uv.x*uu+uv.y*vv+2.35*ww);
+  vec3 sky=bg(uv), col=sky;
+  float t=0.0; vec2 h=vec2(0.0); bool hit=false;
+  for(int i=0;i<200;i++){ h=map(ro+rd*t); if(h.x<0.00025*t){hit=true;break;} t+=h.x*0.9; if(t>60.0) break; }
+  if(hit){
+    vec3 p=ro+rd*t, n=calcNormal(p);
+    vec3 sun=normalize(vec3(-0.5,0.95,0.6));
+    float sh=softShadow(p+n*0.003,sun), dif=clamp(dot(n,sun),0.0,1.0)*sh, ao=calcAO(p,n);
+    vec3 hal=normalize(sun-rd);
+    float m=h.y;
+    if(m<1.5){ col=sky*mix(0.70,1.0,sh)*mix(0.80,1.0,ao);
+      vec2 lu=vec2((p.x+0.70)/1.40,(0.95-p.z)/0.22);
+      if(lu.x>0.0&&lu.x<1.0&&lu.y>0.0&&lu.y<1.0){ float lg=texture2D(logo,vec2(lu.x,1.0-lu.y)).a; col=mix(col,lu.x>0.735?vec3(0.85,0.62,0.05):vec3(0.30,0.32,0.35),lg*0.55); } }
+    else {
+      vec3 alb=vec3(0.8); float sp=0.2, gl=16.0, refl=0.0;
+      if(m<2.5){                                          // pole: white board, black ticks every 10 cm, long ones every metre, red at 1 m
+        alb=vec3(0.95,0.95,0.93);
+        float y=p.y, fm=fract(y+0.0001), f10=fract(y*10.0+0.001);
+        float onFace=step(0.0,p.z+0.02);
+        float side=p.x-PX;
+        if(onFace>0.5){
+          if(f10<0.06 && side<0.0) alb=vec3(0.12);
+          if((fm<0.008||fm>0.992) ) alb=vec3(0.08);
+          if(abs(y-0.012-dropH)<0.012) alb=vec3(0.85,0.12,0.12);
+          if(fract(floor(y)*0.5)>0.25 && side>0.035) alb=mix(alb,vec3(0.98,0.80,0.10),0.8);   // alternate metre bands on the edge
+        }
+        sp=0.15;
+      }
+      else if(m<3.5){ alb=vec3(0.75,0.76,0.78); sp=1.3; gl=140.0; refl=0.6; }
+      else if(m<5.5){ alb=vec3(0.98,0.74,0.10); sp=0.6; gl=60.0; }
+      else if(m<7.5){ alb=vec3(0.13,0.14,0.16); sp=0.4; gl=30.0; refl=0.1; }
+      else if(m<8.5){ alb=vec3(0.42,0.44,0.47); sp=0.25; gl=20.0; }   // grey rubber pad
+      else if(m<20.5){                                     // basketball: orange pebbled leather, black seams
+        vec3 q=normalize(p-bball.xyz);
+        alb=vec3(0.86,0.38,0.10)*(0.92+0.08*hash3(floor(p*700.0)));
+        float s1=abs(q.x), s2=abs(q.y), s3=abs(length(q.xz-vec2(0.0,0.0))-0.0);
+        float cv=abs(q.z-0.62*sign(q.z)*(1.0-q.y*q.y)*0.0)+0.0;
+        float seam=min(min(s1,s2),abs(abs(q.z)-0.72+0.45*q.x*q.x));
+        if(seam<0.028) alb=vec3(0.05,0.04,0.04);
+        sp=0.35; gl=24.0;
+      }
+      else {                                               // tennis ball: optic yellow felt, white curved seam
+        vec3 q=normalize(p-tball.xyz);
+        alb=vec3(0.80,0.92,0.15)*(0.90+0.10*hash3(floor(p*900.0)));
+        float sd=abs(q.y-0.75*(q.x*q.x-q.z*q.z)*sign(1.0)) ;
+        if(sd<0.07) alb=vec3(0.97,0.97,0.94);
+        sp=0.08; gl=8.0;
+      }
+      float amb=0.55+0.45*n.y;
+      vec3 lin=1.25*dif*vec3(1.0,0.96,0.90)+0.62*amb*ao*vec3(0.88,0.92,0.98)+0.38*clamp(dot(n,normalize(vec3(0.55,0.25,0.8))),0.0,1.0)*ao;
+      col=alb*lin;
+      float fre=pow(1.0-clamp(dot(n,-rd),0.0,1.0),4.0);
+      col=mix(col,env(reflect(rd,n))*(0.5+0.5*ao),refl*(0.4+0.6*fre));
+      col+=sp*pow(clamp(dot(n,hal),0.0,1.0),gl)*dif*vec3(1.0,0.97,0.92);
+    }
+  }
+  col=pow(clamp(col,0.0,1.0),vec3(0.95));
+  col*=1.0-0.12*dot(uv*vec2(0.9,0.55),uv*vec2(0.9,0.55));
+  return col;
+}
+void main(){
+  vec3 c=shade(gl_FragCoord.xy+vec2(-0.25,0.25))+shade(gl_FragCoord.xy+vec2(0.25,-0.25));
+  gl_FragColor=vec4(c*0.5,1.0);
+}
+</script>
+<script>
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const sm=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);};
+const lerp=(a,b,t)=>a+(b-a)*t;
+const g=9.81;
+
+function drawHandle(c,cfg){
+  if(!cfg.handle) return;
+  c.save(); c.font='700 24px P, DJ'; c.textBaseline='middle'; c.textAlign='left';
+  const tw=c.measureText(cfg.handle).width, gap=12, dot=7, y=256;
+  const x=W/2-(tw+gap+2*dot)/2;
+  c.fillStyle='#f5c400'; c.beginPath(); c.arc(x+dot,y,dot,0,Math.PI*2); c.fill();
+  c.lineWidth=2; c.strokeStyle='rgba(22,24,29,0.85)'; c.stroke();
+  c.globalAlpha=0.8; c.fillStyle='#2a2e36'; c.fillText(cfg.handle,x+2*dot+gap,y+1);
+  c.restore();
+}
+function makeLogoTexture(){
+  const cv=document.createElement('canvas');cv.width=1400;cv.height=220;const x=cv.getContext('2d');
+  x.clearRect(0,0,1400,220);x.font='700 150px P, DJ';x.textAlign='center';x.textBaseline='middle';x.fillStyle='#fff';
+  x.fillText('BREAKPOINT',560,118);x.fillText('LAB',1205,118);
+  const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,cv);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  return tex;
+}
+
+// ---------------------------------------------------------------- physics (ideal, perfectly elastic)
+const RB=0.12, RT=0.034, PAD=0.012, OBJ_COL=['#D9601A','#7FA00E'];
+function makeRound(kind,h){
+  const tf=Math.sqrt(2*h/g), v=g*tf, P={kind,h,tf,v};
+  P.apexT=kind==='stack'?tf+3*v/g:2*tf;                 // time of the bounce's highest point
+  P.rise=kind==='stack'?9*h:h;
+  return P;
+}
+function bounceY(P,rt,y0){                               // bottom height of a ball dropped from y0 (=h above its floor), perfect bounces
+  if(rt<P.tf) return y0+P.h-0.5*g*rt*rt;
+  const tau=(rt-P.tf)%(2*P.tf); return y0+P.v*tau-0.5*g*tau*tau;
+}
+function balls(P,rt){
+  // returns bottoms (above pad) and squash factors
+  const o={};
+  const imp=(t0,w)=>Math.exp(-Math.pow((rt-t0)/w,2));
+  if(P.kind==='basket'){o.b=bounceY(P,rt,PAD);o.sb=1-0.16*(imp(P.tf,0.018)+imp(3*P.tf,0.018));}
+  else if(P.kind==='tennis'){o.t=bounceY(P,rt,PAD);o.st=1-0.22*(imp(P.tf,0.014)+imp(3*P.tf,0.014));}
+  else {
+    o.b=bounceY(P,rt,PAD);o.sb=1-0.16*imp(P.tf,0.018);
+    const c0=PAD+2*RB;                                   // tennis-ball bottom when it sits on the basketball, at the bounce
+    if(rt<P.tf) o.t=o.b+2*RB*o.sb;
+    else {const tau=rt-P.tf;o.t=c0+3*P.v*tau-0.5*g*tau*tau;
+      if(o.t<o.b+2*RB) o.t=o.b+2*RB;}                    // never inside the basketball (falls back on it later)
+    o.st=1-0.24*imp(P.tf+0.004,0.012);
+    if(P.kind==='stack'&&rt>P.tf+3*P.v/g) o.b=Math.max(o.b,PAD);
+  }
+  return o;
+}
+function riseOf(P,rt,o){                                 // height of the bounce above where it bounced
+  if(rt<P.tf) return 0;
+  if(P.kind==='stack'){const tau=Math.min(rt-P.tf,3*P.v/g);return 3*P.v*tau-0.5*g*tau*tau;}
+  const tau=Math.min(rt-P.tf,P.tf);return P.v*tau-0.5*g*tau*tau;
+}
+
+// ---------------------------------------------------------------- timeline
+const D_={hook:2.6,title:1.4,show:1.8,question:2.8,go:0.25,after:0.5,stampHold:0.9,fact:3.0,factStack:4.6,explain:11.0,outro:6.5};
+const SLOW=1/6;
+function buildTimeline(cfg){
+  const T={rounds:[],events:[]};let t=0;const h=cfg.drop_m||1.0;
+  T.hook=[0,D_.hook];t=D_.hook;
+  cfg.rounds.forEach((r,i)=>{
+    const P=makeRound(r.kind,h), R={cfg:r,i,start:t,P};
+    const stack=r.kind==='stack';
+    T.events.push({type:'round',t});
+    R.titleEnd=t+D_.title;R.showEnd=R.titleEnd+(stack?2.2:D_.show);
+    R.qStart=R.showEnd;R.qEnd=R.qStart+(stack?3.0:D_.question);T.events.push({type:'question',t0:R.qStart,t1:R.qEnd});
+    R.go=R.qEnd+D_.go;T.events.push({type:'drop',t:R.go});
+    const w=r.kind==='tennis'?'light':'heavy';
+    T.events.push({type:'land',t:R.go+P.tf,weight:w,speed:1});
+    if(!stack) T.events.push({type:'land',t:R.go+3*P.tf,weight:w,speed:1});
+    if(stack) T.events.push({type:'land',t:R.go+P.tf+0.004,weight:'light',speed:1});
+    R.motionEnd=R.go+(stack?P.apexT+2.0:P.apexT+0.9);
+    if(stack){R.replayT0=R.motionEnd+0.3;R.rw=[P.tf-0.22,P.tf+0.30];R.replayT1=R.replayT0+(R.rw[1]-R.rw[0])/SLOW;
+      T.events.push({type:'replay',t0:R.replayT0,t1:R.replayT1});
+      T.events.push({type:'land',t:R.replayT0+(P.tf-R.rw[0])/SLOW,weight:'heavy',speed:SLOW});}
+    else {R.replayT0=R.replayT1=R.motionEnd;}
+    R.stampT=R.replayT1+D_.after*(stack?0.2:1);T.events.push({type:'stamp',t:R.stampT,color:r.stamp.color});
+    R.factT=R.stampT+D_.stampHold;T.events.push({type:'card',t:R.factT});
+    R.end=R.factT+(stack?D_.factStack:D_.fact);t=R.end;T.rounds.push(R);
+  });
+  T.explain=[t,t+D_.explain];T.events.push({type:'explain',t0:t,t1:t+D_.explain});t+=D_.explain;
+  T.outro=[t,t+D_.outro];T.events.push({type:'card',t});T.events.push({type:'cta',t:t+1.4});t+=D_.outro;
+  T.duration=t;return T;
+}
+
+// ---------------------------------------------------------------- scene state
+function sceneState(T,t){
+  let R=T.rounds[0];for(const r of T.rounds) if(t>=r.start) R=r;
+  const inExplain=t>=T.explain[0], P=R.P, stack=R.cfg.kind==='stack';
+  const replay=stack&&t>=R.replayT0&&t<R.replayT1;
+  let rt;
+  if(inExplain){R=T.rounds[T.rounds.length-1];rt=P.apexT;}
+  else if(replay) rt=R.rw[0]+(t-R.replayT0)*SLOW;
+  else if(t>=R.replayT1&&stack) rt=R.P.apexT;            // freeze at the top for the verdict
+  else if(t>=R.motionEnd&&!stack) rt=R.P.apexT;
+  else rt=t-R.go;
+  const PP=R.P, o=balls(PP,Math.max(rt,0));
+  const s={R,P:PP,rt,replay,inExplain,shake:[0,0],o};
+  s.rise=riseOf(PP,Math.max(rt,0),o);
+  s.bball=o.b!=null?[0,o.b+RB,0,1]:[0,0,0,0];
+  s.tball=o.t!=null?[0,o.t+RT,0,1]:[0,0,0,0];
+  s.squash=[o.sb||1,o.st||1];
+  const topY=PAD+PP.h+(PP.kind==='tennis'?2*RT:(PP.kind==='basket'?2*RB:2*RB+2*RT));
+  s.holderY=topY;s.holder=rt<0?0:sm(0,0.15,rt)+8*sm(0.18,0.6,rt);   // opens, then lifts out of the tennis ball's way
+  // camera
+  const base={ang:0.30,dist:2.3,h:0.30,ty:0.46}, WIDE={ang:0.22,dist:14.2,h:1.0,ty:2.95};
+  let cam={...base};
+  if(!inExplain){
+    if(t<R.showEnd){const k=sm(R.start,R.showEnd,t);cam={ang:lerp(0.45,0.32,k),dist:lerp(1.5,1.9,k),h:0.15,ty:topY-0.12};}
+    else if(t<R.qEnd){const k=sm(R.qStart,R.qEnd-0.3,t);cam={ang:lerp(0.32,base.ang,k),dist:lerp(1.9,base.dist,k),h:lerp(0.15,base.h,k),ty:lerp(topY-0.12,base.ty,k)};}
+    if(stack&&t>=R.go&&!replay&&t<R.replayT0){            // follow the tennis ball up, then pull back to show the whole 9 m
+      const yT=o.t+RT, k=sm(R.go+PP.apexT-0.25,R.go+PP.apexT+1.6,t);
+      const follow={ang:0.30,dist:2.6,h:0.20,ty:Math.max(base.ty,yT-0.20)};
+      const wide=WIDE;
+      cam={ang:lerp(follow.ang,wide.ang,k),dist:lerp(follow.dist,wide.dist,k),h:lerp(follow.h,wide.h,k),ty:lerp(follow.ty,wide.ty,k)};
+    }
+    if(replay){const k=t-R.replayT0, sep=Math.max(0,(o.t+RT)-(o.b+2*RB+RT));   // keep both balls in frame as the tennis ball takes off
+      const d=1.6+3.2*sep, mid=(o.b+o.t+RT+0.05)/2;          // frame centre sits ~80 px below the image centre (text band above)
+      cam={ang:0.20+0.02*k,dist:d,h:0.05,ty:Math.max(0.30,mid+0.035*d)};}
+    if(stack&&t>=R.replayT1){const k=sm(R.replayT1,R.replayT1+0.6,t);cam={...WIDE,dist:lerp(9,WIDE.dist,k)};}
+    const dt=rt-PP.tf; if(dt>0&&dt<0.25&&!stack){const a=0.006*Math.exp(-dt*20);s.shake=[a*Math.sin(dt*120),a*Math.cos(dt*95)];}
+  } else {const k=t-T.explain[0];cam={...WIDE,ang:0.22+0.05*Math.sin(k*0.3)};}
+  Object.assign(s,{camAng:cam.ang,camDist:cam.dist,camH:cam.h,camTY:cam.ty});
+  return s;
+}
+
+// ---------------------------------------------------------------- WebGL
+const gl=document.getElementById('gl').getContext('webgl',{preserveDrawingBuffer:true,antialias:false});
+function sh(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s;}
+const prog=gl.createProgram();
+gl.attachShader(prog,sh(gl.VERTEX_SHADER,'attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}'));
+gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,document.getElementById('fs').textContent));
+gl.linkProgram(prog);if(!gl.getProgramParameter(prog,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(prog));gl.useProgram(prog);
+const buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+let LOGO=null;
+const al=gl.getAttribLocation(prog,'a');gl.enableVertexAttribArray(al);gl.vertexAttribPointer(al,2,gl.FLOAT,false,0,0);
+const U={};['R','camAng','camDist','camH','camTY','shake','bball','tball','squash','holder','holderY','dropH'].forEach(n=>U[n]=gl.getUniformLocation(prog,n));
+
+function project(s,p){
+  const ta=[0.06,s.camTY,0], ro=[ta[0]+Math.sin(s.camAng)*s.camDist,ta[1]+s.camH,ta[2]+Math.cos(s.camAng)*s.camDist];
+  const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+  const nrm=a=>{const l=Math.hypot(...a);return a.map(v=>v/l);},cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+  const ww=nrm(sub(ta,ro)),uu=nrm(cross(ww,[0,1,0])),vv=cross(uu,ww),d=sub(p,ro);
+  const z=dot(d,ww),ux=dot(d,uu)/z*2.35,uy=dot(d,vv)/z*2.35;
+  return [(ux*1920+1080)/2,(1920-(uy*1920+1920)/2),z];
+}
+
+// ---------------------------------------------------------------- overlay
+const out=document.getElementById('out'),c=out.getContext('2d');const W=1080,H=1920;
+const COL={green:'#1F9D55',red:'#E0303F',ink:'#1d2126',sub:'#5b636c',brand:'#F7C21A'};
+let DEC='.';
+const fmt=(v,d)=>v.toFixed(d).replace('.',DEC);
+const fade=(t0,t,d=0.25)=>clamp((t-t0)/d,0,1);
+const pop=(t0,t)=>{const k=clamp((t-t0)/0.25,0,1);return 1+0.18*Math.sin(k*Math.PI)*(1-k);};
+function rrect(x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+function panel(x,y,w,h,r,fill,a=1){if(a<=0)return;c.save();c.globalAlpha=a;c.fillStyle=fill;rrect(x,y,w,h,r);c.fill();c.restore();}
+function fitText(s,maxW,size){c.font=`700 ${size}px P, DJ`;while(c.measureText(s).width>maxW&&size>18){size-=2;c.font=`700 ${size}px P, DJ`;}return size;}
+function ctxt(s,x,y,size,color,a=1){if(a<=0)return;c.save();c.globalAlpha=a;c.font=`700 ${size}px P, DJ`;c.textAlign='center';c.textBaseline='middle';
+  c.lineJoin='round';c.lineWidth=size*0.16;c.strokeStyle='rgba(255,255,255,0.85)';c.strokeText(s,x,y);
+  c.shadowColor='rgba(0,0,0,0.18)';c.shadowBlur=size*0.12;c.shadowOffsetY=size*0.04;c.fillStyle=color;c.fillText(s,x,y);c.restore();}
+function pill(s,x,y,size,fill,a=1){if(a<=0)return;const fs=size;c.font=`700 ${fs}px P, DJ`;const w=c.measureText(s).width+fs*1.1;
+  panel(x-w/2,y-fs*0.85,w,fs*1.7,fs*0.85,fill,a);c.save();c.globalAlpha=a;c.font=`700 ${fs}px P, DJ`;c.textAlign='center';c.textBaseline='middle';c.fillStyle='#fff';c.fillText(s,x,y+1);c.restore();}
+
+function poleLabels(s,a){                               // metre numbers next to the pole
+  if(a<=0) return;
+  const marks=[[s.P.h,CFG.drop_mark||(s.P.h*100)+' cm',COL.red]];for(let m=1;m<=10;m++) if(Math.abs(m-s.P.h)>0.2) marks.push([m,m+' m','#2a2e36']);
+  marks.forEach(([y,lab,col])=>{const q=project(s,[0.40+0.09,y+PAD,-0.02]);if(q[1]<660||q[1]>1460) return;
+    const big=s.camDist>8;c.save();c.globalAlpha=a*0.9;c.font=`700 ${big?26:30}px P, DJ`;c.textAlign='left';c.textBaseline='middle';
+    c.fillStyle=col;c.fillText(lab,q[0]+6,q[1]);c.restore();});
+}
+function objLabels(s,a){
+  if(a<=0) return;const n=CFG.names||['BASKETBALL','TENNIS BALL'];
+  if(s.bball[3]>0.5){const q=project(s,[-0.02,s.bball[1],0]);pill(n[0],q[0]-190,q[1],28,OBJ_COL[0],a);}
+  if(s.tball[3]>0.5){const q=project(s,[-0.02,s.tball[1],0]);pill(n[1],q[0]-190,q[1]-(s.bball[3]>0.5?20:0),28,OBJ_COL[1],a);}
+}
+function ballMarker(s,a){                                // in wide shots the balls are small: ring the tennis ball
+  if(a<=0||s.camDist<6||s.tball[3]<0.5) return;
+  const q=project(s,[0,s.tball[1],0]);
+  c.save();c.globalAlpha=a;c.strokeStyle=OBJ_COL[1];c.lineWidth=5;c.beginPath();c.arc(q[0],q[1],26,0,7);c.stroke();c.restore();
+  pill((CFG.names||[])[1]||'TENNIS BALL',q[0]+150,q[1],26,OBJ_COL[1],a);
+}
+function bracket(s,a,label){                            // 9 m arrow from the bounce point to the top
+  if(a<=0) return;
+  const y0=PAD+2*RB, y1=y0+s.P.rise, A=project(s,[-0.25,y0,0]),B=project(s,[-0.25,y1,0]);
+  c.save();c.globalAlpha=a;c.strokeStyle=COL.red;c.fillStyle=COL.red;c.lineWidth=6;c.lineCap='round';
+  c.beginPath();c.moveTo(A[0],A[1]);c.lineTo(B[0],B[1]+20);c.stroke();
+  c.beginPath();c.moveTo(B[0],B[1]);c.lineTo(B[0]-13,B[1]+24);c.lineTo(B[0]+13,B[1]+24);c.closePath();c.fill();
+  c.beginPath();c.moveTo(A[0]-16,A[1]);c.lineTo(A[0]+16,A[1]);c.stroke();c.restore();
+  pill(label,A[0]-10,(A[1]+B[1])/2,40,COL.red,a);
+}
+function readout(s,t){
+  const R=s.R,P=s.P;
+  const before=s.rt<P.tf;
+  ctxt(before?(CFG.drop_label||'DROP'):(CFG.rise_label||'BOUNCE HEIGHT'),W/2,350,30,COL.sub);
+  const v=before?P.h:s.rise, col=before?COL.ink:(s.rt>=P.apexT-0.02?COL.green:COL.ink);
+  ctxt(fmt(v,2)+' m',W/2,440,110,col);
+}
+function overlay(cfg,T,t,s){
+  const R=s.R, r=R.cfg;
+  { const gr=c.createLinearGradient(0,0,0,690);gr.addColorStop(0,'rgba(236,240,243,0.92)');gr.addColorStop(0.78,'rgba(236,240,243,0.80)');gr.addColorStop(1,'rgba(236,240,243,0)');
+    c.save();c.fillStyle=gr;c.fillRect(0,0,W,690);c.restore(); }
+  if(t>=T.hook[1]||cfg.hook_series!==false) ctxt(cfg.series,W/2,292,34,COL.sub,0.9);
+  drawHandle(c,cfg);
+  poleLabels(s,1);
+  if(t>=T.hook[1]) ballMarker(s,1);
+  if(t<T.hook[1]){const a=1-fade(T.hook[1]-0.3,t,0.3),hn=cfg.hook.length;
+    cfg.hook.forEach((l,i)=>ctxt(l,W/2,390+i*90,fitText(l,960,82),hn>1&&i===hn-1?COL.red:COL.ink,a));objLabels(s,a);return;}
+  if(t<T.hook[1]+0.18){c.save();c.globalAlpha=1-fade(T.hook[1],t,0.18);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
+  if(t<T.explain[0]){
+    const stampOn=t>=R.stampT, stack=r.kind==='stack';
+    if(t<R.titleEnd+0.2){const a=1-fade(R.titleEnd-0.1,t,0.3),p=pop(R.start,t);c.save();c.translate(W/2,430);c.scale(p,p);ctxt(r.title,0,0,fitText(r.title,960,76),COL.ink,a);c.restore();}
+    else if(t<R.qStart){ if(r.subtitle) ctxt(r.subtitle,W/2,430,fitText(r.subtitle,960,52),COL.ink,fade(R.titleEnd,t)); }
+    else if(t<R.go){const a=fade(R.qStart,t)*(1-fade(R.go-0.15,t,0.15)),p=1+0.05*Math.sin((t-R.qStart)*Math.PI*4);
+      c.save();c.translate(W/2,415);c.scale(p,p);ctxt(r.question,0,0,fitText(r.question,960,100),COL.red,a);c.restore();
+      ctxt(r.question_sub,W/2,515,fitText(r.question_sub,900,40),COL.ink,a);
+      const n=Math.ceil(R.qEnd-t);if(n>=1&&n<=3&&t>R.qEnd-3) ctxt(String(n),W/2,590,56,COL.ink,a);}
+    else if(!stampOn) readout(s,t);
+    if(t>=R.titleEnd&&t<R.go) objLabels(s,fade(R.titleEnd,t)*(1-fade(R.go-0.2,t,0.2)));
+    if(s.replay){const a=fade(R.replayT0,t,0.15)*(1-fade(R.replayT1-0.15,t,0.15));
+      c.save();c.globalAlpha=a*0.9;c.fillStyle='#000';c.fillRect(0,640,W,16);c.fillRect(0,1424,W,16);c.restore();
+      pill((cfg.replay_label||'SLOW-MO')+' ×'+Math.round(1/SLOW),W/2,700,28,'rgba(224,48,63,0.92)',a);}
+    if(stack&&t>=R.replayT1) bracket(s,fade(R.replayT1+0.2,t,0.3)*(1-fade(R.end-0.25,t)),r.bracket||'9 m');
+    if(stampOn){
+      const k=clamp((t-R.stampT)/0.18,0,1),sc2=lerp(2.2,1,k*k)+(k>=1?0.05*Math.exp(-(t-R.stampT-0.18)*10)*Math.sin((t-R.stampT-0.18)*40):0);
+      const col=r.stamp.color==='green'?COL.green:COL.red;
+      c.save();c.translate(W/2,425);c.rotate(-0.08);c.scale(sc2,sc2);c.globalAlpha=Math.min(1,k*1.5);
+      c.strokeStyle=col;c.lineWidth=10;rrect(-300,-72,600,144,22);c.stroke();c.fillStyle='rgba(255,255,255,0.7)';rrect(-300,-72,600,144,22);c.fill();
+      const fs=fitText(r.stamp.text,540,84);c.font=`700 ${fs}px P, DJ`;c.textAlign='center';c.textBaseline='middle';c.fillStyle=col;c.fillText(r.stamp.text,0,5);c.restore();}
+    if(t>=R.factT){const a=fade(R.factT,t,0.3)*(1-fade(R.end-0.25,t));(r.fact||[]).forEach((l,i)=>ctxt(l,W/2,555+i*50,fitText(l,980,38),COL.ink,a));}
+    if(t<R.start+0.3){c.save();c.globalAlpha=1-fade(R.start,t,0.3);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
+    return;}
+  if(t<T.explain[0]+0.3){c.save();c.globalAlpha=1-fade(T.explain[0],t,0.3);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
+  if(t<T.outro[0]){const e=cfg.explain,t0=T.explain[0];
+    bracket(s,1,(T.rounds[T.rounds.length-1].cfg.bracket)||'9 m');
+    ctxt(e.title,W/2,370,fitText(e.title,960,64),COL.ink,fade(t0,t));
+    e.lines.forEach((l,i)=>ctxt(l,W/2,450+i*54,fitText(l,960,40),i===e.lines.length-1?COL.green:COL.sub,fade(t0+0.8+i*2.0,t,0.3)));return;}
+  const t0=T.outro[0];
+  ctxt('SOURCE',W/2,345,28,COL.sub,fade(t0,t));
+  cfg.source.forEach((l,i)=>ctxt(l,W/2,395+i*48,fitText(l,980,32),COL.ink,fade(t0,t)));
+  if(t>=t0+1.4){const a=fade(t0+1.4,t,0.25),p=pop(t0+1.4,t);
+    c.save();c.translate(W/2,560);c.scale(p,p);panel(-380,-50,760,100,50,COL.brand,a);
+    c.font=`700 ${fitText(cfg.cta,700,42)}px P, DJ`;c.textAlign='center';c.textBaseline='middle';c.globalAlpha=a;c.fillStyle=COL.ink;c.fillText(cfg.cta,0,2);c.restore();}
+}
+
+// ---------------------------------------------------------------- API used by render.js
+let CFG=null,TL=null;
+window.setup=function(cfg){if(!LOGO){LOGO=makeLogoTexture();gl.uniform1i(gl.getUniformLocation(prog,'logo'),0);}CFG=cfg;DEC=cfg.decimal||'.';TL=buildTimeline(cfg);
+  return {duration:TL.duration,events:TL.events,rounds:TL.rounds.map(R=>({title:R.cfg.title,rise:R.P.rise}))};};
+function sceneTime(t){                                  // hook: the stacked drop in slow motion, cut just before the bounce
+  if(t<TL.hook[1]){const R=TL.rounds[TL.rounds.length-1];const rt=R.rw[0]-0.15+(t/TL.hook[1])*(R.P.tf-0.02-(R.rw[0]-0.15));return R.replayT0+(rt-R.rw[0])/SLOW;}
+  return t;
+}
+window.renderFrame=function(t,type='image/jpeg'){drawFrame(t);return out.toDataURL(type,0.93);};
+function drawFrame(t){
+  const s=sceneState(TL,sceneTime(t));
+  gl.viewport(0,0,1080,1920);gl.uniform2f(U.R,1080,1920);
+  gl.uniform1f(U.camAng,s.camAng);gl.uniform1f(U.camDist,s.camDist);gl.uniform1f(U.camH,s.camH);gl.uniform1f(U.camTY,s.camTY);
+  gl.uniform2f(U.shake,s.shake[0],s.shake[1]);
+  gl.uniform4f(U.bball,...s.bball);gl.uniform4f(U.tball,...s.tball);gl.uniform2f(U.squash,...s.squash);
+  gl.uniform1f(U.holder,s.holder);gl.uniform1f(U.holderY,s.holderY);gl.uniform1f(U.dropH,s.P.h);
+  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,LOGO);
+  gl.drawArrays(gl.TRIANGLES,0,3);gl.finish();
+  c.imageSmoothingQuality='high';c.drawImage(document.getElementById('gl'),0,0,W,H);
+  overlay(CFG,TL,t,s);
+}
+window.ready=Promise.all([document.fonts.load('700 40px P'),document.fonts.load('700 40px DJ')]).then(()=>true);
+</script>
+</body></html>
