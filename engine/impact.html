@@ -83,7 +83,7 @@ vec2 map(vec3 p){
   if(showGem>0.5){
     if(split<0.5){ vec3 q=p-gemP; if(gemFlip>0.5) q.y=-q.y; float bd=length(q)-0.07; res=opU(res,vec2(bd>0.02?bd:gem(q),30.0)); }
     else res=opU(res,gemPieces(p));
-    for(int i=0;i<6;i++){ if(dust[i].w>0.0) res=opU(res,vec2(length(p-dust[i].xyz)-dust[i].w,30.0)); }
+    for(int i=0;i<6;i++){ if(dust[i].w>0.0) res=opU(res,vec2(length(p-dust[i].xyz)-dust[i].w*0.6,30.0)); }
   }
   if(showHolder>0.5){                                                                                          // scribe holder (round 1)
     res=opU(res,vec2(sdCylY(p-vec3(gemP.x,gemP.y+0.17,0.0),0.15,0.010),4.0));
@@ -121,6 +121,11 @@ vec3 env(vec3 r){
   float s3=smoothstep(0.95,0.97,dot(r,normalize(vec3(0.1,0.3,-0.95))));
   return c+vec3(1.4)*s1+vec3(0.9)*s2+vec3(0.6)*s3;
 }
+vec3 gemEnv(vec3 r){                                  // high-contrast studio for the stone: black and white panels = brilliance
+  float a=atan(r.z,r.x);
+  float k=smoothstep(-0.25,0.25,sin(a*5.0+r.y*7.0))*smoothstep(-0.6,0.1,r.y);
+  return mix(vec3(0.05,0.06,0.08),vec3(1.25),k)+env(r)*0.15;
+}
 vec3 spectral(float h){ return clamp(abs(fract(h+vec3(0.0,0.33,0.67))*6.0-3.0)-1.0,0.0,1.0); }
 
 vec3 shade(vec2 fc){
@@ -143,10 +148,10 @@ vec3 shade(vec2 fc){
     else if(m>29.5){                                     // diamond: facet reflections + fake dispersion inside
       vec3 rf=reflect(rd,n), tr=refract(rd,n,0.413);
       float fh=hash3(floor(n*9.0+0.5));
-      vec3 inside=env(normalize(tr+0.6*vec3(sin(fh*40.0),cos(fh*23.0),sin(fh*11.0))))*mix(vec3(1.0),spectral(fh),0.55);
+      vec3 inside=gemEnv(normalize(tr+0.9*vec3(sin(fh*40.0),cos(fh*23.0),sin(fh*11.0))))*mix(vec3(1.0),spectral(fh)*1.3,0.16);
       float fre=0.17+0.83*pow(1.0-abs(dot(n,rd)),5.0);
-      col=mix(inside*0.85,env(rf),fre);
-      col+=vec3(3.0)*pow(clamp(dot(rf,sun),0.0,1.0),300.0);
+      col=mix(inside,gemEnv(rf),fre*0.8);
+      col+=vec3(3.5)*pow(clamp(dot(rf,sun),0.0,1.0),400.0)+spectral(fh+0.3)*1.2*pow(clamp(dot(tr,sun),0.0,1.0),60.0);
       col*=mix(0.75,1.0,ao);
       if(crack>0.0){ vec3 q=p-gemP; vec3 f=CLV*q; float cl=min(min(abs(f.x),abs(f.y)),abs(f.z));
         col=mix(col,vec3(1.0),crack*smoothstep(0.003,0.0,cl)); }
@@ -154,7 +159,7 @@ vec3 shade(vec2 fc){
     else {
       vec3 alb=vec3(0.8); float sp=0.2, gl=16.0, refl=0.0;
       if(m<2.5){ alb=vec3(0.30,0.31,0.33)*(0.94+0.06*hash3(floor(p*vec3(200.0,40.0,200.0)))); sp=0.9; gl=60.0; refl=0.25;
-        if(p.z>0.27&&abs(n.z)>0.9){ vec2 lu=vec2((p.x+0.36)/0.72,(p.y-0.07)/0.12);
+        if(p.z>0.27&&abs(n.z)>0.9){ vec2 lu=vec2((p.x+0.24)/0.48,(p.y-0.11)/0.08);
           if(lu.x>0.0&&lu.x<1.0&&lu.y>0.0&&lu.y<1.0){ float lg=texture2D(logo,vec2(lu.x,1.0-lu.y)).a; alb=mix(alb,lu.x>0.735?vec3(0.95,0.72,0.08):vec3(0.92),lg); } } }
       else if(m<3.5){ alb=vec3(0.72,0.73,0.76)*(0.95+0.05*hash3(floor(vec3(p.x*800.0,p.y*60.0,p.z*60.0)))); sp=1.4; gl=120.0; refl=0.55;
         if(scratchOn>0.5 && n.y>0.9 && abs(p.y-(BT+2.0*CUBE))<0.002 && abs(p.z)<0.0028 && p.x>-0.05 && p.x<scratchX){
@@ -314,7 +319,7 @@ function sceneState(T,t){
     if(t<R.showEnd){const k=sm(R.start,R.showEnd,t);cam={ang:lerp(0.55,0.36,k),dist:lerp(0.75,0.95,k),h:0.14,ty:0.37,tx:0.0};}
     else if(t<R.qEnd){const k=sm(R.qStart,R.qEnd-0.3,t);cam={ang:lerp(0.36,wide.ang,k),dist:lerp(0.95,wide.dist,k),h:lerp(0.14,wide.h,k),ty:lerp(0.37,wide.ty,k),tx:lerp(0,wide.tx,k)};}
     else if(r.kind==='scratch'){const k=sm(R.go,R.go+0.8,t);cam={ang:lerp(wide.ang,0.15,k),dist:lerp(wide.dist,0.62,k),h:lerp(wide.h,0.22,k),ty:lerp(wide.ty,0.40,k),tx:lerp(wide.tx,0.0,k)};}
-    if(replay){const k=t-R.replayT0;cam={ang:0.55+0.03*k,dist:0.62-0.01*k,h:0.06,ty:0.36,tx:0.0};}
+    if(replay){const k=t-R.replayT0;cam={ang:0.62+0.03*k,dist:0.95-0.015*k,h:0.04,ty:0.40,tx:0.03};}
     if(R.rw&&t>=R.replayT1){const k=sm(R.replayT1,R.replayT1+1.0,t);cam={ang:lerp(0.6,0.30,k),dist:lerp(0.6,0.9,k),h:lerp(0.06,0.35,k),ty:lerp(0.36,0.36,k),tx:0.0};}
     if(r.kind==='scratch'&&t>=R.actEnd){cam={ang:0.12,dist:0.55,h:0.30,ty:0.40,tx:0.0};}
   } else {const k=t-T.explain[0];cam={ang:0.30+0.25*Math.sin(k*0.25),dist:0.9,h:0.35,ty:0.36,tx:0.0};}
