@@ -6,6 +6,13 @@ Chaîne YouTube/TikTok **Breakpoint Lab**, handle **@BreakpointLabTV**. Séries 
 - Ce dépôt n'a RIEN à voir avec SliceLoop / `asmr-slicing-studio` (vidéos de découpe ASMR, compte @sliceloop). Ne jamais mettre @sliceloop ici, ni @BreakpointLabTV là-bas.
 - Le handle va dans chaque config : `"handle": "@BreakpointLabTV"`.
 
+## Ligne éditoriale (ce qui fait des vues)
+- **Un sujet que les gens connaissent** : un objet du quotidien, un mythe, une question qu'on s'est déjà posée (« ah ça, je l'ai déjà vu »). C'est le critère qui pèse le plus.
+- **Une vraie preuve** : de préférence une expérience publiée et mesurée (étude, labo, MythBusters, norme) qu'on reproduit avec ses chiffres et qu'on nomme dès l'accroche (« MIT test », « BBC test »). Sinon, on fait l'expérience nous-mêmes avec la loi physique (ex. pendule T = 2π√(L/g)) : on montre la formule, c'est « Simulated ». Sans l'un ni l'autre : pas d'épisode.
+- **Partir d'une croyance** : l'accroche (≤ 2 s, en pleine action) pose ce que les gens croient ou une question fermée ; la réponse n'arrive qu'après le ralenti.
+- **Faire parier** : question avec 2-3 choix (« 2, 3 or MORE? »), commentaire épinglé qui invite à donner son pari.
+- **Ton** : clair et factuel (c'est ce qui marche en physique/ingénierie), le texte doit se suffire à lui-même (beaucoup regardent sans le son).
+
 ## Règles de contenu
 - Tout chiffre à l'écran est vrai : source publiée (norme, étude, loi physique) dans `source` (affiché) et `sources_detail` (calcul). Pas de source fiable → pas d'épisode. Une simulation se dit « Simulated … ».
 - Anglais, texte minimal (≤ 6 mots par ligne), textes dans le bandeau du haut (y 260–600 sur 1920) : rien ne couvre la scène. Zone sûre : rien d'important au-dessus de y=250 ni sous y=1440.
@@ -18,9 +25,9 @@ Chaîne YouTube/TikTok **Breakpoint Lab**, handle **@BreakpointLabTV**. Séries 
 - Une PR séparée par modification.
 
 ## Procédure « fais une vidéo »
-Liste des sujets : Google Sheet « Breakpoint Lab – 100 Experiments » (id `1hl-jYG9e2N5L2_xycGPkE_SprXOnQWE8BR-vbNOqrkk`), onglet `Experiments`, lignes 2–101. Colonnes : D réponse, K série, L moteur, M source, N statut, O Pick, P note, Q lien source, R lien vidéo.
+Liste des sujets : Google Sheet « Breakpoint Lab – 100 Experiments » (id `1hl-jYG9e2N5L2_xycGPkE_SprXOnQWE8BR-vbNOqrkk`), onglet `Experiments`, lignes 2–101. Colonnes : D réponse, K série, L moteur, M source, N statut, O Pick, P note, Q lien source, R lien vidéo, S « Familiar » /5, T « Busts a belief » /5, U Preuve (`Experiment` ou `Formula`), V Score v2 = 2×S + T + (5 si Experiment, 3 si Formula) + G, W–Z stats (vues, likes, abonnés gagnés, partages).
 
-1. **Choisir** : lire `Experiments!A1:R101` (et les lignes ajoutées après 101). Écarter les statuts `Done`, `In progress`, `Needs test data`, `Suggested`. Parmi `Verified` et `Corrected`, prendre d'abord les lignes Pick = TRUE, puis le score J le plus haut ; à score égal, le plus petit numéro (colonne A, ordre croissant). Si l'utilisateur nomme un sujet, prendre celui-là.
+1. **Choisir** : lire `Experiments!A1:R101` (et les lignes ajoutées après 101). Écarter les statuts `Done`, `In progress`, `Needs test data`, `Suggested`. Parmi `Verified` et `Corrected`, prendre d'abord les lignes Pick = TRUE, puis le score V (Score v2) le plus haut ; à score égal, le plus petit numéro (colonne A, ordre croissant). Si l'utilisateur nomme un sujet, prendre celui-là.
 
 ### Sujet proposé par un abonné (commentaire)
 Le commentaire épinglé promet : « Most liked comment = next experiment ». Quand l'utilisateur transmet une proposition :
@@ -35,4 +42,5 @@ Le commentaire épinglé promet : « Most liked comment = next experiment ». Qu
    - Chiffres à l'écran : uniquement ceux des colonnes D, M, P (et leur source Q). Rien d'autre.
 4. **Rendre** : lancer `render.yml` (`config_path` ou `config_json`), suivre le run jusqu'à la fin.
 5. **Clore** : N = `Done`, R = lien du run + lien Drive de la vidéo.
+7. **Mesurer** : l'utilisateur donne les stats à J+3 → W–Z. Toutes les 5 vidéos publiées, comparer les stats aux notes S, T, U, G et proposer d'ajuster les poids du score V.
 6. **Échec** : remettre N à son statut d'avant, noter la cause dans P, prévenir l'utilisateur.
