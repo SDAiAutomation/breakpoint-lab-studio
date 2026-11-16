@@ -24,6 +24,7 @@ uniform vec4 tball;        // tennis ball centre + visible (w)
 uniform vec2 squash;       // vertical squash of basketball / tennis ball (1 = round)
 uniform float holder;      // release cup lift (0 holding, 1 released)
 uniform float holderY;     // height of the top of the held stack
+uniform float dropH;       // drop height: red mark on the pole
 uniform sampler2D logo;
 
 const float RB=0.12, RT=0.034, PX=0.40;
@@ -38,7 +39,7 @@ float sqBall(vec3 q, float r, float s){            // squashed sphere, bottom st
 }
 vec2 map(vec3 p){
   vec2 res=vec2(p.y,1.0);
-  res=opU(res,vec2(sdCylY(p-vec3(0.0,0.006,0.0),0.006,0.42)-0.004,7.0));                        // rubber pad
+  res=opU(res,vec2(sdCylY(p-vec3(0.0,0.006,0.0),0.006,0.24)-0.004,8.0));                        // rubber pad
   res=opU(res,vec2(sdRoundBox(p-vec3(PX,5.25,-0.02),vec3(0.055,5.25,0.012),0.004),2.0));        // measuring pole
   res=opU(res,vec2(sdRoundBox(p-vec3(PX,0.02,-0.02),vec3(0.11,0.02,0.09),0.006),7.0));          // pole foot
   // holder: arm from the pole, rod down, yellow cup on top of the stack
@@ -101,7 +102,7 @@ vec3 shade(vec2 fc){
         if(onFace>0.5){
           if(f10<0.06 && side<0.0) alb=vec3(0.12);
           if((fm<0.008||fm>0.992) ) alb=vec3(0.08);
-          if(abs(y-1.0)<0.012) alb=vec3(0.85,0.12,0.12);
+          if(abs(y-0.012-dropH)<0.012) alb=vec3(0.85,0.12,0.12);
           if(fract(floor(y)*0.5)>0.25 && side>0.035) alb=mix(alb,vec3(0.98,0.80,0.10),0.8);   // alternate metre bands on the edge
         }
         sp=0.15;
@@ -109,6 +110,7 @@ vec3 shade(vec2 fc){
       else if(m<3.5){ alb=vec3(0.75,0.76,0.78); sp=1.3; gl=140.0; refl=0.6; }
       else if(m<5.5){ alb=vec3(0.98,0.74,0.10); sp=0.6; gl=60.0; }
       else if(m<7.5){ alb=vec3(0.13,0.14,0.16); sp=0.4; gl=30.0; refl=0.1; }
+      else if(m<8.5){ alb=vec3(0.42,0.44,0.47); sp=0.25; gl=20.0; }   // grey rubber pad
       else if(m<20.5){                                     // basketball: orange pebbled leather, black seams
         vec3 q=normalize(p-bball.xyz);
         alb=vec3(0.86,0.38,0.10)*(0.92+0.08*hash3(floor(p*700.0)));
@@ -255,21 +257,21 @@ function sceneState(T,t){
   const topY=PAD+PP.h+(PP.kind==='tennis'?2*RT:(PP.kind==='basket'?2*RB:2*RB+2*RT));
   s.holderY=topY;s.holder=rt<0?0:sm(0,0.15,rt);
   // camera
-  const base={ang:0.30,dist:2.9,h:0.35,ty:0.78};
+  const base={ang:0.30,dist:2.3,h:0.30,ty:0.46}, WIDE={ang:0.22,dist:14.2,h:1.0,ty:2.95};
   let cam={...base};
   if(!inExplain){
     if(t<R.showEnd){const k=sm(R.start,R.showEnd,t);cam={ang:lerp(0.45,0.32,k),dist:lerp(1.5,1.9,k),h:0.15,ty:topY-0.12};}
     else if(t<R.qEnd){const k=sm(R.qStart,R.qEnd-0.3,t);cam={ang:lerp(0.32,base.ang,k),dist:lerp(1.9,base.dist,k),h:lerp(0.15,base.h,k),ty:lerp(topY-0.12,base.ty,k)};}
     if(stack&&t>=R.go&&!replay&&t<R.replayT0){            // follow the tennis ball up, then pull back to show the whole 9 m
       const yT=o.t+RT, k=sm(R.go+PP.apexT-0.25,R.go+PP.apexT+1.6,t);
-      const follow={ang:0.30,dist:2.9,h:0.25,ty:Math.max(base.ty,yT-0.25)};
-      const wide={ang:0.22,dist:14.5,h:1.2,ty:5.0};
+      const follow={ang:0.30,dist:2.6,h:0.20,ty:Math.max(base.ty,yT-0.20)};
+      const wide=WIDE;
       cam={ang:lerp(follow.ang,wide.ang,k),dist:lerp(follow.dist,wide.dist,k),h:lerp(follow.h,wide.h,k),ty:lerp(follow.ty,wide.ty,k)};
     }
-    if(replay){const k=t-R.replayT0;cam={ang:0.20+0.02*k,dist:1.35,h:0.05,ty:0.30};}
-    if(stack&&t>=R.replayT1){const k=sm(R.replayT1,R.replayT1+0.6,t);cam={ang:0.22,dist:lerp(9,14.5,k),h:1.2,ty:5.0};}
+    if(replay){const k=t-R.replayT0;cam={ang:0.20+0.02*k,dist:1.5,h:0.05,ty:clamp(o.b+RB+0.06,0.30,1.2)};}
+    if(stack&&t>=R.replayT1){const k=sm(R.replayT1,R.replayT1+0.6,t);cam={...WIDE,dist:lerp(9,WIDE.dist,k)};}
     const dt=rt-PP.tf; if(dt>0&&dt<0.25&&!stack){const a=0.006*Math.exp(-dt*20);s.shake=[a*Math.sin(dt*120),a*Math.cos(dt*95)];}
-  } else {const k=t-T.explain[0];cam={ang:0.22+0.05*Math.sin(k*0.3),dist:14.5,h:1.2,ty:5.0};}
+  } else {const k=t-T.explain[0];cam={...WIDE,ang:0.22+0.05*Math.sin(k*0.3)};}
   Object.assign(s,{camAng:cam.ang,camDist:cam.dist,camH:cam.h,camTY:cam.ty});
   return s;
 }
@@ -284,7 +286,7 @@ gl.linkProgram(prog);if(!gl.getProgramParameter(prog,gl.LINK_STATUS))throw new E
 const buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
 let LOGO=null;
 const al=gl.getAttribLocation(prog,'a');gl.enableVertexAttribArray(al);gl.vertexAttribPointer(al,2,gl.FLOAT,false,0,0);
-const U={};['R','camAng','camDist','camH','camTY','shake','bball','tball','squash','holder','holderY'].forEach(n=>U[n]=gl.getUniformLocation(prog,n));
+const U={};['R','camAng','camDist','camH','camTY','shake','bball','tball','squash','holder','holderY','dropH'].forEach(n=>U[n]=gl.getUniformLocation(prog,n));
 
 function project(s,p){
   const ta=[0.06,s.camTY,0], ro=[ta[0]+Math.sin(s.camAng)*s.camDist,ta[1]+s.camH,ta[2]+Math.cos(s.camAng)*s.camDist];
@@ -313,14 +315,21 @@ function pill(s,x,y,size,fill,a=1){if(a<=0)return;const fs=size;c.font=`700 ${fs
 
 function poleLabels(s,a){                               // metre numbers next to the pole
   if(a<=0) return;
-  for(let m=1;m<=10;m++){const q=project(s,[0.40+0.09,m,-0.02]);if(q[1]<640||q[1]>1460) continue;
+  const marks=[[s.P.h,CFG.drop_mark||(s.P.h*100)+' cm',COL.red]];for(let m=1;m<=10;m++) if(Math.abs(m-s.P.h)>0.2) marks.push([m,m+' m','#2a2e36']);
+  marks.forEach(([y,lab,col])=>{const q=project(s,[0.40+0.09,y+PAD,-0.02]);if(q[1]<660||q[1]>1460) return;
     const big=s.camDist>8;c.save();c.globalAlpha=a*0.9;c.font=`700 ${big?26:30}px P, DJ`;c.textAlign='left';c.textBaseline='middle';
-    c.fillStyle=m===1?COL.red:'#2a2e36';c.fillText(m+' m',q[0]+6,q[1]);c.restore();}
+    c.fillStyle=col;c.fillText(lab,q[0]+6,q[1]);c.restore();});
 }
 function objLabels(s,a){
   if(a<=0) return;const n=CFG.names||['BASKETBALL','TENNIS BALL'];
   if(s.bball[3]>0.5){const q=project(s,[-0.02,s.bball[1],0]);pill(n[0],q[0]-190,q[1],28,OBJ_COL[0],a);}
   if(s.tball[3]>0.5){const q=project(s,[-0.02,s.tball[1],0]);pill(n[1],q[0]-190,q[1]-(s.bball[3]>0.5?20:0),28,OBJ_COL[1],a);}
+}
+function ballMarker(s,a){                                // in wide shots the balls are small: ring the tennis ball
+  if(a<=0||s.camDist<6||s.tball[3]<0.5) return;
+  const q=project(s,[0,s.tball[1],0]);
+  c.save();c.globalAlpha=a;c.strokeStyle=OBJ_COL[1];c.lineWidth=5;c.beginPath();c.arc(q[0],q[1],26,0,7);c.stroke();c.restore();
+  pill((CFG.names||[])[1]||'TENNIS BALL',q[0]+150,q[1],26,OBJ_COL[1],a);
 }
 function bracket(s,a,label){                            // 9 m arrow from the bounce point to the top
   if(a<=0) return;
@@ -345,6 +354,7 @@ function overlay(cfg,T,t,s){
   if(t>=T.hook[1]||cfg.hook_series!==false) ctxt(cfg.series,W/2,292,34,COL.sub,0.9);
   drawHandle(c,cfg);
   poleLabels(s,1);
+  if(t>=T.hook[1]) ballMarker(s,1);
   if(t<T.hook[1]){const a=1-fade(T.hook[1]-0.3,t,0.3),hn=cfg.hook.length;
     cfg.hook.forEach((l,i)=>ctxt(l,W/2,390+i*90,fitText(l,960,82),hn>1&&i===hn-1?COL.red:COL.ink,a));objLabels(s,a);return;}
   if(t<T.hook[1]+0.18){c.save();c.globalAlpha=1-fade(T.hook[1],t,0.18);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
@@ -399,7 +409,7 @@ function drawFrame(t){
   gl.uniform1f(U.camAng,s.camAng);gl.uniform1f(U.camDist,s.camDist);gl.uniform1f(U.camH,s.camH);gl.uniform1f(U.camTY,s.camTY);
   gl.uniform2f(U.shake,s.shake[0],s.shake[1]);
   gl.uniform4f(U.bball,...s.bball);gl.uniform4f(U.tball,...s.tball);gl.uniform2f(U.squash,...s.squash);
-  gl.uniform1f(U.holder,s.holder);gl.uniform1f(U.holderY,s.holderY);
+  gl.uniform1f(U.holder,s.holder);gl.uniform1f(U.holderY,s.holderY);gl.uniform1f(U.dropH,s.P.h);
   gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,LOGO);
   gl.drawArrays(gl.TRIANGLES,0,3);gl.finish();
   c.imageSmoothingQuality='high';c.drawImage(document.getElementById('gl'),0,0,W,H);

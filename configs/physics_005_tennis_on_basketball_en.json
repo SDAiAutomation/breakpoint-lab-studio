@@ -4,10 +4,15 @@
   "series": "PHYSICS · TEST 005",
   "decimal": ".",
   "handle": "@BreakpointLabTV",
-  "drop_m": 1.0,
-  "hook": ["Stack them, drop them: how high?"],
+  "drop_m": 0.5,
+  "hook": [
+    "Stack them, drop them: how high?"
+  ],
   "hook_series": false,
-  "names": ["BASKETBALL", "TENNIS BALL"],
+  "names": [
+    "BASKETBALL",
+    "TENNIS BALL"
+  ],
   "drop_label": "DROP",
   "rise_label": "BOUNCE HEIGHT",
   "replay_label": "SLOW-MO",
@@ -15,47 +20,72 @@
     {
       "title": "ROUND 1 · BASKETBALL ALONE",
       "kind": "basket",
-      "subtitle": "Dropped from 1 m",
+      "subtitle": "Dropped from 50 cm",
       "question": "How high does it bounce?",
       "question_sub": "A perfect bounce ↓",
-      "stamp": {"text": "BACK TO 1 m", "color": "green"},
-      "fact": ["Perfect bounce: same height"]
+      "stamp": {
+        "text": "BACK TO 50 cm",
+        "color": "green"
+      },
+      "fact": [
+        "Perfect bounce: same height"
+      ]
     },
     {
       "title": "ROUND 2 · TENNIS BALL ALONE",
       "kind": "tennis",
-      "subtitle": "Dropped from 1 m",
+      "subtitle": "Dropped from 50 cm",
       "question": "And the tennis ball?",
       "question_sub": "A perfect bounce ↓",
-      "stamp": {"text": "BACK TO 1 m", "color": "green"},
-      "fact": ["Same: back to 1 m"]
+      "stamp": {
+        "text": "BACK TO 50 cm",
+        "color": "green"
+      },
+      "fact": [
+        "Same: back to 50 cm"
+      ]
     },
     {
       "title": "ROUND 3 · STACKED",
       "kind": "stack",
-      "subtitle": "Tennis ball on top · 1 m drop",
+      "subtitle": "Tennis ball on top · 50 cm",
       "question": "How high now?",
-      "question_sub": "1 m? 2 m? MORE? ↓",
-      "bracket": "9 m",
-      "stamp": {"text": "9 m HIGH!", "color": "red"},
-      "fact": ["It leaves at 3× the speed", "3 × 3 = 9× higher"]
+      "question_sub": "50 cm? 1 m? MORE? ↓",
+      "bracket": "4.5 m",
+      "stamp": {
+        "text": "4.5 m HIGH!",
+        "color": "red"
+      },
+      "fact": [
+        "It leaves at 3× the speed",
+        "3 × 3 = 9× the drop height"
+      ]
     }
   ],
   "explain": {
     "title": "WHY 9×?",
-    "lines": ["The basketball bounces up at v", "The tennis ball still falls at v", "It flies off at 3v: 9× higher", "Real balls lose energy: far less"]
+    "lines": [
+      "The basketball bounces up at v",
+      "The tennis ball still falls at v",
+      "It flies off at 3v: 9× higher",
+      "Real balls lose energy: far less"
+    ]
   },
-  "source": ["Elastic collision: heavy ball under light ball", "Simulated: ideal bouncy balls, 1 m drop"],
+  "source": [
+    "Elastic collision: heavy ball under light ball",
+    "Simulated: ideal bouncy balls, 50 cm drop"
+  ],
   "cta": "NEXT EXPERIMENT? Comment ↓",
-  "caption": "Drop a tennis ball sitting on a basketball. In the ideal case it flies 9 times higher than you dropped it 🏀🎾 Try it outside (not indoors!). What should we test next? 👇 #physics #science #basketball #tennis #satisfying #mythbusting #3danimation",
+  "caption": "Drop a tennis ball sitting on a basketball from 50 cm. In the ideal case it flies 9 times higher: 4.5 m 🏀🎾 Try it outside (not indoors!). What should we test next? 👇 #physics #science #basketball #tennis #satisfying #mythbusting #3danimation",
   "description": [
-    "We drop a basketball from 1 m, then a tennis ball from 1 m, then the tennis ball sitting on top of the basketball, all from 1 m.",
-    "With perfectly bouncy balls, each ball alone bounces straight back to 1 m. Stacked, something surprising happens: the basketball hits the floor and bounces up at speed v, while the tennis ball on top is still coming down at v. Seen from the basketball, the tennis ball hits it at 2v and bounces off at 2v; add the basketball's own v and the tennis ball leaves at 3v.",
-    "Height grows with the square of speed, so 3 times the speed means 3 x 3 = 9 times the height: in the ideal case (a basketball much heavier than the tennis ball, no energy lost) the tennis ball rises 9 m above the point where it bounced.",
-    "Real balls lose energy at every bounce and the basketball is not infinitely heavy, so in real life the tennis ball goes several times higher, but far less than 9 m. The animation is a simulation of the ideal case."
+    "We drop a basketball from 50 cm, then a tennis ball from 50 cm, then the tennis ball sitting on top of the basketball, all from 50 cm.",
+    "With perfectly bouncy balls, each ball alone bounces straight back to 50 cm. Stacked, something surprising happens: the basketball hits the floor and bounces up at speed v, while the tennis ball on top is still coming down at v. Seen from the basketball, the tennis ball hits it at 2v and bounces off at 2v; add the basketball's own v and the tennis ball leaves at 3v.",
+    "Height grows with the square of speed, so 3 times the speed means 3 x 3 = 9 times the height: in the ideal case (a basketball much heavier than the tennis ball, no energy lost) the tennis ball rises 4.5 m above the point where it bounced, 9 times the 50 cm drop.",
+    "Real balls lose energy at every bounce and the basketball is not infinitely heavy, so in real life the tennis ball goes several times higher, but far less than 9 times. The animation is a simulation of the ideal case."
   ],
   "sources_detail": [
     "Elastic collision, heavy ball (mass M) under light ball (mass m), both falling from h with speed v = sqrt(2gh) at impact. In the limit M >> m: basketball rebounds at v, tennis ball leaves at v + 2v = 3v. Rise = (3v)^2 / 2g = 9h.",
-    "Simulated: h = 1 m, g = 9.81 m/s^2, perfectly elastic balls; v = 4.43 m/s, tennis ball leaves at 13.3 m/s, rises 9.0 m above its bounce point."
-  ]
+    "Simulated: h = 0.5 m, g = 9.81 m/s^2, perfectly elastic balls; v = 3.13 m/s, tennis ball leaves at 9.40 m/s, rises 4.5 m above its bounce point."
+  ],
+  "drop_mark": "50 cm"
 }
