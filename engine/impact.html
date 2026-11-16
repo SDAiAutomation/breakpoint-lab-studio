@@ -302,7 +302,7 @@ function sceneState(T,t){
     s.showHammer=1;
     const top=r.target==='gem'?BT+HC+CUL:BT+2*CUBE;
     s.pivot=[HL,top+HF,0];s.phi=hammerPhi(rt,r.target);
-    if(r.target==='steel') s.dent=sm(TS,TS+0.03,rt);
+    if(r.target==='steel'){s.dent=sm(TS,TS+0.03,rt);if(R.rw&&!inExplain&&t>=R.replayT1) s.phi=PHI0*sm(R.replayT1,R.replayT1+0.7,t);}   // lift the hammer to show the dent
     else {
       s.showGem=1;s.gemFlip=1;s.gemP=[0,BT+HC,0];
       s.crack=rt>=TS-0.004?1:0;
@@ -320,7 +320,7 @@ function sceneState(T,t){
     else if(t<R.qEnd){const k=sm(R.qStart,R.qEnd-0.3,t);cam={ang:lerp(0.36,wide.ang,k),dist:lerp(0.95,wide.dist,k),h:lerp(0.14,wide.h,k),ty:lerp(0.37,wide.ty,k),tx:lerp(0,wide.tx,k)};}
     else if(r.kind==='scratch'){const k=sm(R.go,R.go+0.8,t);cam={ang:lerp(wide.ang,0.15,k),dist:lerp(wide.dist,0.62,k),h:lerp(wide.h,0.22,k),ty:lerp(wide.ty,0.40,k),tx:lerp(wide.tx,0.0,k)};}
     if(replay){const k=t-R.replayT0;cam={ang:0.62+0.03*k,dist:0.95-0.015*k,h:0.04,ty:0.40,tx:0.03};}
-    if(R.rw&&t>=R.replayT1){const k=sm(R.replayT1,R.replayT1+1.0,t);cam={ang:lerp(0.6,0.30,k),dist:lerp(0.6,0.9,k),h:lerp(0.06,0.35,k),ty:lerp(0.36,0.36,k),tx:0.0};}
+    if(R.rw&&t>=R.replayT1){const k=sm(R.replayT1,R.replayT1+1.0,t),st=r.target==='steel';cam={ang:lerp(0.6,0.30,k),dist:lerp(0.95,st?0.7:0.9,k),h:lerp(0.04,st?0.55:0.35,k),ty:lerp(0.40,st?0.40:0.36,k),tx:0.0};}
     if(r.kind==='scratch'&&t>=R.actEnd){cam={ang:0.12,dist:0.55,h:0.30,ty:0.40,tx:0.0};}
   } else {const k=t-T.explain[0];cam={ang:0.30+0.25*Math.sin(k*0.25),dist:0.9,h:0.35,ty:0.36,tx:0.0};}
   Object.assign(s,{camAng:cam.ang,camDist:cam.dist,camH:cam.h,camTY:cam.ty,camTX:cam.tx||0});
