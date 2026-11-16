@@ -1,0 +1,64 @@
+{
+  "id": "tests-007-diamond-vs-hammer-en",
+  "engine": "impact",
+  "series": "QUALITY CONTROL · TEST 007",
+  "handle": "@BreakpointLabTV",
+  "hook": ["Diamond vs hammer: who wins?"],
+  "hook_series": false,
+  "names": {"gem": "DIAMOND", "steel": "STEEL", "hammer": "HAMMER"},
+  "replay_label": "SLOW-MO",
+  "rounds": [
+    {
+      "title": "ROUND 1 · SCRATCH TEST",
+      "kind": "scratch",
+      "subtitle": "Diamond tip on hammer steel",
+      "question": "Who scratches who?",
+      "question_sub": "DIAMOND or STEEL ↓",
+      "action_text": "SCRATCHING…",
+      "stamp": {"text": "DIAMOND WINS", "color": "green"},
+      "fact": ["Diamond: 10 on the Mohs scale", "Hammer steel: only 5 to 6"]
+    },
+    {
+      "title": "ROUND 2 · HAMMER ON STEEL",
+      "kind": "hammer",
+      "target": "steel",
+      "subtitle": "Same steel block",
+      "question": "What happens?",
+      "question_sub": "DENT or BREAK ↓",
+      "action_text": "IMPACT!",
+      "stamp": {"text": "JUST A DENT", "color": "green"},
+      "fact": ["Steel is tough: it bends"]
+    },
+    {
+      "title": "ROUND 3 · HAMMER ON DIAMOND",
+      "kind": "hammer",
+      "target": "gem",
+      "subtitle": "The hardest natural material",
+      "question": "Diamond vs hammer?",
+      "question_sub": "SURVIVES or SHATTERS ↓",
+      "action_text": "IMPACT!",
+      "stamp": {"text": "SHATTERED", "color": "red"},
+      "fact": ["Hard is not tough", "Steel is about 25× tougher"]
+    }
+  ],
+  "explain": {
+    "title": "HARD ≠ TOUGH",
+    "lines": ["Hard: resists scratches", "Tough: resists blows", "Diamond splits along flat planes", "Toughness: steel 50, diamond 2"]
+  },
+  "source": ["Field & Freeman, Phil. Mag. A (1981)", "Mohs scale · Britannica · Intl. Gem Society", "Simulated: break along cleavage planes"],
+  "cta": "NEXT TEST? Comment ↓",
+  "caption": "Diamond is the hardest natural material… so why can a hammer shatter it? 💎🔨 Hard is not the same as tough. What should we test next? 👇 #diamond #science #physics #engineering #satisfying #mythbusting #3danimation",
+  "description": [
+    "Is a diamond unbreakable? We test it three ways: a diamond tip scratching a hammer-steel block, a hammer hitting that steel block, then the same hammer hitting a diamond.",
+    "Diamond is the hardest natural material: 10 on the Mohs scale, while hammer steel is only about 5 to 6. So the diamond scratches the steel easily, and steel can never scratch a diamond.",
+    "But hardness only means resisting scratches. Resisting a blow is a different property, called toughness. Steel bends and dents instead of breaking: its fracture toughness is about 50 MPa·m^0.5. Natural diamond is about 2 MPa·m^0.5 (Field and Freeman, 1981), roughly 25 times less. A sharp hammer blow can split it along its flat cleavage planes. As Britannica puts it, it is possible to shatter a diamond with a metal hammer.",
+    "The animation is a simulation: the break along the cleavage planes is illustrative."
+  ],
+  "sources_detail": [
+    "J. E. Field and C. J. Freeman, 'Strength and fracture properties of diamond', Philosophical Magazine A 43 (1981): fracture toughness of natural diamond about 2.0 MPa·m^0.5.",
+    "Typical fracture toughness of steel alloy: about 50 MPa·m^0.5 (standard fracture toughness tables). 50 / 2 = 25.",
+    "Mohs hardness: diamond 10; hammer steel 5-6 (International Gem Society, 'Mineral Hardness'): steel can't scratch diamond but can shatter it.",
+    "Britannica, 'Can anything break if you hit it hard enough?': 'it's possible to shatter a diamond with a metal hammer'; a blow splits the stone along a weak internal plane (cleavage).",
+    "Simulated: hammer swing, dent depth and break pattern are illustrative."
+  ]
+}
