@@ -269,8 +269,8 @@ function sceneState(T,t){
       cam={ang:lerp(follow.ang,wide.ang,k),dist:lerp(follow.dist,wide.dist,k),h:lerp(follow.h,wide.h,k),ty:lerp(follow.ty,wide.ty,k)};
     }
     if(replay){const k=t-R.replayT0, sep=Math.max(0,(o.t+RT)-(o.b+2*RB+RT));   // keep both balls in frame as the tennis ball takes off
-      const d=Math.max(1.5,2.0+2.9*sep), mid=(o.b+o.t+RT+0.05)/2;
-      cam={ang:0.20+0.02*k,dist:d,h:0.05,ty:Math.max(0.30,mid-0.035*d)};}
+      const d=1.6+3.2*sep, mid=(o.b+o.t+RT+0.05)/2;          // frame centre sits ~80 px below the image centre (text band above)
+      cam={ang:0.20+0.02*k,dist:d,h:0.05,ty:Math.max(0.30,mid+0.035*d)};}
     if(stack&&t>=R.replayT1){const k=sm(R.replayT1,R.replayT1+0.6,t);cam={...WIDE,dist:lerp(9,WIDE.dist,k)};}
     const dt=rt-PP.tf; if(dt>0&&dt<0.25&&!stack){const a=0.006*Math.exp(-dt*20);s.shake=[a*Math.sin(dt*120),a*Math.cos(dt*95)];}
   } else {const k=t-T.explain[0];cam={...WIDE,ang:0.22+0.05*Math.sin(k*0.3)};}
