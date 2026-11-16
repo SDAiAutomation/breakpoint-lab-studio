@@ -5,7 +5,8 @@
 Events (from qc/engine.html buildTimeline): round, approach, ramp, ok, question,
 break (material/kind), stamp (green/red), card, explain, cta;
 drop engine: drop, land (heavy/light, speed), pump;
-snap engine: snap (n breaks, speed), bend, twist.
+snap engine: snap (n breaks, speed), bend, twist;
+impact engine: scratch, swing, clank, shatter (speed).
 """
 import json
 import sys
@@ -121,6 +122,35 @@ def main(tl_path, out_path):
                 tm = np.arange(mm) / SR
                 f0 = (1318.5, 1046.5, 880.0)[min(j, 2)] * (1 if sp == 1 else 0.5)
                 add(np.sin(2 * np.pi * f0 * tm) * env(mm, 0.002, 0.15) + 0.4 * np.sin(4 * np.pi * f0 * tm) * env(mm, 0.002, 0.06), tf, 0.22)
+        elif ty == "scratch":                                      # impact engine: diamond point scraping steel
+            m = (tt >= e["t0"]) & (tt < e["t1"])
+            k = (tt[m] - e["t0"]) / max(e["t1"] - e["t0"], 1e-3)
+            nz = rng.standard_normal(int(m.sum()))
+            hi = nz - lp(nz, 0.45)
+            a = np.minimum(1, k / 0.05) * np.minimum(1, (1 - k) / 0.05)
+            out[m] += (hi * 0.22 + np.sin(2 * np.pi * (3100 + 400 * np.sin(2 * np.pi * 7 * tt[m])) * tt[m]) * 0.05) * a
+        elif ty == "swing":                                        # impact engine: hammer released, short whoosh
+            n = int(0.2 * SR)
+            add(lp(rng.standard_normal(n), 0.08) * env(n, 0.06, 0.08), e["t"], 0.35)
+        elif ty == "clank":                                        # impact engine: steel on steel
+            sp = e.get("speed", 1); slow = 1.0 / max(sp, 0.1)
+            n = int(1.2 * slow ** 0.5 * SR); tm = np.arange(n) / SR
+            ring = sum(np.sin(2 * np.pi * f / slow ** 0.4 * tm) * w for f, w in ((1250, 0.5), (2730, 0.35), (4210, 0.2)))
+            add(ring * env(n, 0.0005, 0.25 * slow ** 0.5), e["t"], 0.45)
+            k = int(0.03 * slow * SR); cl = rng.standard_normal(k)
+            add(cl * env(k, 0.0002, 0.006 * slow), e["t"], 1.0)
+            m2 = int(0.3 * SR); t2 = np.arange(m2) / SR
+            add(np.sin(2 * np.pi * 70 * t2) * env(m2, 0.001, 0.08), e["t"], 0.6)
+        elif ty == "shatter":                                      # impact engine: diamond splitting, tinkling shards
+            sp = e.get("speed", 1); slow = 1.0 / max(sp, 0.1)
+            k = int(0.012 * slow * SR); cl = rng.standard_normal(k); cl = cl - lp(cl, 0.4)
+            add(cl * env(k, 0.0001, 0.003 * slow), e["t"], 1.4)
+            m2 = int(0.3 * SR); t2 = np.arange(m2) / SR
+            add(np.sin(2 * np.pi * 70 * t2) * env(m2, 0.001, 0.08), e["t"], 0.5)
+            for j in range(14):                                    # shards landing on the steel bench
+                tj = e["t"] + (0.12 + 0.05 * j + 0.02 * rng.random()) * slow
+                q = int(0.08 * SR); tq = np.arange(q) / SR; f = (4200 + 2600 * rng.random()) / slow ** 0.3
+                add(np.sin(2 * np.pi * f * tq) * env(q, 0.0002, 0.02), tj, 0.10 * (1 - j / 16))
         elif ty == "snap":                                         # snap engine: dry spaghetti cracking
             sp = e.get("speed", 1)
             slow = 1.0 / max(sp, 0.1)                              # slow motion: longer, lower, cracks spread apart
