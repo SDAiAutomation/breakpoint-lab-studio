@@ -268,7 +268,8 @@ function sceneState(T,t){
       const wide=WIDE;
       cam={ang:lerp(follow.ang,wide.ang,k),dist:lerp(follow.dist,wide.dist,k),h:lerp(follow.h,wide.h,k),ty:lerp(follow.ty,wide.ty,k)};
     }
-    if(replay){const k=t-R.replayT0;cam={ang:0.20+0.02*k,dist:1.5,h:0.05,ty:clamp(o.b+RB+0.06,0.30,1.2)};}
+    if(replay){const k=t-R.replayT0, sep=Math.max(0,(o.t+RT)-(o.b+2*RB+RT));   // keep both balls in frame as the tennis ball takes off
+      cam={ang:0.20+0.02*k,dist:1.5+1.1*sep,h:0.05,ty:clamp((o.b+RB*0.6+o.t+RT)/2,0.30,3.0)};}
     if(stack&&t>=R.replayT1){const k=sm(R.replayT1,R.replayT1+0.6,t);cam={...WIDE,dist:lerp(9,WIDE.dist,k)};}
     const dt=rt-PP.tf; if(dt>0&&dt<0.25&&!stack){const a=0.006*Math.exp(-dt*20);s.shake=[a*Math.sin(dt*120),a*Math.cos(dt*95)];}
   } else {const k=t-T.explain[0];cam={...WIDE,ang:0.22+0.05*Math.sin(k*0.3)};}
