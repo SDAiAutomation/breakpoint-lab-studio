@@ -255,7 +255,7 @@ function sceneState(T,t){
   s.tball=o.t!=null?[0,o.t+RT,0,1]:[0,0,0,0];
   s.squash=[o.sb||1,o.st||1];
   const topY=PAD+PP.h+(PP.kind==='tennis'?2*RT:(PP.kind==='basket'?2*RB:2*RB+2*RT));
-  s.holderY=topY;s.holder=rt<0?0:sm(0,0.15,rt);
+  s.holderY=topY;s.holder=rt<0?0:sm(0,0.15,rt)+8*sm(0.18,0.6,rt);   // opens, then lifts out of the tennis ball's way
   // camera
   const base={ang:0.30,dist:2.3,h:0.30,ty:0.46}, WIDE={ang:0.22,dist:14.2,h:1.0,ty:2.95};
   let cam={...base};
