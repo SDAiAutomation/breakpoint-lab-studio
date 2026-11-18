@@ -5,6 +5,7 @@ Chaîne YouTube/TikTok **Breakpoint Lab**, handle **@BreakpointLabTV**. Séries 
 ## Ne pas mélanger
 - Ce dépôt n'a RIEN à voir avec SliceLoop / `asmr-slicing-studio` (vidéos de découpe ASMR, compte @sliceloop). Ne jamais mettre @sliceloop ici, ni @BreakpointLabTV là-bas.
 - Le handle va dans chaque config : `"handle": "@BreakpointLabTV"`.
+- Numéro à l'écran (`series`, ex. « PHYSICS · TEST 008 ») = numéro d'épisode (colonne AA de la Sheet), jamais le numéro de ligne (colonne A). Il ne fait que monter : dernier numéro publié + 1, même si l'on change de série. On ne réutilise jamais un numéro déjà en ligne.
 
 ## Ligne éditoriale (ce qui fait des vues)
 - **Un sujet que les gens connaissent** : un objet du quotidien, un mythe, une question qu'on s'est déjà posée (« ah ça, je l'ai déjà vu »). C'est le critère qui pèse le plus.
@@ -25,7 +26,7 @@ Chaîne YouTube/TikTok **Breakpoint Lab**, handle **@BreakpointLabTV**. Séries 
 - Une PR séparée par modification.
 
 ## Procédure « fais une vidéo »
-Liste des sujets : Google Sheet « Breakpoint Lab – 100 Experiments » (id `1hl-jYG9e2N5L2_xycGPkE_SprXOnQWE8BR-vbNOqrkk`), onglet `Experiments`, lignes 2–101. Colonnes : D réponse, K série, L moteur, M source, N statut, O Pick, P note, Q lien source, R lien vidéo, S « Familiar » /5, T « Busts a belief » /5, U Preuve (`Experiment` ou `Formula`), V Score v2 = 2×S + T + (5 si Experiment, 3 si Formula) + G, W–Z stats (vues, likes, abonnés gagnés, partages).
+Liste des sujets : Google Sheet « Breakpoint Lab – 100 Experiments » (id `1hl-jYG9e2N5L2_xycGPkE_SprXOnQWE8BR-vbNOqrkk`), onglet `Experiments`, lignes 2–101. Colonnes : D réponse, K série, L moteur, M source, N statut, O Pick, P note, Q lien source, R lien vidéo, S « Familiar » /5, T « Busts a belief » /5, U Preuve (`Experiment` ou `Formula`), V Score v2 = 2×S + T + (5 si Experiment, 3 si Formula) + G, W–Z stats (vues, likes, abonnés gagnés, partages). AA « Episode # (on screen) ».
 
 1. **Choisir** : lire `Experiments!A1:R101` (et les lignes ajoutées après 101). Écarter les statuts `Done`, `In progress`, `Needs test data`, `Suggested`. Parmi `Verified` et `Corrected`, prendre d'abord les lignes Pick = TRUE, puis le score V (Score v2) le plus haut ; à score égal, le plus petit numéro (colonne A, ordre croissant). Si l'utilisateur nomme un sujet, prendre celui-là.
 
@@ -41,6 +42,6 @@ Le commentaire épinglé promet : « Most liked comment = next experiment ». Qu
    - L = `(extend)` ou `New engine` : coder la scène dans une PR séparée, vérifier les images clés (`render.js stills`), montrer les stills à l'utilisateur avant le rendu complet.
    - Chiffres à l'écran : uniquement ceux des colonnes D, M, P (et leur source Q). Rien d'autre.
 4. **Rendre** : lancer `render.yml` (`config_path` ou `config_json`), suivre le run jusqu'à la fin.
-5. **Clore** : N = `Done`, R = lien du run + lien Drive de la vidéo.
+5. **Clore** : N = `Done`, R = lien du run + lien Drive de la vidéo, AA = numéro d'épisode affiché (fixé dès l'étape 3 : plus grand AA existant + 1).
 7. **Mesurer** : l'utilisateur donne les stats à J+3 → W–Z. Toutes les 5 vidéos publiées, comparer les stats aux notes S, T, U, G et proposer d'ajuster les poids du score V.
 6. **Échec** : remettre N à son statut d'avant, noter la cause dans P, prévenir l'utilisateur.
