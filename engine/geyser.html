@@ -98,8 +98,10 @@ vec3 calcNormal(vec3 p){
   return normalize(e.xyy*map(p+e.xyy).x+e.yyx*map(p+e.yyx).x+e.yxy*map(p+e.yxy).x+e.xxx*map(p+e.xxx).x);
 }
 float softShadow(vec3 ro, vec3 rd){
-  float res=1.0, t=0.01;
-  for(int i=0;i<40;i++){ float h=mode<0.5?sceneMap(ro+rd*t,false).x:microMap(ro+rd*t).x; res=min(res,10.0*h/t); t+=clamp(h,0.008,0.3); if(res<0.002||t>6.0) break; }
+  float res=1.0, t=0.01+0.01*hash3(ro*731.0), ph=1e10;
+  for(int i=0;i<64;i++){ vec2 hh=mode<0.5?sceneMap(ro+rd*t,false):microMap(ro+rd*t); float h=hh.x;
+    if(hh.y>0.5){ float y=h*h/(2.0*ph), d=sqrt(max(h*h-y*y,0.0)); res=min(res,12.0*d/max(0.0001,t-y)); ph=h; } else ph=1e10;   // foam bounding proxy casts no shadow
+    t+=clamp(h,0.004,0.10); if(res<0.002||t>6.0) break; }
   return clamp(res,0.0,1.0);
 }
 float calcAO(vec3 p, vec3 n){
@@ -222,10 +224,10 @@ function geyser(kind,tau,dur,H){                            // tau: time since t
     const age=tau-te, v=v0*I(te)*(0.95+0.10*((i*37)%7)/7);
     const big=kind==='mentos', a=i*2.4, spread=big?0.04+0.10*(i%5)/5:0.015+0.02*(i%3)/3;
     let y=MOUTH+v*age-0.5*g*age*age, x=Math.cos(a)*spread*age, z=Math.sin(a)*spread*age*0.6;
-    let r=big?0.022+0.07*Math.min(age,1.2):0.012+0.02*Math.min(age,0.8);
+    let r=big?0.022+0.07*Math.min(age,1.2):0.008+0.008*Math.min(age,0.8);
     let link=true;
     const falling=age>v/g;
-    if(big){ x=0;z=0; if(falling){ const fa=age-v/g; x=Math.cos(a)*(0.10+0.35*fa)*(0.6+0.4*(i%4)/3); z=Math.sin(a)*(0.10+0.35*fa)*0.7; r*=0.75; link=false; } }   // straight column, spray falls around
+    if(big){ x=0;z=0; if(falling){ const fa=age-v/g; x=Math.cos(a)*(0.10+0.35*fa)*(0.6+0.4*(i%4)/3); z=Math.sin(a)*(0.10+0.35*fa)*0.7; r=0.012+0.012*(i%3); link=false; } }   // straight column, spray falls around
     if(!big&&falling){ y=Math.max(MOUTH+0.005,y); x=Math.cos(a)*0.012; z=Math.sin(a)*0.012; link=false; }        // salt: a small foam cap on the neck
     if(big&&y<0.02){ const tl=(v+Math.sqrt(v*v+2*g*MOUTH))/g; const fa=tl-v/g; x=Math.cos(a)*(0.10+0.35*fa); z=Math.sin(a)*(0.10+0.35*fa)*0.7; y=0.012; r=Math.max(0.008,0.03*Math.exp(-(age-tl)*0.8)); link=false; }
     out.push([x,y,z,link?r:-r]);
@@ -292,13 +294,13 @@ function sceneState(T,t){
     const stage=t<R.go?-1:(t-R.go);
     const rp=R.rw&&t>=R.replayT0&&t<R.replayT1; s.replay=rp;
     let tau; if(rp) tau=R.rw[0]+(t-R.replayT0)*SLOW; else if(t>=R.replayT1&&R.rw) tau=R.dur+D_.settle; else tau=t-R.hit;
-    s.tube=(tau<R.dur+0.4)&&!(t>=R.replayT1&&R.rw)?1:0;
+    s.tube=(tau<0.3)&&!(t>=R.replayT1&&R.rw)?1:0;
     const kind=r.kind;
     // object falling through the tube into the bottle
     const ft=rp?FALL+tau:(t-R.go);
     if(ft<0) s.drop=[0,0.56,0,kind==='mentos'?1:2];
     else if(ft<FALL+0.4){const y=0.56-0.5*g*ft*ft*0.55;s.drop=[0,Math.max(0.03,y),0,kind==='mentos'?1:2];}
-    const G=geyser(kind,tau,R.dur,kind==='mentos'?H:0.25);s.blobs=G.blobs;s.puddle=G.puddle;s.level=G.level;s.fizz=tau>0&&tau<R.dur+0.8?1:0;
+    const G=geyser(kind,tau,R.dur,kind==='mentos'?H:0.10);s.blobs=G.blobs;s.puddle=G.puddle;s.level=G.level;s.fizz=tau>0&&tau<R.dur+0.8?1:0;
     if(t<R.showEnd){const k=sm(R.start,R.showEnd,t);cam={ang:lerp(0.55,0.32,k),dist:lerp(0.70,0.95,k),h:0.10,ty:0.36};}
     else if(t<R.qEnd){const k=sm(R.qStart,R.qEnd-0.3,t);cam={ang:0.32,dist:lerp(0.95,1.15,k),h:0.18,ty:lerp(0.36,0.30,k)};}
     if(kind==='mentos'&&!rp&&t>=R.hit){                  // follow the jet up, then pull back to show the whole geyser
@@ -392,8 +394,8 @@ function overlay(cfg,T,t,s){
 let CFG=null,TL=null;
 window.setup=function(cfg){if(!LOGO){LOGO=makeLogoTexture();gl.uniform1i(gl.getUniformLocation(prog,'logo'),0);}CFG=cfg;TL=buildTimeline(cfg);
   return {duration:TL.duration,events:TL.events,rounds:TL.rounds.map(R=>({title:R.cfg.title}))};};
-function sceneTime(t){                                  // hook: the Mentos slow motion, cut as it enters the bottle
-  if(t<TL.hook[1]){const R=TL.rounds.find(q=>q.rw);const tau=R.rw[0]-0.25+(t/TL.hook[1])*(0.0-(R.rw[0]-0.25));return R.replayT0+(tau-R.rw[0])/SLOW;}
+function sceneTime(t){                                  
+  if(t<TL.hook[1]){const R=TL.rounds.find(q=>q.rw);return R.hit-0.3+t;}   // hook: the real eruption, in full action
   return t;
 }
 window.renderFrame=function(t,type='image/jpeg'){drawFrame(t);return out.toDataURL(type,0.93);};
