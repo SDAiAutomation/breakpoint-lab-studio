@@ -31,7 +31,7 @@ env:
 
 jobs:
   prepare:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     outputs:
       shards: ${{ steps.shards.outputs.list }}
@@ -81,7 +81,7 @@ jobs:
 
   render:
     needs: prepare
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 240
     strategy:
       fail-fast: true
@@ -114,7 +114,7 @@ jobs:
   finalize:
     needs: [prepare, render]
     if: always() && needs.prepare.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       RCLONE_CONF: ${{ secrets.RCLONE_CONF }}
