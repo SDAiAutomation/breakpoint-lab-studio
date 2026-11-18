@@ -79,8 +79,8 @@ float jetD(vec3 p){                                       // foam column from th
 float coat(vec3 p, float b){                              // foam running down the outside of the bottle
   if(ovf.y<=0.0||b>0.02) return 1e5;
   float a=atan(p.z,p.x);
-  float streak=smoothstep(0.38,0.62,noise(vec3(a*2.2,p.y*2.5,1.7))+0.15*noise(vec3(a*9.0,p.y*12.0,4.0)));
-  float cover=mix(streak,1.0,smoothstep(0.285,0.345,p.y));
+  float streak=smoothstep(0.56,0.70,noise(vec3(a*2.6,p.y*1.2,1.7))+0.12*noise(vec3(a*9.0,p.y*10.0,4.0)));
+  float cover=mix(streak*0.8,1.0,smoothstep(0.31,0.36,p.y));
   float front=smoothstep(ovf.x-0.012,ovf.x+0.012,p.y+0.03*(noise(vec3(a*3.0,0.5,2.0))-0.5));
   float th=ovf.y*cover*front*(0.65+0.7*noise(p*140.0))-0.0015;
   return max(b-th,-b-0.0005);
@@ -89,7 +89,7 @@ float poolD(vec3 p, float b){                             // lumpy foam pool aro
   if(pool<=0.0) return 1e5;
   float rr=length(p.xz), a=atan(p.z,p.x);
   float edge=pool*(0.80+0.25*noise(vec3(a*2.0,0.0,5.0))+0.10*noise(vec3(a*7.0,0.0,1.0)));
-  float h=0.0025+0.010*smoothstep(edge,edge*0.35,rr)*(0.5+0.7*noise(vec3(p.x*45.0,0.0,p.z*45.0)));
+  float h=0.0015+0.006*smoothstep(edge,edge*0.35,rr)*(0.5+0.7*noise(vec3(p.x*45.0,0.0,p.z*45.0)));
   return max(max((p.y-h)*0.5,rr-edge),-(b-0.001));
 }
 float foamCap(vec3 p){
@@ -183,7 +183,7 @@ float microMap(vec3 p){ return (p.y-microH(p))*0.55; }
 vec3 microNormal(vec3 p){ vec2 e=vec2(0.002,-0.002);
   return normalize(e.xyy*microMap(p+e.xyy)+e.yyx*microMap(p+e.yyx)+e.yxy*microMap(p+e.yxy)+e.xxx*microMap(p+e.xxx)); }
 vec3 microShade(vec3 ro, vec3 rd){
-  vec3 fogc=vec3(0.30,0.15,0.06);
+  vec3 fogc=vec3(0.36,0.21,0.10);
   float t=0.0; bool hit=false;
   for(int i=0;i<170;i++){ float h=microMap(ro+rd*t); if(h<0.0005*t){hit=true;break;} t+=h; if(t>14.0) break; }
   vec3 col=mix(vec3(0.12,0.06,0.03),vec3(0.26,0.13,0.05),rd.y*0.5+0.5);
@@ -191,9 +191,9 @@ vec3 microShade(vec3 ro, vec3 rd){
     float pit=smoothstep(0.0,-0.06,p.y-0.10*noise(p*3.0)-0.05*noise(p*7.0));
     vec3 alb=vec3(0.96,0.94,0.90)*(0.88+0.16*noise(p*60.0));
     float dif=clamp(dot(n,L),0.0,1.0), wr=clamp((dot(n,L)+0.5)/1.5,0.0,1.0);
-    col=alb*(0.25+0.75*wr*0.6+0.7*dif)*vec3(1.0,0.90,0.76)*(1.0-0.35*pit);
+    col=alb*(0.38+0.45*wr+0.75*dif)*vec3(1.0,0.97,0.92)*(1.0-0.30*pit);
     col+=0.15*pow(clamp(dot(reflect(rd,n),L),0.0,1.0),12.0);
-    col=mix(col,fogc,1.0-exp(-t*0.11)); }
+    col=mix(col,fogc,1.0-exp(-t*0.055)); }
   float tb=1e9; vec3 bn=vec3(0.0);
   for(int i=0;i<12;i++){ vec4 b=bub[i]; if(b.w<=0.0) continue; vec3 oc=ro-b.xyz; float bb=dot(oc,rd), cc=dot(oc,oc)-b.w*b.w, hh=bb*bb-cc;
     if(hh>0.0){ float tt=-bb-sqrt(hh); if(tt>0.0&&tt<tb&&(!hit||tt<t)){ tb=tt; bn=normalize(ro+rd*tt-b.xyz); } } }
@@ -203,7 +203,7 @@ vec3 microShade(vec3 ro, vec3 rd){
     vec3 r=reflect(rd,bn);
     c+=vec3(1.6)*pow(clamp(dot(r,normalize(vec3(-0.4,0.9,0.5))),0.0,1.0),90.0)+vec3(0.6,0.5,0.4)*pow(clamp(dot(r,normalize(vec3(0.6,0.3,0.7))),0.0,1.0),40.0);
     c+=vec3(0.35,0.25,0.15)*smoothstep(0.75,1.0,fre);
-    col=mix(c,fogc,1.0-exp(-tb*0.11)); }
+    col=mix(c,fogc,1.0-exp(-tb*0.055)); }
   return col;
 }
 // ------------------------------------------------ main scene
@@ -236,12 +236,12 @@ vec3 shade(vec2 fc){
       if(lu.x>0.0&&lu.x<1.0&&lu.y>0.0&&lu.y<1.0){ float lg=texture2D(logo,vec2(lu.x,1.0-lu.y)).a*(0.75+0.25*noise(p*80.0)); alb=mix(alb,lu.x>0.735?vec3(0.85,0.62,0.05):vec3(0.93,0.93,0.90),lg*0.55); }
       float rr=length(p.xz), a=atan(p.z,p.x);
       float wm=0.0;
-      if(wet>0.0){ float edge=wet*(0.78+0.3*fbm(vec3(a*1.6,0.0,rr*2.0)));
-        wm=1.0-smoothstep(edge*0.92,edge,rr);
-        wm=max(wm,step(0.80,noise(vec3(p.x*28.0,0.0,p.z*28.0)))*(1.0-smoothstep(edge,edge*1.45,rr))*step(0.05,wet)); }
-      alb*=mix(vec3(1.0),vec3(0.50,0.42,0.36),wm);
+      if(wet>0.0){ float edge=wet*(0.55+0.65*fbm(vec3(p.x*3.0,0.0,p.z*3.0)));
+        wm=(1.0-smoothstep(edge*0.45,edge,rr))*(0.55+0.45*smoothstep(0.3,0.7,fbm(vec3(p.x*9.0,1.0,p.z*9.0))));
+        wm=max(wm,step(0.83,noise(vec3(p.x*30.0,0.0,p.z*30.0)))*(1.0-smoothstep(edge*0.8,edge*1.5,rr))*0.8*step(0.05,wet)); }
+      alb*=mix(vec3(1.0),vec3(0.66,0.58,0.50),wm);
       vec3 nn=normalize(n+wm*0.0);
-      col=litSurface(p,nn,rd,alb,0.08+1.4*wm,30.0+170.0*wm,0.05+0.30*wm,0.0);
+      col=litSurface(p,nn,rd,alb,0.08+0.9*wm,30.0+150.0*wm,0.05+0.18*wm,0.0);
     }
     else if(m<41.5){                                       // cola: dark, glossy, amber where thin, bubbles, froth
       vec3 alb=vec3(0.14,0.06,0.025);
@@ -347,9 +347,9 @@ function geyser(kind,tau,dur,H){                            // tau: time since t
     const v0=Math.sqrt(2*g*H), F=v0*tau-0.5*g*tau*tau, top=tau<v0/g?F:H;
     const col=Math.min(top,H*I*I)*0.90;
     G.jet[0]=col>0.01?MOUTH+col:0;
-    G.ovf=[MOUTH-MOUTH*sm(dur*0.75,dur+2.6,tau),0.0055*sm(dur*0.55,dur*0.9,tau),I>0.02?0.0135:0.014*sm(dur+4,dur,tau)+0.006];
-    G.pool=0.17*sm(dur*0.9,dur+3.0,tau);
-    G.wet=1.0*sm(0.55,dur+0.8,tau);
+    G.ovf=[MOUTH-MOUTH*sm(dur*0.75,dur+2.6,tau),0.0040*sm(dur*0.55,dur*0.9,tau)*(1-0.5*sm(dur+3,dur+9,tau)),I>0.02?0.0135:0.014*sm(dur+4,dur,tau)+0.006];
+    G.pool=0.10*sm(dur*0.9,dur+3.0,tau);
+    G.wet=0.60*sm(0.55,dur+0.8,tau);
     G.froth=sm(0,0.25,tau)*(1-0.5*sm(dur,dur+3,tau));
     G.level=lerp(0.32,0.115,Math.pow(Math.min(tau/dur,1),0.7));
   } else {
