@@ -3,7 +3,7 @@
   "engine": "geyser",
   "series": "PHYSICS · TEST 101",
   "handle": "@BreakpointLabTV",
-  "geyser_m": 2.2,
+  "geyser_m": 1.4,
   "hook": [
     "Mentos + Coke: chemistry?"
   ],
@@ -91,6 +91,6 @@
   "sources_detail": [
     "T. S. Coffey, 'Diet Coke and Mentos: What is really behind this physical reaction?', American Journal of Physics 76, 551 (2008).",
     "Measured: pH 3.0 before and after the Diet Coke + Mentos reaction (not acid/base). AFM rms roughness: mint Mentos 442 nm, rock salt 174 nm. Reaction duration: mint Mentos 3.8 s, rock salt 1.0 s.",
-    "Simulated: geyser height (about 2 m) and shape are illustrative, not measured."
+    "Simulated: geyser height (about 1.5 m) and shape are illustrative, not measured."
   ]
 }
