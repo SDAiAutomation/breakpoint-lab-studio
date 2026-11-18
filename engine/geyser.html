@@ -1,11 +1,11 @@
 <!doctype html>
 <html><head><meta charset="utf-8">
-<!-- Geyser engine v2 (Breakpoint Lab "Physics" series): Mentos in Diet Coke, outdoors on concrete.
+<!-- Geyser engine v2 (Breakpoint Lab "Physics" series): Mentos in Diet Coke, in the Breakpoint Lab studio.
      Round "salt": rock salt dropped in, a short fizz (reaction 1.0 s in Coffey, Am. J. Phys. 2008). Round "mentos":
      the classic geyser (3.8 s). Round "micro": pH probe (3.0 before and after: not an acid/base reaction) then a zoom
      on the candy's rough surface where CO2 bubbles nucleate (442 nm rms roughness vs 174 nm for rock salt).
      Raymarched (WebGL): detailed 2 L PET bottle (petaloid base, ribs, threaded neck, generic label), foam column,
-     foam running down the bottle, wet stain. Spray = ballistic foam particles drawn as motion-blurred sprites.
+     foam running down the bottle, wet stain on the studio floor. Spray = ballistic foam particles drawn as motion-blurred sprites.
      Geyser shape and height are illustrative. -->
 <style>
 @font-face{font-family:P;src:url("fonts/Poppins-Bold.ttf");font-weight:700}
@@ -35,7 +35,7 @@ uniform vec4 bub[12];
 uniform sampler2D logo, label;
 
 const float MOUTH=0.390;
-const vec3 SUN=vec3(-0.52,0.74,0.43);
+const vec3 SUN=vec3(-0.5,0.95,0.6);
 float sdCylY(vec3 p, float h, float r){ vec2 d=abs(vec2(length(p.xz),p.y))-vec2(r,h); return min(max(d.x,d.y),0.0)+length(max(d,0.0)); }
 float sdRoundBox(vec3 p, vec3 b, float r){ vec3 q=abs(p)-b; return length(max(q,0.0))+min(max(q.x,max(q.y,q.z)),0.0)-r; }
 float sdCone(vec3 p, float h, float r1, float r2){
@@ -100,7 +100,7 @@ float foamCap(vec3 p){
 vec2 sceneMap(vec3 p, bool withGlass){
   vec2 res=vec2(p.y,1.0);
   float rxz=length(p.xz);
-  float b=(rxz>0.085||p.y>0.45)?max(rxz-0.062,p.y-0.40):bottle(p);
+  float b=(rxz>0.16||p.y>0.47)?max(rxz-0.062,p.y-0.40):bottle(p);
   if(withGlass){ res=opU(res,vec2(abs(b)-0.0010,40.0));
     float rl=length(p.xz); res=opU(res,vec2(max(abs(rl-0.0560)-0.0004,abs(p.y-0.153)-0.052),48.0)); }   // label
   float liq=max(b+0.0016,p.y-level);
@@ -139,19 +139,14 @@ float calcAO(vec3 p, vec3 n){
   for(int i=0;i<4;i++){ float h=0.006+0.035*float(i); occ+=(h-sceneMap(p+n*h,false).x)*sca; sca*=0.75; }
   return clamp(1.0-2.2*occ,0.0,1.0);
 }
-// ------------------------------------------------ outdoor sky with a far hedge line and trees
-vec3 sky(vec3 rd){
-  float e=rd.y;
-  vec3 c=mix(vec3(0.86,0.90,0.93),vec3(0.50,0.67,0.88),smoothstep(0.0,0.55,e));
-  c+=vec3(1.0,0.85,0.6)*0.25*pow(max(dot(rd,normalize(SUN)),0.0),12.0);
-  float az=atan(rd.z,rd.x);
-  float hh=0.020+0.018*noise(vec3(az*6.0,0.0,0.0))+0.010*noise(vec3(az*26.0,1.0,0.0))+0.035*smoothstep(0.55,0.85,noise(vec3(az*3.0,2.0,0.0)));
-  if(e>-0.01&&e<hh){ float k=noise(vec3(az*140.0,e*400.0,0.0));
-    c=mix(vec3(0.20,0.30,0.20),vec3(0.36,0.46,0.32),k)*mix(0.75,1.0,smoothstep(-0.01,hh,e));
-    c=mix(c,vec3(0.80,0.85,0.88),0.45); }
-  return c;
+vec3 bg(vec2 uv){ return mix(vec3(0.90,0.92,0.93),vec3(0.80,0.85,0.88),smoothstep(-1.0,1.0,uv.y)); }   // the Breakpoint Lab studio
+vec3 env(vec3 r){
+  float k=r.y*0.5+0.5;
+  vec3 c=mix(vec3(0.48,0.50,0.53),vec3(0.96,0.97,0.99),smoothstep(0.30,0.80,k));
+  float s1=smoothstep(0.86,0.90,dot(r,normalize(vec3(-0.6,0.75,0.35))));
+  float s2=smoothstep(0.90,0.93,dot(r,normalize(vec3(0.75,0.45,0.5))));
+  return c+vec3(1.3)*s1+vec3(0.8)*s2;
 }
-vec3 env(vec3 r){ return r.y>0.0?sky(r):mix(vec3(0.45,0.45,0.44),vec3(0.70,0.72,0.73),smoothstep(-0.4,0.0,r.y)); }
 vec3 litSurface(vec3 p, vec3 n, vec3 rd, vec3 alb, float sp, float gl, float refl, float wrap){
   vec3 sun=normalize(SUN);
   float sh=softShadow(p+n*0.0015,sun), ndl=dot(n,sun), dif=clamp(ndl,0.0,1.0)*sh, ao=calcAO(p,n);
@@ -168,13 +163,6 @@ vec3 foamAlb(vec3 p){
   float cells=noise(p*420.0), big=noise(p*90.0);
   vec3 a=mix(vec3(0.93,0.88,0.80),vec3(0.80,0.68,0.52),0.45*smoothstep(0.35,0.85,big));
   return a*(0.86+0.22*smoothstep(0.2,0.8,cells));
-}
-vec3 concrete(vec3 p){
-  vec3 a=vec3(0.60,0.60,0.58)*(0.90+0.14*fbm(p*vec3(3.0,0.0,3.0)))*(0.93+0.10*noise(p*vec3(90.0,0.0,90.0)));
-  float sp=step(0.92,noise(p*vec3(260.0,0.0,260.0))); a*=1.0-0.18*sp;
-  float jx=abs(fract(p.x/1.5+0.5)-0.5)*1.5, jz=abs(fract(p.z/1.5+0.5)-0.5)*1.5;
-  a*=mix(0.78,1.0,smoothstep(0.002,0.005,min(jx,jz)));
-  return a;
 }
 // ------------------------------------------------ microscope: chalky candy surface with pits, CO2 bubbles
 float microH(vec3 p){ float h=0.10*noise(p*3.0)+0.05*noise(p*7.0)+0.025*noise(p*17.0)+0.010*noise(p*41.0);
@@ -220,7 +208,7 @@ vec3 shade(vec2 fc){
   for(int pass=0;pass<4;pass++){
     vec2 h=vec2(0.0); bool hit=false; vec3 p;
     for(int i=0;i<220;i++){ p=ro+rd*t; h=sceneMap(p,glassPass); if(h.x<0.00015*t+0.00008){hit=true;break;} t+=h.x*0.9; if(t>45.0) break; }
-    if(!hit){ acc+=thr*sky(rd); break; }
+    if(!hit){ acc+=thr*bg(uv); break; }
     float m=h.y; vec3 n=m<1.5?vec3(0.0,1.0,0.0):calcNormal(p);
     if(m>39.5&&m<40.5){                                    // clear PET: reflection, slight tint, condensation dots
       float fre=0.04+0.96*pow(1.0-abs(dot(n,rd)),5.0);
@@ -231,17 +219,19 @@ vec3 shade(vec2 fc){
     }
     vec3 col;
     if(m<1.5){                                             // concrete, wet stain, painted logo
-      vec3 alb=concrete(p);
+      vec3 sunv=normalize(SUN); float sh=softShadow(p+n*0.0015,sunv), ao=calcAO(p,n);
+      col=bg(uv)*mix(0.70,1.0,sh)*mix(0.80,1.0,ao);
       vec2 lu=vec2((p.x+0.42)/0.84,(0.78-p.z)/0.14);
-      if(lu.x>0.0&&lu.x<1.0&&lu.y>0.0&&lu.y<1.0){ float lg=texture2D(logo,vec2(lu.x,1.0-lu.y)).a*(0.75+0.25*noise(p*80.0)); alb=mix(alb,lu.x>0.735?vec3(0.85,0.62,0.05):vec3(0.93,0.93,0.90),lg*0.55); }
+      if(lu.x>0.0&&lu.x<1.0&&lu.y>0.0&&lu.y<1.0){ float lg=texture2D(logo,vec2(lu.x,1.0-lu.y)).a; col=mix(col,lu.x>0.735?vec3(0.85,0.62,0.05):vec3(0.30,0.32,0.35),lg*0.55); }
       float rr=length(p.xz), a=atan(p.z,p.x);
       float wm=0.0;
       if(wet>0.0){ float edge=wet*(0.55+0.65*fbm(vec3(p.x*3.0,0.0,p.z*3.0)));
         wm=(1.0-smoothstep(edge*0.45,edge,rr))*(0.55+0.45*smoothstep(0.3,0.7,fbm(vec3(p.x*9.0,1.0,p.z*9.0))));
         wm=max(wm,step(0.83,noise(vec3(p.x*30.0,0.0,p.z*30.0)))*(1.0-smoothstep(edge*0.8,edge*1.5,rr))*0.8*step(0.05,wet)); }
-      alb*=mix(vec3(1.0),vec3(0.66,0.58,0.50),wm);
-      vec3 nn=normalize(n+wm*0.0);
-      col=litSurface(p,nn,rd,alb,0.08+0.9*wm,30.0+150.0*wm,0.05+0.18*wm,0.0);
+      col*=mix(vec3(1.0),vec3(0.62,0.52,0.42),wm);
+      float fre=pow(1.0-clamp(dot(n,-rd),0.0,1.0),4.0);
+      col=mix(col,env(reflect(rd,n)),wm*(0.08+0.4*fre));
+      col+=wm*0.8*pow(clamp(dot(n,normalize(sunv-rd)),0.0,1.0),160.0)*sh;
     }
     else if(m<41.5){                                       // cola: dark, glossy, amber where thin, bubbles, froth
       vec3 alb=vec3(0.14,0.06,0.025);
@@ -267,7 +257,6 @@ vec3 shade(vec2 fc){
       col=litSurface(p,n,rd,lab,0.6+0.8*metal,50.0,0.10+0.35*metal,0.0);
     }
     else { col=litSurface(p,n,rd,vec3(0.78,0.10,0.10),0.7,60.0,0.08,0.0); }             // red cap
-    col=mix(col,haze,1.0-exp(-max(t-3.0,0.0)*0.045));
     acc+=thr*col; break;
   }
   vec3 col=pow(clamp(acc,0.0,1.0),vec3(0.95));
