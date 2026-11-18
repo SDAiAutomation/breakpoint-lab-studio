@@ -47,9 +47,9 @@ vec2 opU(vec2 a, vec2 b){ return a.x<b.x?a:b; }
 
 // 2 L bottle (outer surface): body, shoulder cone, neck
 float bottle(vec3 p){
-  float body=sdCylY(p-vec3(0.0,0.115,0.0),0.105,0.049)-0.006;
-  float sh=sdCone(p-vec3(0.0,0.262,0.0),0.042,0.055,0.0145);
-  float nk=sdCylY(p-vec3(0.0,0.318,0.0),0.016,0.0145);
+  float body=sdCylY(p-vec3(0.0,0.140,0.0),0.130,0.049)-0.006;
+  float sh=sdCone(p-vec3(0.0,0.3125,0.0),0.0425,0.055,0.0145);
+  float nk=sdCylY(p-vec3(0.0,0.3725,0.0),0.0175,0.0145);
   float d=smin(body,sh,0.012); d=smin(d,nk,0.006);
   return d;
 }
@@ -59,12 +59,18 @@ vec2 sceneMap(vec3 p, bool withGlass){
   if(withGlass) res=opU(res,vec2(abs(b)-0.0012,40.0));
   float liq=max(b+0.0018,p.y-level);
   res=opU(res,vec2(liq,41.0));
-  if(puddle>0.0){ vec3 q=p; float d=length(vec3(q.x/puddle,q.y/0.012,q.z/puddle))-1.0; d*=min(puddle,0.012); d=max(d,-(b-0.002)); res=opU(res,vec2(d,42.0)); }
+  if(puddle>0.0){ float rr=puddle*(0.85+0.15*noise(vec3(atan(p.z,p.x)*2.0,0.0,0.0)));
+    float d=sdCylY(p-vec3(0.0,0.003,0.0),0.002,rr)-0.003; d=max(d,-(b-0.002)); res=opU(res,vec2(d,42.0)); }
   float fb=length(p-foamB.xyz)-foamB.w;
   if(nfoam>0.5){
     if(fb>0.05) res=opU(res,vec2(fb,0.0));
     else { float d=1e5;
-      for(int i=0;i<40;i++){ if(float(i)>=nfoam) break; d=smin(d,length(p-foam[i].xyz)-foam[i].w,0.025); }
+      vec4 prev=vec4(0.0);
+      for(int i=0;i<40;i++){ if(float(i)>=nfoam) break; vec4 f=foam[i]; float r=abs(f.w);
+        d=smin(d,length(p-f.xyz)-r,0.03);
+        if(i>0&&f.w>0.0){ vec3 pa=p-prev.xyz, ba=f.xyz-prev.xyz; float h=clamp(dot(pa,ba)/max(dot(ba,ba),1e-6),0.0,1.0);
+          d=smin(d,length(pa-ba*h)-mix(abs(prev.w),r,h),0.03); }
+        prev=f; }
       d+=0.004*(noise(p*90.0)-0.5);
       res=opU(res,vec2(d,42.0)); }
   }
@@ -73,9 +79,9 @@ vec2 sceneMap(vec3 p, bool withGlass){
     if(drop.w<1.5){ float d=(length(vec3(q.x,q.y*2.4,q.z))-0.0105)/2.4; res=opU(res,vec2(d,43.0)); }       // Mentos: a white lens
     else { for(int k=0;k<4;k++){ vec3 o=vec3(float(k)*0.006-0.009,float(k)*0.011,float(k-1)*0.004); res=opU(res,vec2(sdRoundBox(q-o,vec3(0.0032),0.0008),44.0)); } }
   }
-  if(tube>0.5){ float d=max(abs(sdCylY(p-vec3(0.0,0.46,0.0),0.11,0.0165))-0.0012,-(p.y-0.352)); res=opU(res,vec2(d,45.0)); }
-  if(probe>0.0){ float y0=0.36-probe; res=opU(res,vec2(sdCylY(p-vec3(0.004,(y0+0.62)*0.5,0.0),(0.62-y0)*0.5,0.005),46.0));
-    res=opU(res,vec2(sdCylY(p-vec3(0.004,0.62,0.0),0.03,0.011),47.0)); }
+  if(tube>0.5){ float d=max(abs(sdCylY(p-vec3(0.0,0.51,0.0),0.11,0.0165))-0.0012,-(p.y-0.40)); res=opU(res,vec2(d,45.0)); }
+  if(probe>0.0){ float y0=0.41-probe; res=opU(res,vec2(sdCylY(p-vec3(0.004,(y0+0.68)*0.5,0.0),(0.68-y0)*0.5,0.005),46.0));
+    res=opU(res,vec2(sdCylY(p-vec3(0.004,0.68,0.0),0.03,0.011),47.0)); }
   return res;
 }
 // microscope: rough candy surface (z = up), bubbles growing in the bumps and leaving
@@ -156,8 +162,8 @@ vec3 shade(vec2 fc){
       if(lu.x>0.0&&lu.x<1.0&&lu.y>0.0&&lu.y<1.0){ float lg=texture2D(logo,vec2(lu.x,1.0-lu.y)).a; col=mix(col,lu.x>0.735?vec3(0.85,0.62,0.05):vec3(0.30,0.32,0.35),lg*0.5); } }
     else if(m<41.5){                                       // cola: dark, glossy, rising bubbles when fizzing
       vec3 alb=vec3(0.16,0.07,0.03);
-      float bb=step(0.86-0.12*fizz,noise(vec3(p.x*260.0,p.y*260.0-tsec*6.0,p.z*260.0)));
-      alb=mix(alb,vec3(0.75,0.55,0.35),bb*fizz*0.8);
+      float bb=step(0.93,noise(vec3(p.x*520.0,p.y*520.0-tsec*9.0,p.z*520.0)));
+      alb=mix(alb,vec3(0.70,0.52,0.34),bb*fizz*0.6);
       col=litSurface(p,n,rd,alb,1.6,120.0,0.15,0.05);
       col+=vec3(0.20,0.08,0.02)*pow(1.0-abs(dot(n,rd)),2.0);   // amber edge glow
     }
@@ -206,22 +212,26 @@ function makeLogoTexture(){
 }
 
 // ---------------------------------------------------------------- geyser model (illustrative)
-const MOUTH=0.334, NF=40, FALL=0.30;                        // drop falls 0.3 s from the tube into the neck
+const MOUTH=0.39, NF=40, FALL=0.30;                        // drop falls 0.3 s from the tube into the neck
 function geyser(kind,tau,dur,H){                            // tau: time since the object reached the liquid
-  const out=[];if(tau<=0) return {blobs:out,puddle:0,level:0.27};
+  const out=[];if(tau<=0) return {blobs:out,puddle:0,level:0.32};
   const v0=Math.sqrt(2*g*H);
   const I=e=>e<0?0:(e>dur?0:Math.pow(1-e/dur,0.6)*Math.min(1,e/0.08));
   for(let i=0;i<NF;i++){
     const te=dur*(i+0.5)/NF; if(te>tau) break;
-    const age=tau-te, v=v0*I(te)*(0.92+0.16*((i*37)%7)/7);
-    const a=i*2.4, spread=0.05+0.25*(i%5)/5;
+    const age=tau-te, v=v0*I(te)*(0.95+0.10*((i*37)%7)/7);
+    const big=kind==='mentos', a=i*2.4, spread=big?0.04+0.10*(i%5)/5:0.015+0.02*(i%3)/3;
     let y=MOUTH+v*age-0.5*g*age*age, x=Math.cos(a)*spread*age, z=Math.sin(a)*spread*age*0.6;
-    let r=0.012+0.010*Math.min(age,1.5)+0.01*Math.max(0,1-I(te));
-    if(y<0.01){ const tl=(v+Math.sqrt(v*v+2*g*MOUTH))/g; x=Math.cos(a)*spread*tl*(1+0.4*(age-tl)); z=Math.sin(a)*spread*tl*0.6; y=0.008; r=Math.max(0.006,r*0.6*Math.exp(-(age-tl)*0.6)); }
-    out.push([x,y,z,r]);
+    let r=big?0.022+0.07*Math.min(age,1.2):0.012+0.02*Math.min(age,0.8);
+    let link=true;
+    if(!big&&y<MOUTH-0.01){ y=Math.max(0.02,MOUTH-0.25*(MOUTH-y)); x=Math.cos(a)*(0.05+0.01*(i%3)); z=Math.sin(a)*0.05; link=false; }   // salt: foam runs down the bottle
+    if(big&&y<0.02){ const tl=(v+Math.sqrt(v*v+2*g*MOUTH))/g; x=Math.cos(a)*spread*tl*(1+0.3*(age-tl)); z=Math.sin(a)*spread*tl*0.6; y=0.01; r=Math.max(0.008,0.03*Math.exp(-(age-tl)*0.8)); link=false; }
+    if(big&&v*age-0.5*g*age*age<0&&age>v/g) link=i%3!==0;                // falling foam breaks into clumps
+    out.push([x,y,z,link?r:-r]);
   }
   const used=Math.min(tau/dur,1);
-  return {blobs:out,puddle:(kind==='mentos'?0.30:0.06)*sm(0,dur+1.5,tau),level:lerp(0.27,kind==='mentos'?0.09:0.255,Math.pow(used,0.7))};
+  if(out.length) out[0][3]=-Math.abs(out[0][3]);
+  return {blobs:out,puddle:(kind==='mentos'?0.32:0.075)*sm(0,dur+1.5,tau),level:lerp(0.32,kind==='mentos'?0.10:0.305,Math.pow(used,0.7))};
 }
 
 // ---------------------------------------------------------------- timeline
@@ -261,16 +271,16 @@ function buildTimeline(cfg){
 function sceneState(T,t){
   let R=T.rounds[0];for(const r of T.rounds) if(t>=r.start) R=r;
   const inExplain=t>=T.explain[0], r=R.cfg;
-  const s={R,shake:[0,0],mode:0,level:0.27,blobs:[],puddle:0,drop:[0,0,0,0],tube:0,probe:0,fizz:0,bub:[],replay:false};
+  const s={R,shake:[0,0],mode:0,level:0.32,blobs:[],puddle:0,drop:[0,0,0,0],tube:0,probe:0,fizz:0,bub:[],replay:false};
   const H=CFG.geyser_m||3.0;
-  let cam={ang:0.30,dist:1.05,h:0.18,ty:0.22};
+  let cam={ang:0.30,dist:1.15,h:0.18,ty:0.27};
   if(inExplain){                                         // the Mentos geyser again, wide
     const per=7.0,k=(t-T.explain[0])%per, tau=k-0.8;
     const G=geyser('mentos',tau,3.8,H);s.blobs=G.blobs;s.puddle=G.puddle;s.level=G.level;s.fizz=tau>0&&tau<4.5?1:0;
-    cam={ang:0.30+0.05*Math.sin(t*0.2),dist:7.2,h:0.6,ty:1.6};
+    cam={ang:0.30+0.05*Math.sin(t*0.2),dist:5.6,h:0.5,ty:1.25};
   } else if(r.kind==='micro'){
-    s.level=0.09;s.puddle=0.30;
-    if(t<R.ph[1]||t<R.zoom[0]){const k=sm(R.qEnd,R.qEnd+0.8,t);s.probe=0.16*k;cam={ang:0.35,dist:0.75,h:0.20,ty:0.28};}
+    s.level=0.10;s.puddle=0.32;
+    if(t<R.zoom[0]){const k=sm(R.qEnd,R.qEnd+0.8,t);s.probe=0.18*k;cam={ang:0.35,dist:0.85,h:0.22,ty:0.34};}
     if(t>=R.zoom[0]){s.mode=1;const k=t-R.zoom[0];
       for(let i=0;i<12;i++){const cx=((i*37)%11)/11*2.4-1.2,cz=((i*53)%7)/7*1.6-0.8,ph=i*0.37;
         const life=(k*0.9+ph)%1.6, grow=Math.min(life/1.0,1), rise=Math.max(0,life-1.0);
@@ -284,15 +294,15 @@ function sceneState(T,t){
     const kind=r.kind;
     // object falling through the tube into the bottle
     const ft=rp?FALL+tau:(t-R.go);
-    if(ft<0) s.drop=[0,0.50,0,kind==='mentos'?1:2];
-    else if(ft<FALL+0.4){const y=0.50-0.5*g*ft*ft*0.55;s.drop=[0,Math.max(0.03,y),0,kind==='mentos'?1:2];}
+    if(ft<0) s.drop=[0,0.56,0,kind==='mentos'?1:2];
+    else if(ft<FALL+0.4){const y=0.56-0.5*g*ft*ft*0.55;s.drop=[0,Math.max(0.03,y),0,kind==='mentos'?1:2];}
     const G=geyser(kind,tau,R.dur,kind==='mentos'?H:0.25);s.blobs=G.blobs;s.puddle=G.puddle;s.level=G.level;s.fizz=tau>0&&tau<R.dur+0.8?1:0;
-    if(t<R.showEnd){const k=sm(R.start,R.showEnd,t);cam={ang:lerp(0.55,0.32,k),dist:lerp(0.62,0.85,k),h:0.10,ty:0.30};}
-    else if(t<R.qEnd){const k=sm(R.qStart,R.qEnd-0.3,t);cam={ang:0.32,dist:lerp(0.85,1.05,k),h:0.18,ty:0.25};}
+    if(t<R.showEnd){const k=sm(R.start,R.showEnd,t);cam={ang:lerp(0.55,0.32,k),dist:lerp(0.70,0.95,k),h:0.10,ty:0.36};}
+    else if(t<R.qEnd){const k=sm(R.qStart,R.qEnd-0.3,t);cam={ang:0.32,dist:lerp(0.95,1.15,k),h:0.18,ty:lerp(0.36,0.30,k)};}
     if(kind==='mentos'&&!rp&&t>=R.hit){                  // follow the jet up, then pull back to show the whole geyser
-      const k=sm(R.hit,R.hit+0.9,t);cam={ang:lerp(0.32,0.26,k),dist:lerp(1.05,7.2,k),h:lerp(0.18,0.6,k),ty:lerp(0.25,1.6,k)};}
-    if(rp){const k=t-R.replayT0;cam={ang:0.40+0.02*k,dist:lerp(0.7,2.4,sm(0.6,R.replayT1-R.replayT0,k)),h:0.06,ty:lerp(0.33,0.75,sm(0.6,R.replayT1-R.replayT0,k))};}
-    if(R.rw&&t>=R.replayT1){cam={ang:0.30,dist:1.1,h:0.25,ty:0.22};}
+      const k=sm(R.hit,R.hit+0.8,t);cam={ang:lerp(0.32,0.26,k),dist:lerp(1.15,5.6,k),h:lerp(0.18,0.5,k),ty:lerp(0.28,1.25,k)};}
+    if(rp){const k=t-R.replayT0,q=sm(0.8,R.replayT1-R.replayT0,k);cam={ang:0.40+0.02*k,dist:lerp(0.75,2.8,q),h:0.06,ty:lerp(0.40,0.95,q)};}
+    if(R.rw&&t>=R.replayT1){cam={ang:0.30,dist:1.2,h:0.30,ty:0.26};}
     const dt=tau;if(kind==='mentos'&&dt>0&&dt<0.5&&!rp){const a=0.004*Math.exp(-dt*6);s.shake=[a*Math.sin(t*90),a*Math.cos(t*80)];}
   }
   Object.assign(s,{camAng:cam.ang,camDist:cam.dist,camH:cam.h,camTY:cam.ty});
