@@ -348,7 +348,7 @@ function geyser(kind,tau,dur,H){                            // tau: time since t
     const col=Math.min(top,H*I*I)*0.90;
     G.jet[0]=col>0.01?MOUTH+col:0;
     G.ovf=[MOUTH-MOUTH*sm(dur*0.75,dur+2.6,tau),0.0040*sm(dur*0.55,dur*0.9,tau)*(1-0.5*sm(dur+3,dur+9,tau)),I>0.02?0.0135:0.014*sm(dur+4,dur,tau)+0.006];
-    G.pool=0.10*sm(dur*0.9,dur+3.0,tau);
+    G.pool=0;
     G.wet=0.60*sm(0.55,dur+0.8,tau);
     G.froth=sm(0,0.25,tau)*(1-0.5*sm(dur,dur+3,tau));
     G.level=lerp(0.32,0.115,Math.pow(Math.min(tau/dur,1),0.7));
