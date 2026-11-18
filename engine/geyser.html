@@ -1,0 +1,421 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<!-- Geyser engine (Breakpoint Lab "Physics" series): Mentos in Diet Coke. Round "salt": rock salt dropped in,
+     a short fizz (reaction 1.0 s in Coffey, Am. J. Phys. 2008). Round "mentos": the classic geyser (3.8 s).
+     Round "micro": pH probe (3.0 before and after: not an acid/base reaction) then a zoom on the candy's rough
+     surface where CO2 bubbles nucleate (442 nm rms roughness vs 174 nm for rock salt).
+     Raymarched (WebGL), same overlay style and API as drop.html. Geyser shape and height are illustrative. -->
+<style>
+@font-face{font-family:P;src:url("fonts/Poppins-Bold.ttf");font-weight:700}
+@font-face{font-family:DJ;src:url("fonts/DejaVuSans-Bold.ttf");font-weight:700}
+html,body{margin:0;background:#000}canvas{display:block}
+</style></head>
+<body>
+<canvas id="gl" width="1080" height="1920"></canvas>
+<canvas id="out" width="1080" height="1920"></canvas>
+<script id="fs" type="x-shader/x-fragment">
+precision highp float;
+uniform vec2 R;
+uniform float camAng, camDist, camH, camTY;
+uniform vec2 shake;
+uniform float mode;          // 0 bottle scene, 1 microscope
+uniform float level;         // liquid level (m)
+uniform vec4 foam[40];       // foam blobs: xyz + radius
+uniform float nfoam;
+uniform vec4 foamB;          // bounding sphere of the blobs
+uniform float puddle;        // foam puddle radius on the floor
+uniform vec4 drop;           // dropped object: xyz + kind (1 mentos, 2 salt), w<0.5 hidden
+uniform float tube, probe;   // geyser tube visible, pH probe depth (0 hidden)
+uniform float fizz;          // bubbles inside the bottle
+uniform float tsec;
+uniform sampler2D logo;
+
+float sdRoundBox(vec3 p, vec3 b, float r){ vec3 q=abs(p)-b; return length(max(q,0.0))+min(max(q.x,max(q.y,q.z)),0.0)-r; }
+float sdCylY(vec3 p, float h, float r){ vec2 d=abs(vec2(length(p.xz),p.y))-vec2(r,h); return min(max(d.x,d.y),0.0)+length(max(d,0.0)); }
+float sdCone(vec3 p, float h, float r1, float r2){       // capped cone along y, centred, radius r1 at -h, r2 at +h
+  vec2 q=vec2(length(p.xz),p.y); vec2 k1=vec2(r2,h), k2=vec2(r2-r1,2.0*h);
+  vec2 ca=vec2(q.x-min(q.x,(q.y<0.0)?r1:r2),abs(q.y)-h);
+  vec2 cb=q-k1+k2*clamp(dot(k1-q,k2)/dot(k2,k2),0.0,1.0);
+  float s=(cb.x<0.0&&ca.y<0.0)?-1.0:1.0; return s*sqrt(min(dot(ca,ca),dot(cb,cb)));
+}
+float smin(float a, float b, float k){ float h=clamp(0.5+0.5*(b-a)/k,0.0,1.0); return mix(b,a,h)-k*h*(1.0-h); }
+float hash3(vec3 p){ return fract(sin(dot(p,vec3(12.9898,78.233,37.719)))*43758.5453); }
+float noise(vec3 p){ vec3 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
+  return mix(mix(mix(hash3(i),hash3(i+vec3(1,0,0)),f.x),mix(hash3(i+vec3(0,1,0)),hash3(i+vec3(1,1,0)),f.x),f.y),
+             mix(mix(hash3(i+vec3(0,0,1)),hash3(i+vec3(1,0,1)),f.x),mix(hash3(i+vec3(0,1,1)),hash3(i+vec3(1,1,1)),f.x),f.y),f.z); }
+vec2 opU(vec2 a, vec2 b){ return a.x<b.x?a:b; }
+
+// 2 L bottle (outer surface): body, shoulder cone, neck
+float bottle(vec3 p){
+  float body=sdCylY(p-vec3(0.0,0.140,0.0),0.130,0.049)-0.006;
+  float sh=sdCone(p-vec3(0.0,0.3125,0.0),0.0425,0.055,0.0145);
+  float nk=sdCylY(p-vec3(0.0,0.3725,0.0),0.0175,0.0145);
+  float d=smin(body,sh,0.012); d=smin(d,nk,0.006);
+  return d;
+}
+vec2 sceneMap(vec3 p, bool withGlass){
+  vec2 res=vec2(p.y,1.0);
+  float b=bottle(p);
+  if(withGlass) res=opU(res,vec2(abs(b)-0.0012,40.0));
+  float liq=max(b+0.0018,p.y-level);
+  res=opU(res,vec2(liq,41.0));
+  if(puddle>0.0){ float rr=puddle*(0.88+0.12*sin(atan(p.z,p.x)*5.0+1.3)*sin(atan(p.z,p.x)*3.0));
+    float d=sdCylY(p-vec3(0.0,0.009,0.0),0.002,rr)-0.004; d=max(d,-(b-0.002)); res=opU(res,vec2(d,42.0)); }
+  float fb=length(p-foamB.xyz)-foamB.w;
+  if(nfoam>0.5){
+    if(fb>0.05) res=opU(res,vec2(fb,0.0));
+    else { float d=1e5;
+      vec4 prev=vec4(0.0);
+      for(int i=0;i<40;i++){ if(float(i)>=nfoam) break; vec4 f=foam[i]; float r=abs(f.w);
+        d=smin(d,length(p-f.xyz)-r,0.03);
+        if(i>0&&f.w>0.0){ vec3 pa=p-prev.xyz, ba=f.xyz-prev.xyz; float h=clamp(dot(pa,ba)/max(dot(ba,ba),1e-6),0.0,1.0);
+          d=smin(d,length(pa-ba*h)-mix(abs(prev.w),r,h),0.03); }
+        prev=f; }
+      d+=0.004*(noise(p*90.0)-0.5);
+      res=opU(res,vec2(d,42.0)); }
+  }
+  if(drop.w>0.5){
+    vec3 q=p-drop.xyz;
+    if(drop.w<1.5){ float d=(length(vec3(q.x,q.y*2.4,q.z))-0.0105)/2.4; res=opU(res,vec2(d,43.0)); }       // Mentos: a white lens
+    else { for(int k=0;k<4;k++){ vec3 o=vec3(float(k)*0.006-0.009,float(k)*0.011,float(k-1)*0.004); res=opU(res,vec2(sdRoundBox(q-o,vec3(0.0032),0.0008),44.0)); } }
+  }
+  if(tube>0.5){ float d=max(abs(sdCylY(p-vec3(0.0,0.51,0.0),0.11,0.0165))-0.0012,-(p.y-0.40)); res=opU(res,vec2(d,45.0)); }
+  if(probe>0.0){ float y0=0.41-probe; res=opU(res,vec2(sdCylY(p-vec3(0.004,(y0+0.68)*0.5,0.0),(0.68-y0)*0.5,0.005),46.0));
+    res=opU(res,vec2(sdCylY(p-vec3(0.004,0.68,0.0),0.03,0.011),47.0)); }
+  return res;
+}
+// microscope: rough candy surface (z = up), bubbles growing in the bumps and leaving
+uniform vec4 bub[12];
+vec2 microMap(vec3 p){
+  float h=0.10*noise(p*3.0)+0.05*noise(p*7.0)+0.02*noise(p*17.0);
+  vec2 res=vec2((p.y-h)*0.7,50.0);
+  for(int i=0;i<12;i++){ if(bub[i].w>0.0) res=opU(res,vec2(length(p-bub[i].xyz)-bub[i].w,51.0)); }
+  return res;
+}
+vec2 map(vec3 p){ return mode<0.5?sceneMap(p,true):microMap(p); }
+vec3 calcNormal(vec3 p){
+  vec2 e=vec2(0.0004,-0.0004);
+  return normalize(e.xyy*map(p+e.xyy).x+e.yyx*map(p+e.yyx).x+e.yxy*map(p+e.yxy).x+e.xxx*map(p+e.xxx).x);
+}
+float softShadow(vec3 ro, vec3 rd){
+  float res=1.0, t=0.01+0.01*hash3(ro*731.0), ph=1e10;
+  for(int i=0;i<64;i++){ vec2 hh=mode<0.5?sceneMap(ro+rd*t,false):microMap(ro+rd*t); float h=hh.x;
+    if(hh.y>0.5){ float y=h*h/(2.0*ph), d=sqrt(max(h*h-y*y,0.0)); res=min(res,12.0*d/max(0.0001,t-y)); ph=h; } else ph=1e10;   // foam bounding proxy casts no shadow
+    t+=clamp(h,0.004,0.10); if(res<0.002||t>6.0) break; }
+  return clamp(res,0.0,1.0);
+}
+float calcAO(vec3 p, vec3 n){
+  float occ=0.0, sca=1.0;
+  for(int i=0;i<4;i++){ float h=0.008+0.04*float(i); occ+=(h-map(p+n*h).x)*sca; sca*=0.8; }
+  return clamp(1.0-2.0*occ,0.0,1.0);
+}
+vec3 bg(vec2 uv){ return mix(vec3(0.90,0.92,0.93),vec3(0.80,0.85,0.88),smoothstep(-1.0,1.0,uv.y)); }
+vec3 env(vec3 r){
+  float k=r.y*0.5+0.5;
+  vec3 c=mix(vec3(0.48,0.50,0.53),vec3(0.96,0.97,0.99),smoothstep(0.30,0.80,k));
+  float s1=smoothstep(0.86,0.90,dot(r,normalize(vec3(-0.6,0.75,0.35))));
+  float s2=smoothstep(0.90,0.93,dot(r,normalize(vec3(0.75,0.45,0.5))));
+  return c+vec3(1.3)*s1+vec3(0.8)*s2;
+}
+vec3 litSurface(vec3 p, vec3 n, vec3 rd, vec3 alb, float sp, float gl, float refl, float wrap){
+  vec3 sun=normalize(vec3(-0.5,0.95,0.6));
+  float sh=softShadow(p+n*0.002,sun), dif=clamp(dot(n,sun),0.0,1.0)*sh, ao=calcAO(p,n);
+  float amb=0.55+0.45*n.y;
+  vec3 lin=1.25*dif*vec3(1.0,0.96,0.90)+0.62*amb*ao*vec3(0.88,0.92,0.98)+0.38*clamp(dot(n,normalize(vec3(0.55,0.25,0.8))),0.0,1.0)*ao+wrap*ao;
+  vec3 col=alb*lin;
+  float fre=pow(1.0-clamp(dot(n,-rd),0.0,1.0),4.0);
+  col=mix(col,env(reflect(rd,n))*(0.5+0.5*ao),refl*(0.4+0.6*fre));
+  col+=sp*pow(clamp(dot(n,normalize(sun-rd)),0.0,1.0),gl)*dif*vec3(1.0,0.97,0.92);
+  return col;
+}
+vec3 shade(vec2 fc){
+  vec2 uv=(2.0*fc-R)/R.y;
+  vec3 ta=vec3(0.0,camTY,0.0);
+  vec3 ro=ta+vec3(sin(camAng)*camDist,camH,cos(camAng)*camDist);
+  ro.xy+=shake; ta.xy+=shake*0.6;
+  vec3 ww=normalize(ta-ro), uu=normalize(cross(ww,vec3(0,1,0))), vv=cross(uu,ww);
+  vec3 rd=normalize(uv.x*uu+uv.y*vv+2.35*ww);
+  if(mode>0.5){                                            // microscope view: dark cola, rough white candy, bubbles
+    vec3 col=mix(vec3(0.10,0.05,0.03),vec3(0.22,0.11,0.05),uv.y*0.5+0.5);
+    float t=0.0; vec2 h; bool hit=false;
+    for(int i=0;i<160;i++){ h=microMap(ro+rd*t); if(h.x<0.0004*t){hit=true;break;} t+=h.x; if(t>12.0) break; }
+    if(hit){ vec3 p=ro+rd*t, n=calcNormal(p);
+      if(h.y<50.5) col=litSurface(p,n,rd,vec3(0.93,0.90,0.85),0.3,20.0,0.0,0.25)*vec3(1.0,0.92,0.82);
+      else { float fre=pow(1.0-abs(dot(n,rd)),3.0); col=mix(vec3(0.30,0.18,0.10),env(reflect(rd,n)),0.25+0.7*fre); col+=vec3(1.5)*pow(clamp(dot(reflect(rd,n),normalize(vec3(-0.5,0.9,0.6))),0.0,1.0),80.0); }
+      col=mix(col,vec3(0.12,0.06,0.03),1.0-exp(-t*0.12)); }
+    return col;
+  }
+  vec3 acc=vec3(0.0), thr=vec3(1.0);
+  float t=0.0; bool glassPass=true;
+  for(int pass=0;pass<3;pass++){
+    vec2 h=vec2(0.0); bool hit=false; vec3 p;
+    for(int i=0;i<200;i++){ p=ro+rd*t; h=sceneMap(p,glassPass); if(h.x<0.0002*t+0.0001){hit=true;break;} t+=h.x*0.9; if(t>40.0) break; }
+    if(!hit){ acc+=thr*bg(uv); break; }
+    vec3 n=calcNormal(p); float m=h.y;
+    if(m>39.5&&m<40.5){                                    // clear PET: reflection, slight tint, keep marching through
+      float fre=0.04+0.96*pow(1.0-abs(dot(n,rd)),5.0);
+      acc+=thr*env(reflect(rd,n))*fre*0.9;
+      thr*=(1.0-fre)*vec3(0.93,0.97,0.95);
+      t+=0.004; if(pass==1) glassPass=false; continue;
+    }
+    vec3 col;
+    if(m<1.5){ col=bg(uv)*mix(0.72,1.0,softShadow(p+n*0.002,normalize(vec3(-0.5,0.95,0.6))))*mix(0.82,1.0,calcAO(p,n));
+      vec2 lu=vec2((p.x+0.30)/0.60,(0.50-p.z)/0.10);
+      if(lu.x>0.0&&lu.x<1.0&&lu.y>0.0&&lu.y<1.0){ float lg=texture2D(logo,vec2(lu.x,1.0-lu.y)).a; col=mix(col,lu.x>0.735?vec3(0.85,0.62,0.05):vec3(0.30,0.32,0.35),lg*0.5); } }
+    else if(m<41.5){                                       // cola: dark, glossy, rising bubbles when fizzing
+      vec3 alb=vec3(0.16,0.07,0.03);
+      float bb=step(0.93,noise(vec3(p.x*520.0,p.y*520.0-tsec*9.0,p.z*520.0)));
+      alb=mix(alb,vec3(0.70,0.52,0.34),bb*fizz*0.6);
+      col=litSurface(p,n,rd,alb,1.6,120.0,0.15,0.05);
+      col+=vec3(0.20,0.08,0.02)*pow(1.0-abs(dot(n,rd)),2.0);   // amber edge glow
+    }
+    else if(m<42.5){ col=litSurface(p,n,rd,vec3(0.86,0.72,0.55)*(0.9+0.1*noise(p*200.0)),0.25,14.0,0.0,0.30); }   // tan foam
+    else if(m<43.5){ col=litSurface(p,n,rd,vec3(0.97,0.96,0.93),0.6,40.0,0.0,0.2); }       // Mentos
+    else if(m<44.5){ col=litSurface(p,n,rd,vec3(0.95,0.95,0.97),1.0,90.0,0.2,0.3); }       // rock salt
+    else if(m<45.5){ col=litSurface(p,n,rd,vec3(0.98,0.80,0.15),0.5,40.0,0.0,0.1); }       // geyser tube
+    else if(m<46.5){ col=litSurface(p,n,rd,vec3(0.75,0.76,0.78),1.2,100.0,0.5,0.0); }      // probe
+    else { col=litSurface(p,n,rd,vec3(0.15,0.16,0.18),0.8,60.0,0.2,0.0); }
+    acc+=thr*col; break;
+  }
+  vec3 col=pow(clamp(acc,0.0,1.0),vec3(0.95));
+  col*=1.0-0.12*dot(uv*vec2(0.9,0.55),uv*vec2(0.9,0.55));
+  return col;
+}
+void main(){
+  vec3 c=shade(gl_FragCoord.xy+vec2(-0.25,0.25))+shade(gl_FragCoord.xy+vec2(0.25,-0.25));
+  gl_FragColor=vec4(c*0.5,1.0);
+}
+</script>
+<script>
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const sm=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);};
+const lerp=(a,b,t)=>a+(b-a)*t;
+const g=9.81;
+
+function drawHandle(c,cfg){
+  if(!cfg.handle) return;
+  c.save(); c.font='700 24px P, DJ'; c.textBaseline='middle'; c.textAlign='left';
+  const tw=c.measureText(cfg.handle).width, gap=12, dot=7, y=256;
+  const x=W/2-(tw+gap+2*dot)/2;
+  c.fillStyle='#f5c400'; c.beginPath(); c.arc(x+dot,y,dot,0,Math.PI*2); c.fill();
+  c.lineWidth=2; c.strokeStyle='rgba(22,24,29,0.85)'; c.stroke();
+  c.globalAlpha=0.8; c.fillStyle='#2a2e36'; c.fillText(cfg.handle,x+2*dot+gap,y+1);
+  c.restore();
+}
+function makeLogoTexture(){
+  const cv=document.createElement('canvas');cv.width=1400;cv.height=220;const x=cv.getContext('2d');
+  x.clearRect(0,0,1400,220);x.font='700 150px P, DJ';x.textAlign='center';x.textBaseline='middle';x.fillStyle='#fff';
+  x.fillText('BREAKPOINT',560,118);x.fillText('LAB',1205,118);
+  const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,cv);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  return tex;
+}
+
+// ---------------------------------------------------------------- geyser model (illustrative)
+const MOUTH=0.39, NF=40, FALL=0.30;                        // drop falls 0.3 s from the tube into the neck
+function geyser(kind,tau,dur,H){                            // tau: time since the object reached the liquid
+  const out=[];if(tau<=0) return {blobs:out,puddle:0,level:0.32};
+  const v0=Math.sqrt(2*g*H);
+  const I=e=>e<0?0:(e>dur?0:Math.pow(1-e/dur,0.6)*Math.min(1,e/0.08));
+  for(let i=0;i<NF;i++){
+    const te=dur*(i+0.5)/NF; if(te>tau) break;
+    const age=tau-te, v=v0*I(te)*(0.95+0.10*((i*37)%7)/7);
+    const big=kind==='mentos', a=i*2.4, spread=big?0.04+0.10*(i%5)/5:0.015+0.02*(i%3)/3;
+    let y=MOUTH+v*age-0.5*g*age*age, x=Math.cos(a)*spread*age, z=Math.sin(a)*spread*age*0.6;
+    let r=big?0.022+0.07*Math.min(age,1.2):0.008+0.008*Math.min(age,0.8);
+    let link=true;
+    const falling=age>v/g;
+    if(big){ x=0;z=0; if(falling){ const fa=age-v/g; x=Math.cos(a)*(0.10+0.35*fa)*(0.6+0.4*(i%4)/3); z=Math.sin(a)*(0.10+0.35*fa)*0.7; r=0.012+0.012*(i%3); link=false; } }   // straight column, spray falls around
+    if(!big&&falling){ y=Math.max(MOUTH+0.005,y); x=Math.cos(a)*0.012; z=Math.sin(a)*0.012; link=false; }        // salt: a small foam cap on the neck
+    if(big&&y<0.02){ const tl=(v+Math.sqrt(v*v+2*g*MOUTH))/g; const fa=tl-v/g; x=Math.cos(a)*(0.10+0.35*fa); z=Math.sin(a)*(0.10+0.35*fa)*0.7; y=0.012; r=Math.max(0.008,0.03*Math.exp(-(age-tl)*0.8)); link=false; }
+    out.push([x,y,z,link?r:-r]);
+  }
+  if(I(tau)>0.02){ const r0=kind==='mentos'?0.016:0.012; out.push([0,MOUTH-0.005,0,r0]); }
+  const used=Math.min(tau/dur,1);
+  if(out.length) out[0][3]=-Math.abs(out[0][3]);
+  return {blobs:out,puddle:(kind==='mentos'?0.32:0.075)*sm(0,dur+1.5,tau),level:lerp(0.32,kind==='mentos'?0.10:0.305,Math.pow(used,0.7))};
+}
+
+// ---------------------------------------------------------------- timeline
+const D_={hook:2.6,title:1.4,show:2.2,question:3.0,go:0.25,settle:1.6,after:0.4,stampHold:0.9,fact:3.6,ph:3.6,zoom:5.0,explain:10.0,outro:6.5};
+const SLOW=0.25;
+function buildTimeline(cfg){
+  const T={rounds:[],events:[]};let t=0;
+  T.hook=[0,D_.hook];t=D_.hook;
+  cfg.rounds.forEach((r,i)=>{
+    const R={cfg:r,i,start:t};
+    T.events.push({type:'round',t});
+    R.titleEnd=t+D_.title;
+    if(r.kind==='micro'){
+      R.qStart=R.titleEnd;R.qEnd=R.qStart+D_.question;T.events.push({type:'question',t0:R.qStart,t1:R.qEnd});
+      R.ph=[R.qEnd,R.qEnd+D_.ph];R.zoom=[R.ph[1],R.ph[1]+D_.zoom];T.events.push({type:'fizz',t0:R.zoom[0],t1:R.zoom[1],gain:0.25});
+      R.replayT0=R.replayT1=R.zoom[1];
+    } else {
+      R.showEnd=R.titleEnd+D_.show;R.qStart=R.showEnd;R.qEnd=R.qStart+D_.question;T.events.push({type:'question',t0:R.qStart,t1:R.qEnd});
+      R.go=R.qEnd+D_.go;R.hit=R.go+FALL;R.dur=r.duration_s;
+      T.events.push({type:'drop',t:R.go});
+      T.events.push({type:'fizz',t0:R.hit,t1:R.hit+R.dur+0.8,gain:r.kind==='mentos'?1.0:0.35});
+      R.actEnd=R.hit+R.dur+D_.settle;
+      if(r.replay){R.rw=[-0.15,0.9];R.replayT0=R.actEnd+0.3;R.replayT1=R.replayT0+(R.rw[1]-R.rw[0])/SLOW;
+        T.events.push({type:'replay',t0:R.replayT0,t1:R.replayT1});T.events.push({type:'fizz',t0:R.replayT0+(0-R.rw[0])/SLOW,t1:R.replayT1,gain:0.7});}
+      else R.replayT0=R.replayT1=R.actEnd;
+    }
+    R.stampT=R.replayT1+D_.after;T.events.push({type:'stamp',t:R.stampT,color:r.stamp.color});
+    R.factT=R.stampT+D_.stampHold;T.events.push({type:'card',t:R.factT});
+    R.end=R.factT+D_.fact;t=R.end;T.rounds.push(R);
+  });
+  T.explain=[t,t+D_.explain];T.events.push({type:'explain',t0:t,t1:t+D_.explain});t+=D_.explain;
+  T.outro=[t,t+D_.outro];T.events.push({type:'card',t});T.events.push({type:'cta',t:t+1.4});t+=D_.outro;
+  T.duration=t;return T;
+}
+
+// ---------------------------------------------------------------- scene state
+function sceneState(T,t){
+  let R=T.rounds[0];for(const r of T.rounds) if(t>=r.start) R=r;
+  const inExplain=t>=T.explain[0], r=R.cfg;
+  const s={R,shake:[0,0],mode:0,level:0.32,blobs:[],puddle:0,drop:[0,0,0,0],tube:0,probe:0,fizz:0,bub:[],replay:false};
+  const H=CFG.geyser_m||3.0;
+  let cam={ang:0.30,dist:1.15,h:0.18,ty:0.27};
+  if(inExplain){                                         // the Mentos geyser again, wide
+    const per=7.0,k=(t-T.explain[0])%per, tau=k-0.8;
+    const G=geyser('mentos',tau,3.8,H);s.blobs=G.blobs;s.puddle=G.puddle;s.level=G.level;s.fizz=tau>0&&tau<4.5?1:0;
+    cam={ang:0.30+0.05*Math.sin(t*0.2),dist:5.6,h:0.5,ty:1.25};
+  } else if(r.kind==='micro'){
+    s.level=0.10;s.puddle=0.32;
+    if(t<R.zoom[0]){const k=sm(R.qEnd,R.qEnd+0.8,t);s.probe=0.18*k;cam={ang:0.35,dist:0.85,h:0.22,ty:0.34};}
+    if(t>=R.zoom[0]){s.mode=1;const k=t-R.zoom[0];
+      for(let i=0;i<12;i++){const cx=((i*37)%11)/11*2.4-1.2,cz=((i*53)%7)/7*1.6-0.8,ph=i*0.37;
+        const life=(k*0.9+ph)%1.6, grow=Math.min(life/1.0,1), rise=Math.max(0,life-1.0);
+        s.bub.push([cx,0.12+0.10*grow+rise*0.9,cz,0.04+0.11*grow]);}
+      cam={ang:0.4+0.04*k,dist:2.6-0.1*k,h:1.0,ty:0.15};}
+  } else {
+    const stage=t<R.go?-1:(t-R.go);
+    const rp=R.rw&&t>=R.replayT0&&t<R.replayT1; s.replay=rp;
+    let tau; if(rp) tau=R.rw[0]+(t-R.replayT0)*SLOW; else if(t>=R.replayT1&&R.rw) tau=R.dur+D_.settle; else tau=t-R.hit;
+    s.tube=(tau<0.3)&&!(t>=R.replayT1&&R.rw)?1:0;
+    const kind=r.kind;
+    // object falling through the tube into the bottle
+    const ft=rp?FALL+tau:(t-R.go);
+    if(ft<0) s.drop=[0,0.56,0,kind==='mentos'?1:2];
+    else if(ft<FALL+0.4){const y=0.56-0.5*g*ft*ft*0.55;s.drop=[0,Math.max(0.03,y),0,kind==='mentos'?1:2];}
+    const G=geyser(kind,tau,R.dur,kind==='mentos'?H:0.10);s.blobs=G.blobs;s.puddle=G.puddle;s.level=G.level;s.fizz=tau>0&&tau<R.dur+0.8?1:0;
+    if(t<R.showEnd){const k=sm(R.start,R.showEnd,t);cam={ang:lerp(0.55,0.32,k),dist:lerp(0.70,0.95,k),h:0.10,ty:0.36};}
+    else if(t<R.qEnd){const k=sm(R.qStart,R.qEnd-0.3,t);cam={ang:0.32,dist:lerp(0.95,1.15,k),h:0.18,ty:lerp(0.36,0.30,k)};}
+    if(kind==='mentos'&&!rp&&t>=R.hit){                  // follow the jet up, then pull back to show the whole geyser
+      const k=sm(R.hit,R.hit+0.8,t);cam={ang:lerp(0.32,0.26,k),dist:lerp(1.15,5.6,k),h:lerp(0.18,0.5,k),ty:lerp(0.28,1.25,k)};}
+    if(rp){const k=t-R.replayT0,q=sm(0.8,R.replayT1-R.replayT0,k);cam={ang:0.40+0.02*k,dist:lerp(0.75,2.8,q),h:0.06,ty:lerp(0.40,0.95,q)};}
+    if(R.rw&&t>=R.replayT1){cam={ang:0.30,dist:1.2,h:0.30,ty:0.26};}
+    const dt=tau;if(kind==='mentos'&&dt>0&&dt<0.5&&!rp){const a=0.004*Math.exp(-dt*6);s.shake=[a*Math.sin(t*90),a*Math.cos(t*80)];}
+  }
+  Object.assign(s,{camAng:cam.ang,camDist:cam.dist,camH:cam.h,camTY:cam.ty});
+  return s;
+}
+
+// ---------------------------------------------------------------- WebGL
+const gl=document.getElementById('gl').getContext('webgl',{preserveDrawingBuffer:true,antialias:false});
+function sh(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s;}
+const prog=gl.createProgram();
+gl.attachShader(prog,sh(gl.VERTEX_SHADER,'attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}'));
+gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,document.getElementById('fs').textContent));
+gl.linkProgram(prog);if(!gl.getProgramParameter(prog,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(prog));gl.useProgram(prog);
+const buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+let LOGO=null;
+const al=gl.getAttribLocation(prog,'a');gl.enableVertexAttribArray(al);gl.vertexAttribPointer(al,2,gl.FLOAT,false,0,0);
+const U={};['R','camAng','camDist','camH','camTY','shake','mode','level','foam','nfoam','foamB','puddle','drop','tube','probe','fizz','tsec','bub'].forEach(n=>U[n]=gl.getUniformLocation(prog,n));
+
+// ---------------------------------------------------------------- overlay
+const out=document.getElementById('out'),c=out.getContext('2d');const W=1080,H=1920;
+const COL={green:'#1F9D55',red:'#E0303F',ink:'#1d2126',sub:'#5b636c',brand:'#F7C21A'};
+const fade=(t0,t,d=0.25)=>clamp((t-t0)/d,0,1);
+const pop=(t0,t)=>{const k=clamp((t-t0)/0.25,0,1);return 1+0.18*Math.sin(k*Math.PI)*(1-k);};
+function rrect(x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+function panel(x,y,w,h,r,fill,a=1){if(a<=0)return;c.save();c.globalAlpha=a;c.fillStyle=fill;rrect(x,y,w,h,r);c.fill();c.restore();}
+function fitText(s,maxW,size){c.font=`700 ${size}px P, DJ`;while(c.measureText(s).width>maxW&&size>18){size-=2;c.font=`700 ${size}px P, DJ`;}return size;}
+function ctxt(s,x,y,size,color,a=1){if(a<=0)return;c.save();c.globalAlpha=a;c.font=`700 ${size}px P, DJ`;c.textAlign='center';c.textBaseline='middle';
+  c.lineJoin='round';c.lineWidth=size*0.16;c.strokeStyle='rgba(255,255,255,0.85)';c.strokeText(s,x,y);
+  c.shadowColor='rgba(0,0,0,0.18)';c.shadowBlur=size*0.12;c.shadowOffsetY=size*0.04;c.fillStyle=color;c.fillText(s,x,y);c.restore();}
+function pill(s,x,y,size,fill,a=1){if(a<=0)return;const fs=size;c.font=`700 ${fs}px P, DJ`;const w=c.measureText(s).width+fs*1.1;
+  panel(x-w/2,y-fs*0.85,w,fs*1.7,fs*0.85,fill,a);c.save();c.globalAlpha=a;c.font=`700 ${fs}px P, DJ`;c.textAlign='center';c.textBaseline='middle';c.fillStyle='#fff';c.fillText(s,x,y+1);c.restore();}
+function meter(label,val,x,y,a){                          // pH meter screen
+  if(a<=0) return;panel(x-150,y-70,300,140,18,'#1d2126',a);panel(x-135,y-55,270,110,12,'#cfe8d0',a);
+  c.save();c.globalAlpha=a;c.font='700 26px P, DJ';c.textAlign='center';c.fillStyle='#2a3a2c';c.fillText(label,x,y-28);
+  c.font='700 58px DJ';c.fillText(val,x,y+30);c.restore();
+}
+function overlay(cfg,T,t,s){
+  const R=s.R, r=R.cfg;
+  { const gr=c.createLinearGradient(0,0,0,690);gr.addColorStop(0,'rgba(236,240,243,0.92)');gr.addColorStop(0.78,'rgba(236,240,243,0.80)');gr.addColorStop(1,'rgba(236,240,243,0)');
+    c.save();c.fillStyle=gr;c.fillRect(0,0,W,690);c.restore(); }
+  if(t>=T.hook[1]||cfg.hook_series!==false) ctxt(cfg.series,W/2,292,34,COL.sub,0.9);
+  drawHandle(c,cfg);
+  if(t<T.hook[1]){const a=1-fade(T.hook[1]-0.3,t,0.3);cfg.hook.forEach((l,i)=>ctxt(l,W/2,390+i*90,fitText(l,960,82),COL.ink,a));return;}
+  if(t<T.hook[1]+0.18){c.save();c.globalAlpha=1-fade(T.hook[1],t,0.18);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
+  if(t<T.explain[0]){
+    const stampOn=t>=R.stampT;
+    if(t<R.titleEnd+0.2){const a=1-fade(R.titleEnd-0.1,t,0.3),p=pop(R.start,t);c.save();c.translate(W/2,430);c.scale(p,p);ctxt(r.title,0,0,fitText(r.title,960,76),COL.ink,a);c.restore();}
+    else if(R.showEnd&&t<R.qStart){ if(r.subtitle) ctxt(r.subtitle,W/2,430,fitText(r.subtitle,960,52),COL.ink,fade(R.titleEnd,t)); }
+    else if(t<R.qEnd){const a=fade(R.qStart,t)*(1-fade(R.qEnd-0.15,t,0.15)),p=1+0.05*Math.sin((t-R.qStart)*Math.PI*4);
+      c.save();c.translate(W/2,415);c.scale(p,p);ctxt(r.question,0,0,fitText(r.question,960,96),COL.red,a);c.restore();
+      ctxt(r.question_sub,W/2,515,fitText(r.question_sub,900,40),COL.ink,a);
+      const n=Math.ceil(R.qEnd-t);if(n>=1&&n<=3&&t>R.qEnd-3) ctxt(String(n),W/2,590,56,COL.ink,a);}
+    else if(r.kind==='micro'&&!stampOn){
+      if(t<R.zoom[0]){const a=fade(R.ph[0],t);meter(r.ph_before_label||'BEFORE',r.ph_before||'pH 3.0',W/2-170,470,a);meter(r.ph_after_label||'AFTER',r.ph_after||'pH 3.0',W/2+170,470,fade(R.ph[0]+1.4,t));}
+      else {ctxt(r.zoom_text||'Mentos surface, zoomed in',W/2,400,fitText(r.zoom_text||'',960,50),COL.ink,fade(R.zoom[0],t));
+        if(r.zoom_fact) ctxt(r.zoom_fact,W/2,480,fitText(r.zoom_fact,960,44),COL.sub,fade(R.zoom[0]+1.2,t));}}
+    else if(!stampOn&&!s.replay&&R.hit&&t>=R.go){
+      const tt=Math.max(0,Math.min(t-R.hit,R.dur));
+      ctxt(r.timer_label||'ERUPTION',W/2,360,30,COL.sub);ctxt(tt.toFixed(1)+' s',W/2,445,100,t-R.hit>=R.dur?COL.green:COL.ink);}
+    if(s.replay){const a=fade(R.replayT0,t,0.15)*(1-fade(R.replayT1-0.15,t,0.15));
+      c.save();c.globalAlpha=a*0.9;c.fillStyle='#000';c.fillRect(0,640,W,16);c.fillRect(0,1424,W,16);c.restore();
+      pill((cfg.replay_label||'SLOW-MO')+' ×'+Math.round(1/SLOW),W/2,700,28,'rgba(224,48,63,0.92)',a);}
+    if(stampOn){
+      const k=clamp((t-R.stampT)/0.18,0,1),sc2=lerp(2.2,1,k*k)+(k>=1?0.05*Math.exp(-(t-R.stampT-0.18)*10)*Math.sin((t-R.stampT-0.18)*40):0);
+      const col=r.stamp.color==='green'?COL.green:COL.red;
+      c.save();c.translate(W/2,425);c.rotate(-0.08);c.scale(sc2,sc2);c.globalAlpha=Math.min(1,k*1.5);
+      c.strokeStyle=col;c.lineWidth=10;rrect(-300,-72,600,144,22);c.stroke();c.fillStyle='rgba(255,255,255,0.7)';rrect(-300,-72,600,144,22);c.fill();
+      const fs=fitText(r.stamp.text,540,84);c.font=`700 ${fs}px P, DJ`;c.textAlign='center';c.textBaseline='middle';c.fillStyle=col;c.fillText(r.stamp.text,0,5);c.restore();}
+    if(t>=R.factT){const a=fade(R.factT,t,0.3)*(1-fade(R.end-0.25,t));(r.fact||[]).forEach((l,i)=>ctxt(l,W/2,555+i*50,fitText(l,980,38),COL.ink,a));}
+    if(t<R.start+0.3){c.save();c.globalAlpha=1-fade(R.start,t,0.3);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
+    return;}
+  if(t<T.explain[0]+0.3){c.save();c.globalAlpha=1-fade(T.explain[0],t,0.3);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
+  if(t<T.outro[0]){const e=cfg.explain,t0=T.explain[0];
+    ctxt(e.title,W/2,370,fitText(e.title,960,64),COL.ink,fade(t0,t));
+    e.lines.forEach((l,i)=>ctxt(l,W/2,450+i*54,fitText(l,960,40),i===e.lines.length-1?COL.green:COL.sub,fade(t0+0.8+i*2.0,t,0.3)));return;}
+  const t0=T.outro[0];
+  ctxt('SOURCE',W/2,345,28,COL.sub,fade(t0,t));
+  cfg.source.forEach((l,i)=>ctxt(l,W/2,395+i*48,fitText(l,980,32),COL.ink,fade(t0,t)));
+  if(t>=t0+1.4){const a=fade(t0+1.4,t,0.25),p=pop(t0+1.4,t);
+    c.save();c.translate(W/2,560);c.scale(p,p);panel(-380,-50,760,100,50,COL.brand,a);
+    c.font=`700 ${fitText(cfg.cta,700,42)}px P, DJ`;c.textAlign='center';c.textBaseline='middle';c.globalAlpha=a;c.fillStyle=COL.ink;c.fillText(cfg.cta,0,2);c.restore();}
+}
+
+// ---------------------------------------------------------------- API used by render.js
+let CFG=null,TL=null;
+window.setup=function(cfg){if(!LOGO){LOGO=makeLogoTexture();gl.uniform1i(gl.getUniformLocation(prog,'logo'),0);}CFG=cfg;TL=buildTimeline(cfg);
+  return {duration:TL.duration,events:TL.events,rounds:TL.rounds.map(R=>({title:R.cfg.title}))};};
+function sceneTime(t){                                  
+  if(t<TL.hook[1]){const R=TL.rounds.find(q=>q.rw);return R.hit-0.3+t;}   // hook: the real eruption, in full action
+  return t;
+}
+window.renderFrame=function(t,type='image/jpeg'){drawFrame(t);return out.toDataURL(type,0.93);};
+function drawFrame(t){
+  const st=sceneTime(t), s=sceneState(TL,st);
+  gl.viewport(0,0,1080,1920);gl.uniform2f(U.R,1080,1920);
+  gl.uniform1f(U.camAng,s.camAng);gl.uniform1f(U.camDist,s.camDist);gl.uniform1f(U.camH,s.camH);gl.uniform1f(U.camTY,s.camTY);
+  gl.uniform2f(U.shake,s.shake[0],s.shake[1]);
+  gl.uniform1f(U.mode,s.mode);gl.uniform1f(U.level,s.level);gl.uniform1f(U.puddle,s.puddle);
+  const F=new Float32Array(160);let mn=[9,9,9],mx=[-9,-9,-9];
+  s.blobs.slice(0,40).forEach((b,i)=>{F.set(b,i*4);for(let k=0;k<3;k++){mn[k]=Math.min(mn[k],b[k]-b[3]);mx[k]=Math.max(mx[k],b[k]+b[3]);}});
+  gl.uniform4fv(U.foam,F);gl.uniform1f(U.nfoam,Math.min(40,s.blobs.length));
+  const cen=[0,1,2].map(k=>(mn[k]+mx[k])/2);gl.uniform4f(U.foamB,cen[0],cen[1],cen[2],Math.hypot(...[0,1,2].map(k=>(mx[k]-mn[k])/2))+0.03);
+  gl.uniform4f(U.drop,...s.drop);gl.uniform1f(U.tube,s.tube);gl.uniform1f(U.probe,s.probe);gl.uniform1f(U.fizz,s.fizz);gl.uniform1f(U.tsec,st);
+  const B=new Float32Array(48);s.bub.forEach((b,i)=>B.set(b,i*4));gl.uniform4fv(U.bub,B);
+  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,LOGO);
+  gl.drawArrays(gl.TRIANGLES,0,3);gl.finish();
+  c.imageSmoothingQuality='high';c.drawImage(document.getElementById('gl'),0,0,W,H);
+  overlay(CFG,TL,t,s);
+}
+window.ready=Promise.all([document.fonts.load('700 40px P'),document.fonts.load('700 40px DJ')]).then(()=>true);
+</script>
+</body></html>

@@ -6,7 +6,8 @@ Events (from qc/engine.html buildTimeline): round, approach, ramp, ok, question,
 break (material/kind), stamp (green/red), card, explain, cta;
 drop engine: drop, land (heavy/light, speed), pump;
 snap engine: snap (n breaks, speed), bend, twist;
-impact engine: scratch, swing, clank, shatter (speed).
+impact engine: scratch, swing, clank, shatter (speed);
+geyser engine: fizz (t0, t1, gain).
 """
 import json
 import sys
@@ -122,6 +123,14 @@ def main(tl_path, out_path):
                 tm = np.arange(mm) / SR
                 f0 = (1318.5, 1046.5, 880.0)[min(j, 2)] * (1 if sp == 1 else 0.5)
                 add(np.sin(2 * np.pi * f0 * tm) * env(mm, 0.002, 0.15) + 0.4 * np.sin(4 * np.pi * f0 * tm) * env(mm, 0.002, 0.06), tf, 0.22)
+        elif ty == "fizz":                                         # geyser engine: CO2 rushing out (hiss + gurgle)
+            m = (tt >= e["t0"]) & (tt < e["t1"])
+            k = (tt[m] - e["t0"]) / max(e["t1"] - e["t0"], 1e-3)
+            nz = rng.standard_normal(int(m.sum()))
+            hiss = nz - lp(nz, 0.25)
+            env_ = np.minimum(1, k / 0.04) * (1 - k) ** 0.8
+            gurgle = np.sin(2 * np.pi * (90 + 40 * np.sin(2 * np.pi * 6 * tt[m])) * tt[m])
+            out[m] += (hiss * 0.30 + lp(nz, 0.05) * 0.5 + gurgle * 0.06) * env_ * e.get("gain", 1)
         elif ty == "scratch":                                      # impact engine: diamond point scraping steel
             m = (tt >= e["t0"]) & (tt < e["t1"])
             k = (tt[m] - e["t0"]) / max(e["t1"] - e["t0"], 1e-3)
