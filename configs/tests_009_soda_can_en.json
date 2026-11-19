@@ -1,0 +1,139 @@
+{
+  "id": "tests-009-soda-can-en",
+  "series": "QUALITY CONTROL · TEST 009",
+  "decimal": ".",
+  "handle": "@BreakpointLabTV",
+  "hook": [
+    "Can an EMPTY can",
+    "hold a person?"
+  ],
+  "hook_series": false,
+  "teaser_label": "",
+  "hook_round": 2,
+  "replay_label": "SLOW-MO",
+  "rounds": [
+    {
+      "title": "ROUND 1 · ONE EMPTY CAN",
+      "kind": "compression",
+      "specimen": "can",
+      "material": "can",
+      "label": "LOAD",
+      "unit": "kg",
+      "decimals": 0,
+      "gauge_max": 120,
+      "steps": [
+        30,
+        60,
+        80
+      ],
+      "question_value": 80,
+      "question": "80 kg person?",
+      "question_sub": "HOLDS or CRUSHED ↓",
+      "break_value": 90,
+      "threshold": {
+        "value": 80,
+        "label": "80 kg"
+      },
+      "stamp": {
+        "text": "HOLDS 90 kg",
+        "color": "green"
+      },
+      "result_chip": "90 kg",
+      "fact": [
+        "38 lab cans: 78 to 113 kg",
+        "Wall: just 0.1 mm thick"
+      ]
+    },
+    {
+      "title": "ROUND 2 · 48 kg + A POKE",
+      "kind": "compression",
+      "specimen": "can",
+      "material": "can",
+      "poke": true,
+      "hold": true,
+      "poke_label": "← ONE SMALL POKE",
+      "label": "LOAD",
+      "unit": "kg",
+      "decimals": 0,
+      "gauge_max": 120,
+      "steps": [
+        20,
+        35,
+        48
+      ],
+      "question_value": 48,
+      "question": "One poke. Crushed?",
+      "question_sub": "YES or NO ↓",
+      "break_value": 48,
+      "threshold": null,
+      "stamp": {
+        "text": "STILL HOLDS",
+        "color": "green"
+      },
+      "result_chip": "48 kg",
+      "fact": [
+        "Light load: it shrugs it off"
+      ]
+    },
+    {
+      "title": "ROUND 3 · 70 kg + A POKE",
+      "kind": "compression",
+      "specimen": "can",
+      "material": "can",
+      "poke": true,
+      "poke_label": "← SAME SMALL POKE",
+      "label": "LOAD",
+      "unit": "kg",
+      "decimals": 0,
+      "gauge_max": 120,
+      "steps": [
+        30,
+        50,
+        70
+      ],
+      "question_value": 70,
+      "question": "Same poke. Crushed?",
+      "question_sub": "YES or NO ↓",
+      "break_value": 70,
+      "threshold": null,
+      "stamp": {
+        "text": "CRUSHED AT 70 kg",
+        "color": "red"
+      },
+      "result_chip": "70 kg",
+      "fact": [
+        "A 0.2 mm dent is enough",
+        "Less than it held alone"
+      ]
+    }
+  ],
+  "explain": {
+    "scene": "can",
+    "title": "WHY?",
+    "lines": [
+      "A can is a thin shell",
+      "Perfect shape: weight spreads evenly",
+      "A dent breaks that balance",
+      "Then it folds all at once"
+    ]
+  },
+  "source": [
+    "Abramian et al., Phys. Rev. Lett. (2020)",
+    "Virot et al., Phys. Rev. Lett. (2017), Harvard",
+    "Simulated animation, lab values"
+  ],
+  "cta": "NEXT TEST? Comment ↓",
+  "caption": "Can one EMPTY soda can hold a person? 🥫 In the lab it takes about 90 kg. But poke it while it's loaded… Would you stand on one? What should we test next? 👇 #physics #science #engineering #sodacan #mythbusting #satisfying #3d",
+  "description": [
+    "Can one empty soda can hold a person? We press an empty aluminium can, then press it again while poking its side.",
+    "In a 2020 lab study (Abramian et al., Physical Review Letters), 38 empty 7.5 oz cans buckled under 761 to 1108 N, about 78 to 113 kg. Our round 1 can holds about 90 kg (887 N, one of the measured cans), so it can carry an 80 kg person, as long as the load is straight and the can is perfect.",
+    "Rounds 2 and 3 reproduce the Harvard poking experiment (Virot et al., Physical Review Letters, 2017). Loaded at about 48 kg (467 N), a can that is poked on the side does not collapse. Loaded at about 70 kg (683 N), less than it held alone, the same small poke makes it collapse at once. The poke only has to push the wall in by about twice its thickness, about 0.2 mm.",
+    "Why: a can is a very thin shell (wall 0.1 mm). A perfect cylinder spreads the load evenly, but a tiny dent breaks that balance and the wall folds into diamonds in a split second.",
+    "The animation is a simulation built on the measured values from these two studies."
+  ],
+  "sources_detail": [
+    "Abramian, Virot, Lozano, Rubinstein & Schneider, 'Nondestructive Prediction of the Buckling Load of Imperfect Shells', Phys. Rev. Lett. 125, 225504 (2020): 38 empty 7.5 oz Coke cans (R 28.6 mm, wall 104 um, H 107 mm) buckled at 761-1108 N -> 78-113 kg; example can 887 N -> 887/9.81 = 90 kg.",
+    "Virot, Kreilos, Schneider & Rubinstein, 'Stability Landscape of Shell Buckling', Phys. Rev. Lett. 119, 224101 (2017), Harvard: lateral poke on loaded cans; 467 N (47.6 kg, shown 48 kg) no buckling, 683 N (69.6 kg, shown 70 kg) buckled. Critical poke displacement at least 2x the wall thickness, about 0.2 mm.",
+    "Simulated: animation timing and fold shape are illustrative; the dent is drawn larger than 0.2 mm so it is visible."
+  ]
+}
