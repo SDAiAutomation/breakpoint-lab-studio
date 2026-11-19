@@ -222,6 +222,23 @@ def main(tl_path, out_path):
         elif ty == "drop":                                         # trap doors snap open
             m = int(0.06 * SR)
             add(lp(rng.standard_normal(m), 0.6) * env(m, 0.0005, 0.01), e["t"], 0.5)
+        elif ty == "break" and e.get("kind") == "hold":            # poke that the can survives: a tiny metal tick
+            q = int(0.12 * SR); tq = np.arange(q) / SR
+            add(np.sin(2 * np.pi * 2300 * tq) * env(q, 0.0003, 0.02), e["t"], 0.25)
+            m = int(0.01 * SR); c2 = rng.standard_normal(m)
+            add((c2 - lp(c2, 0.4)) * env(m, 0.0001, 0.002), e["t"], 0.4)
+        elif ty == "break" and e.get("material") == "can":         # thin aluminium shell buckling: pop + crumple
+            t_b = e["t"]
+            n = int(0.5 * SR); t = np.arange(n) / SR
+            add(np.sin(2 * np.pi * (140 - 70 * t) * t) * env(n, 0.001, 0.07), t_b, 0.9)       # body thump
+            k = int(0.02 * SR); cl = rng.standard_normal(k); cl = cl - lp(cl, 0.3)
+            add(cl * env(k, 0.0001, 0.004), t_b, 1.5)                                         # the snap
+            for j in range(26):                                                               # folds crumpling
+                tj = t_b + 0.004 + 0.13 * (j / 26) ** 1.4 + 0.004 * rng.random()
+                q = int(0.008 * SR); c2 = rng.standard_normal(q); c2 = c2 - lp(c2, 0.25)
+                add(c2 * env(q, 0.0001, 0.0018), tj, 0.7 * (1 - j / 30))
+                tq = np.arange(q * 6) / SR
+                add(np.sin(2 * np.pi * (1800 + 2200 * rng.random()) * tq) * env(q * 6, 0.0002, 0.01), tj, 0.08)
         elif ty == "break" and e.get("kind") == "drop":            # small impact: tick + one shell crack
             n = int(0.4 * SR)
             t = np.arange(n) / SR
