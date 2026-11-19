@@ -5,6 +5,8 @@ Chaîne YouTube/TikTok **Breakpoint Lab**, handle **@BreakpointLabTV**. Séries 
 ## Ne pas mélanger
 - Ce dépôt n'a RIEN à voir avec SliceLoop / `asmr-slicing-studio` (vidéos de découpe ASMR, compte @sliceloop). Ne jamais mettre @sliceloop ici, ni @BreakpointLabTV là-bas.
 - Le handle va dans chaque config : `"handle": "@BreakpointLabTV"`.
+- Exception voulue : sur TikTok, les vidéos Breakpoint Lab sont publiées sur le compte SliceLoop (audience existante). Le filigrane reste @BreakpointLabTV ; ne pas le signaler comme une erreur.
+- Stats : W = vues YouTube, AB = vues TikTok.
 - Numéro à l'écran (`series`, ex. « PHYSICS · TEST 008 ») = numéro d'épisode (colonne AA de la Sheet), jamais le numéro de ligne (colonne A). Il ne fait que monter : dernier numéro publié + 1, même si l'on change de série. On ne réutilise jamais un numéro déjà en ligne.
 
 ## Ligne éditoriale (ce qui fait des vues)
