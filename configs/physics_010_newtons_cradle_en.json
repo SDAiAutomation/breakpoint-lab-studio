@@ -1,0 +1,107 @@
+{
+  "id": "phy-010-newtons-cradle-en",
+  "engine": "cradle",
+  "series": "PHYSICS · TEST 010",
+  "decimal": ".",
+  "handle": "@BreakpointLabTV",
+  "hook": [
+    "Lift 2 balls.",
+    "How many fly out?"
+  ],
+  "hook_series": false,
+  "hook_round": 2,
+  "replay_label": "SLOW-MO",
+  "in_label": "IN",
+  "out_label": "OUT",
+  "lapse_label": "TIME-LAPSE",
+  "rounds": [
+    {
+      "title": "ROUND 1 · LIFT 1 BALL",
+      "lift": 1,
+      "question": "1 in. How many out?",
+      "question_sub": "Easy one ↓",
+      "stamp": {
+        "text": "1 IN · 1 OUT",
+        "color": "green"
+      },
+      "fact": [
+        "The middle balls don't move"
+      ]
+    },
+    {
+      "title": "ROUND 2 · LIFT 2 BALLS",
+      "lift": 2,
+      "replay": true,
+      "question": "How many fly out?",
+      "question_sub": "1, 2 or 3? ↓",
+      "stamp": {
+        "text": "2 IN · 2 OUT",
+        "color": "green"
+      },
+      "fact": [
+        "Never 1 ball twice as fast"
+      ]
+    },
+    {
+      "title": "ROUND 3 · LIFT 3 BALLS",
+      "lift": 3,
+      "replay": true,
+      "question": "3 in. How many out?",
+      "question_sub": "2, 3 or 5? ↓",
+      "stamp": {
+        "text": "3 IN · 3 OUT",
+        "color": "green"
+      },
+      "fact": [
+        "The middle ball swings both ways"
+      ]
+    },
+    {
+      "title": "FINAL · LET IT RUN",
+      "lift": 1,
+      "timelapse": true,
+      "cuts": [
+        0,
+        10,
+        30,
+        100
+      ],
+      "question": "Does it clack forever?",
+      "question_sub": "YES or NO ↓",
+      "stamp": {
+        "text": "NO: ALL SWING TOGETHER",
+        "color": "red"
+      },
+      "fact": [
+        "Lab test: in sync after 1–2 min",
+        "Tiny losses at every clack"
+      ]
+    }
+  ],
+  "explain": {
+    "title": "WHY?",
+    "lines": [
+      "Momentum in = momentum out",
+      "Energy in = energy out",
+      "Lift 2: only 2 out fits both",
+      "Small losses sync all the balls"
+    ]
+  },
+  "source": [
+    "Hutzler et al., Am. J. Phys. 72, 1508 (2004)",
+    "Simulated: momentum + energy laws"
+  ],
+  "cta": "NEXT EXPERIMENT? Comment ↓",
+  "caption": "Lift 2 balls on a Newton's cradle: how many fly out? 1, 2 or 3? 🤔 And does it really clack forever? Drop your bet 👇 #newtonscradle #physics #science #satisfying #mythbusting #3danimation",
+  "description": [
+    "We test a Newton's cradle: five steel balls hanging in a row. We lift 1 ball, then 2, then 3, release them and count how many balls fly out on the other side. Then we let it run to see if it clacks forever.",
+    "Lift 1 ball and exactly 1 flies out; lift 2 and 2 fly out; lift 3 and 3 fly out, so the middle ball swings out on both sides. It is never 1 ball flying out twice as fast: that would keep the momentum (2 x m x v = m x 2v) but double the energy, which is impossible. Only the same number of balls at the same speed keeps both momentum and energy.",
+    "It does not clack forever. In a 2004 lab study (Hutzler, Delaney, Weaire and MacLeod, American Journal of Physics), the balls lost a little energy at every clack and, after 1 to 2 minutes, all the balls were swinging together as one block, each with a much smaller swing.",
+    "The animation is a simulation: each ball is a real pendulum and the balls touch through a Hertz contact with a small energy loss, the same model as in that study."
+  ],
+  "sources_detail": [
+    "Hutzler, Delaney, Weaire & MacLeod, 'Rocking Newton's cradle', Am. J. Phys. 72(12), 1508-1516 (2004): with a lab cradle (metal balls 6.8 cm, 0.7 kg, 1.3 m wires), 'the time required for the system of balls to settle into the collective mode is between 1 and 2 min'; the collective amplitude is theta0/N; dissipation in the collisions brings the balls into phase.",
+    "Momentum and energy: lift n balls of mass m to speed v. Momentum n m v and energy n m v^2 / 2 are both conserved only if n balls leave at v (k balls at speed u: k u = n v and k u^2 = n v^2 give u = v, k = n). Example n = 2: one ball at 2v keeps momentum (2mv) but has energy 2 m v^2, twice the 1 m v^2 that came in.",
+    "Simulated: 5 pendulums (ball 10 cm, wire 0.6 m, lift 26 degrees), Hertz contact F = k d^1.5 with Hunt-Crossley damping (lambda 0.15 s/m), 0.5 mm gap between balls. Time-lapse clock = simulation time; in the simulation the balls settle into one swing (about 1/5 of the lift angle) within the 1-2 min seen in the lab."
+  ]
+}

@@ -274,6 +274,15 @@ def main(tl_path, out_path):
                 m = int(0.45 * SR)
                 tm = np.arange(m) / SR
                 add(lp(rng.standard_normal(m), 0.08) * env(m, 0.01, 0.12) * (1 + 0.6 * np.sin(2 * np.pi * 23 * tm)), t_b + 0.05, 1.2)
+        elif ty == "clack":                                        # cradle engine: hardened steel balls knocking (crisp click + short ring)
+            sp = e.get("speed", 1); slow = 1.0 / max(sp, 0.1); gn = e.get("gain", 1.0)
+            k = int(0.004 * slow * SR) + 8; cl = rng.standard_normal(k); cl = cl - lp(cl, 0.5)
+            add(cl * env(k, 0.0001, 0.0012 * slow), e["t"], 1.3 * gn)
+            n = int(0.18 * slow ** 0.6 * SR); tm = np.arange(n) / SR
+            ring = sum(np.sin(2 * np.pi * f / slow ** 0.35 * tm) * w for f, w in ((3870, 0.5), (6150, 0.3), (8420, 0.15)))
+            add(ring * env(n, 0.0002, 0.022 * slow ** 0.6), e["t"], 0.35 * gn)
+            m2 = int(0.06 * SR); t2 = np.arange(m2) / SR
+            add(np.sin(2 * np.pi * 180 / slow ** 0.3 * t2) * env(m2, 0.0005, 0.012 * slow), e["t"], 0.25 * gn)
         elif ty == "replay":
             # rewind whoosh, then the break again, pitched down and stretched (slow motion)
             m = int(0.5 * SR)
