@@ -23,7 +23,7 @@ uniform vec3 ba[5];        // wire attachment point on each ball (top, towards t
 uniform vec4 gate;         // release gate: centre xy, angle, visible
 uniform sampler2D logo;
 
-const float BR=0.05, HY=0.77, ZW=0.14, FX=0.58, WR=0.0021;
+const float BR=0.05, HY=0.62, ZW=0.14, FX=0.50, WR=0.0021;
 float sdRoundBox(vec3 p, vec3 b, float r){ vec3 q=abs(p)-b; return length(max(q,0.0))+min(max(q.x,max(q.y,q.z)),0.0)-r; }
 float sdCylY(vec3 p, float h, float r){ vec2 d=abs(vec2(length(p.xz),p.y))-vec2(r,h); return min(max(d.x,d.y),0.0)+length(max(d,0.0)); }
 float sdCapsule(vec3 p, vec3 a, vec3 b, float r){ vec3 pa=p-a, ba_=b-a; float h=clamp(dot(pa,ba_)/dot(ba_,ba_),0.0,1.0); return length(pa-ba_*h)-r; }
@@ -32,13 +32,13 @@ vec2 opU(vec2 a, vec2 b){ return a.x<b.x?a:b; }
 float pivX(int i){ return (float(i)-2.0)*(2.0*BR+0.0005); }
 vec2 map(vec3 p){
   vec2 res=vec2(p.y,1.0);
-  res=opU(res,vec2(sdRoundBox(p-vec3(0.0,0.0225,0.0),vec3(0.66,0.0165,0.22),0.006),7.0));            // black base
+  res=opU(res,vec2(sdRoundBox(p-vec3(0.0,0.0225,0.0),vec3(0.58,0.0165,0.22),0.006),7.0));            // black base
   vec3 q=vec3(abs(p.x),p.y,abs(p.z));
   res=opU(res,vec2(sdCylY(q-vec3(FX,(0.045+HY)*0.5,ZW),(HY-0.045)*0.5,0.011),3.0));                // 4 posts
   res=opU(res,vec2(sdCylY(q-vec3(FX,0.05,ZW),0.006,0.026)-0.003,3.0));                              // post feet
   res=opU(res,vec2(sdCapsule(vec3(p.x,p.y,abs(p.z)),vec3(-FX,HY,ZW),vec3(FX,HY,ZW),0.011),3.0));     // 2 top bars
   // balls, wires, eyelets, clamps on the bars
-  vec3 bq=abs(p-vec3(0.0,0.45,0.0))-vec3(0.62,0.36,ZW+0.03);
+  vec3 bq=abs(p-vec3(0.0,0.37,0.0))-vec3(0.56,0.29,ZW+0.03);
   float bd=length(max(bq,0.0));                                                                       // bound of the moving parts
   if(bd>0.03) res=opU(res,vec2(bd,9.0));
   else {
@@ -117,7 +117,7 @@ vec3 shade(vec2 fc){
     float m=h.y;
     float fre=pow(1.0-clamp(dot(n,-rd),0.0,1.0),4.0);
     if(m<1.5){ col=sky*mix(0.68,1.0,sh)*mix(0.78,1.0,ao);
-      vec2 lu=vec2((p.x+0.70)/1.40,(0.66-p.z)/0.22);
+      vec2 lu=vec2((p.x+0.36)/0.72,(0.405-p.z)/0.113);
       if(lu.x>0.0&&lu.x<1.0&&lu.y>0.0&&lu.y<1.0){ float lg=texture2D(logo,vec2(lu.x,1.0-lu.y)).a; col=mix(col,lu.x>0.735?vec3(0.85,0.62,0.05):vec3(0.30,0.32,0.35),lg*0.55); } }
     else if(m>19.5){                                     // polished steel balls: mirror + tight highlight
       vec3 r=reflect(rd,n);
@@ -179,7 +179,7 @@ function makeLogoTexture(){
 }
 
 // ---------------------------------------------------------------- physics
-const N=5, BR=0.05, GAP=0.0005, L=0.6, HY=0.77, G=9.81, TH0=0.45, REC=1/240;
+const N=5, BR=0.05, GAP=0.0005, L=0.45, HY=0.62, G=9.81, TH0=0.45, REC=1/240;
 const PIV=[...Array(N)].map((_,i)=>(i-2)*(2*BR+GAP));
 const K_HERTZ=2e8, LAMBDA=0.15, DT=2e-5;
 // Integrate from rest with `lift` balls held at -TH0. Records angles every REC s and every clack (start of a contact).
@@ -297,15 +297,15 @@ function sceneState(T,t){
   const pull=rt==null?0:sm(0,0.12,rt)*0.10+sm(0.12,0.6,rt)*0.6;
   s.gate=[gx-pull*Math.cos(a0),gy-pull*Math.sin(a0),a0,(t>=R.start&&!inExplain&&!R.lapse||R.lapse&&t<R.go+0.6)&&pull<0.65?1:0];
   // camera
-  const base={ang:0.20,dist:2.55,h:0.30,ty:0.50,tx:0.03};
+  const base={ang:0.18,dist:1.92,h:0.20,ty:0.36,tx:0.0};
   let cam={...base};
   if(!inExplain){
-    if(t<R.liftEnd){const k=sm(R.start,R.liftEnd,t);cam={ang:lerp(0.55,0.30,k),dist:lerp(1.35,1.75,k),h:0.12,ty:lerp(0.30,0.46,k),tx:lerp(-0.18,-0.08,k)};}
-    else if(t<R.go+0.3){const k=sm(R.qStart,R.go+0.3,t);cam={ang:lerp(0.30,base.ang,k),dist:lerp(1.75,base.dist,k),h:lerp(0.12,base.h,k),ty:lerp(0.46,base.ty,k),tx:lerp(-0.08,0,k)};}
+    if(t<R.liftEnd){const k=sm(R.start,R.liftEnd,t);cam={ang:lerp(0.50,0.28,k),dist:lerp(1.05,1.40,k),h:0.10,ty:lerp(0.22,0.33,k),tx:lerp(-0.16,-0.08,k)};}
+    else if(t<R.go+0.3){const k=sm(R.qStart,R.go+0.3,t);cam={ang:lerp(0.28,base.ang,k),dist:lerp(1.40,base.dist,k),h:lerp(0.10,base.h,k),ty:lerp(0.33,base.ty,k),tx:lerp(-0.08,0,k)};}
     if(replay){const k=(t-R.replayT0)/(R.replayT1-R.replayT0);
-      const cx=(PIV[R.lift-1]+PIV[R.lift])/2;cam={ang:0.14+0.06*k,dist:1.40-0.10*k,h:0.04,ty:0.31,tx:cx-0.17+0.30*sm(0.35,1,k)};}
-    if(R.lapse&&t>=R.go){const k=t-R.go;cam={...base,ang:0.20+0.015*Math.sin(k*0.4)};}
-  } else {const k=t-T.explain[0];cam={ang:0.35-0.022*k,dist:2.0+0.02*k,h:0.22,ty:0.53,tx:0.02};}
+      const cx=(PIV[R.lift-1]+PIV[R.lift])/2;cam={ang:0.14+0.06*k,dist:1.15-0.08*k,h:0.04,ty:0.25,tx:cx-0.14+0.26*sm(0.35,1,k)};}
+    if(R.lapse&&t>=R.go){const k=t-R.go,z=sm(R.segs[R.segs.length-1],R.segs[R.segs.length-1]+1.4,t);cam={ang:base.ang+0.015*Math.sin(k*0.4)-0.06*z,dist:lerp(base.dist,1.32,z),h:lerp(base.h,0.03,z),ty:lerp(base.ty,0.33,z),tx:0};}
+  } else {const k=t-T.explain[0];cam={ang:0.30-0.02*k,dist:1.72+0.02*k,h:0.16,ty:0.36,tx:0.0};}
   Object.assign(s,{camAng:cam.ang,camDist:cam.dist,camH:cam.h,camTY:cam.ty,camTX:cam.tx});
   return s;
 }

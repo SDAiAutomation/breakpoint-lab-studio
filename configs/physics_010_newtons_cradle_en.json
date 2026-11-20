@@ -102,6 +102,6 @@
   "sources_detail": [
     "Hutzler, Delaney, Weaire & MacLeod, 'Rocking Newton's cradle', Am. J. Phys. 72(12), 1508-1516 (2004): with a lab cradle (metal balls 6.8 cm, 0.7 kg, 1.3 m wires), 'the time required for the system of balls to settle into the collective mode is between 1 and 2 min'; the collective amplitude is theta0/N; dissipation in the collisions brings the balls into phase.",
     "Momentum and energy: lift n balls of mass m to speed v. Momentum n m v and energy n m v^2 / 2 are both conserved only if n balls leave at v (k balls at speed u: k u = n v and k u^2 = n v^2 give u = v, k = n). Example n = 2: one ball at 2v keeps momentum (2mv) but has energy 2 m v^2, twice the 1 m v^2 that came in.",
-    "Simulated: 5 pendulums (ball 10 cm, wire 0.6 m, lift 26 degrees), Hertz contact F = k d^1.5 with Hunt-Crossley damping (lambda 0.15 s/m), 0.5 mm gap between balls. Time-lapse clock = simulation time; in the simulation the balls settle into one swing (about 1/5 of the lift angle) within the 1-2 min seen in the lab."
+    "Simulated: 5 pendulums (ball 10 cm, wire 0.45 m, lift 26 degrees), Hertz contact F = k d^1.5 with Hunt-Crossley damping (lambda 0.15 s/m), 0.5 mm gap between balls. Time-lapse clock = simulation time; in the simulation the balls settle into one swing (about 1/5 of the lift angle) within the 1-2 min seen in the lab."
   ]
 }
