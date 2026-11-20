@@ -143,10 +143,11 @@ def choose(api, name, spec, cands, out_dir, takes=3):
                 real = api.realness(r["path"], start=s["start"], end=s["end"])
             except Exception as e:
                 real = {"p_real": None, "verdict": f"not checked ({e})"}
-            if real.get("p_real") is not None and real["verdict"].startswith("likely code"):
-                log(f"  {name}: {r['name']} {s['start']:.2f}-{s['end']:.2f} reads as synthesized, skipped")
+            if real.get("p_real") is not None and (real["p_real"] < 0.6 or real["verdict"].startswith("likely code")):
+                log(f"  {name}: {r['name']} {s['start']:.2f}-{s['end']:.2f} not clearly a real recording "
+                    f"(p_real {real['p_real']:.2f}), skipped")
                 continue
-            take = out_dir / f"{name}_{len(picks) + 1}.wav"
+            take = (out_dir / f"{name}_{len(picks) + 1}.wav").resolve()
             sh(["ffmpeg", "-v", "error", "-y", "-ss", f"{s['start']:.3f}", "-to", f"{s['end']:.3f}", "-i", r["path"],
                 "-af", "afade=t=out:st=%.3f:d=0.01" % max(0.0, s["end"] - s["start"] - 0.01), str(take)])
             picks.append(dict(c, take=str(take), trim=[s["start"], s["end"]], z_file=r["z"], z_hit=s["z"],
@@ -170,7 +171,7 @@ def make(api, name, words, out_dir, n=1):
     except Exception as e:
         log(f"  {name}: earshot make failed ({e})")
         return []
-    files = res.get("files") or [str(out)]
+    files = [str(Path(f).resolve()) for f in (res.get("files") or [str(out)])]
     log(f"  {name}: made by earshot: {res.get('summary', '').splitlines()[0] if res.get('summary') else files}")
     return [{"take": f, "made_by": "earshot", "words": words, "design": res.get("sound"), "license": "earshot: free, no credit"}
             for f in files]
@@ -263,7 +264,7 @@ def main():
     cfg = json.load(open(a.config, encoding="utf-8"))
     tl = json.load(open(a.timeline, encoding="utf-8"))
     snd = cfg.get("sound") or {}
-    out = Path(a.out)
+    out = Path(a.out).resolve()
     (out / "lib").mkdir(parents=True, exist_ok=True)
     (out / "takes").mkdir(parents=True, exist_ok=True)
     random.seed(1)

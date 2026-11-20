@@ -19,6 +19,9 @@ on:
       drive_from_run:
         description: "Reprise : id d'un run dont le MP4 est resté en artefact -> l'envoie seulement sur Drive"
         default: ""
+      sound_from_run:
+        description: "Son seul : id d'un run fini -> refait le son (Openverse + earshot + real-sfx) sans refaire les images"
+        default: ""
 
 permissions:
   contents: write
@@ -34,7 +37,7 @@ env:
 
 jobs:
   prepare:
-    if: inputs.drive_from_run == ''
+    if: inputs.drive_from_run == '' && inputs.sound_from_run == ''
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     outputs:
@@ -280,3 +283,70 @@ jobs:
           rclone copyto work/video.mp4 "${REMOTE}${NAME}.mp4" --drive-root-folder-id "$DRIVE_FOLDER_ID" -v
           rclone copyto work/caption.txt "${REMOTE}${NAME}_caption.txt" --drive-root-folder-id "$DRIVE_FOLDER_ID" -v
           echo "$NAME"
+
+  sound_only:
+    # son seul : reprend qc-work + la vidéo du run donné, refait le son réel, envoie sur Drive
+    if: inputs.sound_from_run != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      RCLONE_CONF: ${{ secrets.RCLONE_CONF }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deps
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg rclone > /dev/null
+          pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -q "earshot[listen,measure,images] @ git+https://github.com/Leonxlnx/earshot"
+          git clone -q --depth 1 https://github.com/Clipwing/skills /tmp/clipwing
+      - uses: actions/cache@v4
+        with:
+          path: ~/.earshot
+          key: earshot-models-v1
+      - name: Get the render
+        run: |
+          gh run download ${{ inputs.sound_from_run }} -n qc-work -D work
+          NAME=$(gh api repos/${{ github.repository }}/actions/runs/${{ inputs.sound_from_run }}/artifacts --jq '.artifacts[].name' | grep -- '-video$' | head -1)
+          gh run download ${{ inputs.sound_from_run }} -n "$NAME" -D work/v
+          cp work/v/video.mp4 work/video_synth.mp4
+          if [ -n "${{ inputs.config_path }}" ]; then cp "${{ inputs.config_path }}" work/config.json; fi
+          echo "TAG=$(python3 -c "import json;print(json.load(open('work/config.json'))['id'])")" >> "$GITHUB_ENV"
+      - name: Real sound (Openverse finds, earshot listens, real-sfx places)
+        run: |
+          export EARSHOT_HOME="$HOME/.earshot"
+          python3 tools/sound/realsound.py work/config.json work/timeline.json work/video_synth.mp4 work/sound \
+            --realsfx /tmp/clipwing/skills/real-sfx
+          python3 engine/caption.py work/config.json work/caption.txt
+          python3 - <<'EOF'
+          import json
+          src = json.load(open("work/sound/sources.json"))
+          rec = [p for v in src.values() for p in v if p.get("openverse_id")]
+          with open("work/caption.txt", "a", encoding="utf-8") as f:
+              f.write("\nSound: " + (f"{len(rec)} real recordings (CC0, found on Openverse) placed with real-sfx; " if rec else "")
+                      + "graphic sounds made with earshot.\n")
+          EOF
+          cat work/sound/report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload to Google Drive
+        if: env.RCLONE_CONF != '' && env.DRIVE_FOLDER_ID != ''
+        run: |
+          mkdir -p ~/.config/rclone && printf '%s\n' "$RCLONE_CONF" > ~/.config/rclone/rclone.conf
+          REMOTE=$(rclone listremotes | head -1)
+          NAME="$(date -u +%Y-%m-%d)_${TAG}_run${{ inputs.sound_from_run }}"
+          rclone copyto work/sound/result/film_sfx.mp4 "${REMOTE}${NAME}_real-sound.mp4" --drive-root-folder-id "$DRIVE_FOLDER_ID"
+          rclone copyto work/video_synth.mp4 "${REMOTE}${NAME}_synth-sound.mp4" --drive-root-folder-id "$DRIVE_FOLDER_ID"
+          rclone copyto work/caption.txt "${REMOTE}${NAME}_caption.txt" --drive-root-folder-id "$DRIVE_FOLDER_ID"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sound-${{ inputs.sound_from_run }}
+          path: |
+            work/sound/report.md
+            work/sound/sources.json
+            work/sound/cues.json
+            work/sound/takes/
+            work/sound/result/*.md
+            work/sound/result/*.json
+            work/sound/result/film_sfx.mp4
+          if-no-files-found: ignore
+          retention-days: 14

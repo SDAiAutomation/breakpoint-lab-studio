@@ -127,17 +127,19 @@
         ],
         "hear": "a metal spring toy dropped on a table",
         "role": "hit",
-        "make": "a metal object dropped on a wooden table"
+        "make": "a metal object dropped on a wooden table",
+        "max_dur": 1.2
       },
       "land_plastic": {
         "q": [
-          "plastic toy dropped",
-          "plastic falling on table",
+          "plastic dropped on table",
+          "plastic cup drop",
+          "plastic object falling",
           "plastic slinky drop"
         ],
         "hear": "a plastic toy dropped on a table",
         "role": "hit",
-        "make": "a plastic toy dropped on a table"
+        "make": "a plastic cup dropped on a wooden table"
       },
       "release": {
         "q": [
