@@ -283,6 +283,22 @@ def main(tl_path, out_path):
             add(ring * env(n, 0.0002, 0.022 * slow ** 0.6), e["t"], 0.35 * gn)
             m2 = int(0.06 * SR); t2 = np.arange(m2) / SR
             add(np.sin(2 * np.pi * 180 / slow ** 0.3 * t2) * env(m2, 0.0005, 0.012 * slow), e["t"], 0.25 * gn)
+        elif ty == "coil":                                         # slinky engine: one turn closing on the next (metal tick / plastic tap)
+            sp = e.get("speed", 1); slow = 1.0 / max(sp, 0.1); gn = e.get("gain", 0.5); metal = e.get("material") != "plastic"
+            k = int(0.003 * slow * SR) + 8; cl = rng.standard_normal(k); cl = cl - lp(cl, 0.6 if metal else 0.3)
+            add(cl * env(k, 0.0001, 0.0008 * slow), e["t"], (0.55 if metal else 0.45) * gn)
+            if metal:
+                n = int(0.08 * slow ** 0.6 * SR); tm = np.arange(n) / SR
+                add(np.sin(2 * np.pi * 5200 / slow ** 0.35 * tm) * env(n, 0.0002, 0.010 * slow ** 0.6), e["t"], 0.10 * gn)
+        elif ty == "coilland":                                     # slinky engine: the collapsed stack hits the floor
+            sp = e.get("speed", 1); slow = 1.0 / max(sp, 0.1); gn = e.get("gain", 0.8); metal = e.get("material") != "plastic"
+            n = int(0.25 * slow ** 0.5 * SR); t2 = np.arange(n) / SR
+            add(np.sin(2 * np.pi * (95 / slow ** 0.3) * t2) * env(n, 0.001, 0.05 * slow ** 0.5), e["t"], 0.8 * gn)
+            m = int(0.20 * slow ** 0.6 * SR); nz = rng.standard_normal(m); nz = nz - lp(nz, 0.5 if metal else 0.2)
+            add(nz * env(m, 0.0005, 0.04 * slow ** 0.6), e["t"], (0.45 if metal else 0.3) * gn)
+            if metal:
+                tm = np.arange(m) / SR
+                add(sum(np.sin(2 * np.pi * f / slow ** 0.35 * tm) * w for f, w in ((2900, 0.5), (4700, 0.3))) * env(m, 0.0005, 0.05 * slow ** 0.6), e["t"], 0.15 * gn)
         elif ty == "replay":
             # rewind whoosh, then the break again, pitched down and stretched (slow motion)
             m = int(0.5 * SR)
