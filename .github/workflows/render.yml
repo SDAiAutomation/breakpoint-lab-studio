@@ -147,6 +147,50 @@ jobs:
             -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -c:a aac -b:a 192k -shortest work/video.mp4
           python3 engine/caption.py work/config.json work/caption.txt
           ffprobe -v error -show_entries format=duration -of csv=p=0 work/video.mp4
+      - name: Real sound? (config "sound.mode" = "real")
+        id: realq
+        run: python3 -c "import json;print('real=' + str(json.load(open('work/config.json')).get('sound',{}).get('mode')=='real').lower())" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        if: steps.realq.outputs.real == 'true'
+        with:
+          path: |
+            ~/.cache/huggingface
+            ~/.earshot
+          key: earshot-models-v1
+      - name: Real sound (Openverse finds, earshot listens, real-sfx places)
+        if: needs.render.result == 'success' && steps.realq.outputs.real == 'true'
+        run: |
+          export EARSHOT_HOME="$HOME/.earshot"
+          pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -q "earshot[listen,measure,images] @ git+https://github.com/Leonxlnx/earshot"
+          git clone -q --depth 1 https://github.com/Clipwing/skills /tmp/clipwing
+          cp work/video.mp4 work/video_synth.mp4
+          python3 tools/sound/realsound.py work/config.json work/timeline.json work/video_synth.mp4 work/sound \
+            --realsfx /tmp/clipwing/skills/real-sfx
+          cp work/sound/result/film_sfx.mp4 work/video.mp4
+          python3 - <<'EOF'
+          import json
+          src = json.load(open("work/sound/sources.json"))
+          rec = [p for v in src.values() for p in v if p.get("openverse_id")]
+          with open("work/caption.txt", "a", encoding="utf-8") as f:
+              f.write("\nSound: " + (f"{len(rec)} real recordings (CC0, found on Openverse) placed with real-sfx; " if rec else "")
+                      + "graphic sounds made with earshot.\n")
+          EOF
+          cat work/sound/report.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.realq.outputs.real == 'true'
+        with:
+          name: qc-${{ needs.prepare.outputs.tag }}-${{ github.run_number }}-sound
+          path: |
+            work/sound/report.md
+            work/sound/sources.json
+            work/sound/cues.json
+            work/sound/takes/
+            work/sound/result/*.md
+            work/sound/result/*.json
+            work/sound/result/film_sfx_sfx_track.wav
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Upload to Google Drive
         if: needs.render.result == 'success' && env.RCLONE_CONF != '' && env.DRIVE_FOLDER_ID != ''
         run: |
@@ -156,6 +200,7 @@ jobs:
           NAME="$(date -u +%Y-%m-%d)_${VIDEO_TAG}_run${GITHUB_RUN_NUMBER}"
           rclone copyto work/video.mp4 "${REMOTE}${NAME}.mp4" --drive-root-folder-id "$DRIVE_FOLDER_ID"
           rclone copyto work/caption.txt "${REMOTE}${NAME}_caption.txt" --drive-root-folder-id "$DRIVE_FOLDER_ID"
+          if [ -f work/video_synth.mp4 ]; then rclone copyto work/video_synth.mp4 "${REMOTE}${NAME}_synth-sound.mp4" --drive-root-folder-id "$DRIVE_FOLDER_ID"; fi
           echo "DRIVE_OK=1" >> "$GITHUB_ENV"
       - name: Record in history
         if: always()
