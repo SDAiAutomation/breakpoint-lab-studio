@@ -92,7 +92,7 @@
     "Simulated: each turn is a mass; springs with stiffness N x k and pretension (10 closed turns for A); fully damped contact when turns close (inelastic, as in the paper's model). With these values the simulation hangs 1.25 m (A) and 1.15 m (B) and the bottom starts to move after 0.275 s (A) and 0.277 s (B); the on-screen timer shows the simulation time, truncated to 0.01 s."
   ],
   "sound": {
-    "mode": "real",
+    "mode": "hybrid",
     "find": {
       "coil_metal": {
         "q": [
@@ -104,7 +104,8 @@
         "hear": "a metal spring coil clicking",
         "role": "click",
         "max_rate": 60,
-        "make": "a small metal clink"
+        "make": "a small metal clink",
+        "gain_db": 6
       },
       "coil_plastic": {
         "q": [
@@ -116,7 +117,8 @@
         "hear": "a light plastic click",
         "role": "click",
         "max_rate": 60,
-        "make": "a light plastic click"
+        "make": "a light plastic click",
+        "gain_db": 6
       },
       "land_metal": {
         "q": [

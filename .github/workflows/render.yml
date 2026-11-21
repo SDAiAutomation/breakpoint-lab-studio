@@ -147,12 +147,12 @@ jobs:
         run: |
           python3 engine/audio.py work/timeline.json work/audio.wav
           ffmpeg -v error -y -framerate 30 -i work/frames/f_%05d.jpg -i work/audio.wav \
-            -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -c:a aac -b:a 192k -shortest work/video.mp4
+            -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -af "alimiter=limit=0.84:level=0" -c:a aac -b:a 192k -shortest work/video.mp4
           python3 engine/caption.py work/config.json work/caption.txt
           ffprobe -v error -show_entries format=duration -of csv=p=0 work/video.mp4
       - name: Real sound? (config "sound.mode" = "real")
         id: realq
-        run: python3 -c "import json;print('real=' + str(json.load(open('work/config.json')).get('sound',{}).get('mode')=='real').lower())" >> "$GITHUB_OUTPUT"
+        run: python3 -c "import json;print('real=' + str(json.load(open('work/config.json')).get('sound',{}).get('mode') in ('real','hybrid')).lower())" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@v4
         if: steps.realq.outputs.real == 'true'
         with:
@@ -177,7 +177,7 @@ jobs:
           rec = [p for v in src.values() for p in v if p.get("openverse_id")]
           with open("work/caption.txt", "a", encoding="utf-8") as f:
               f.write("\nSound: " + (f"{len(rec)} real recordings (CC0, found on Openverse) placed with real-sfx; " if rec else "")
-                      + "graphic sounds made with earshot.\n")
+                      + ("graphic sounds made with earshot.\n" if any(p.get("made_by") for v in src.values() for p in v) else "graphic sounds: Breakpoint Lab.\n"))
           EOF
           cat work/sound/report.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
@@ -324,7 +324,7 @@ jobs:
           rec = [p for v in src.values() for p in v if p.get("openverse_id")]
           with open("work/caption.txt", "a", encoding="utf-8") as f:
               f.write("\nSound: " + (f"{len(rec)} real recordings (CC0, found on Openverse) placed with real-sfx; " if rec else "")
-                      + "graphic sounds made with earshot.\n")
+                      + ("graphic sounds made with earshot.\n" if any(p.get("made_by") for v in src.values() for p in v) else "graphic sounds: Breakpoint Lab.\n"))
           EOF
           cat work/sound/report.md >> "$GITHUB_STEP_SUMMARY"
       - name: Upload to Google Drive

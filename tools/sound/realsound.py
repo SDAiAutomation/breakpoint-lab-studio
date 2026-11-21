@@ -281,7 +281,13 @@ def main():
             picks = make(api, name, spec["make"], out / "takes", n=2)
         bank[name] = picks
         sources[name] = picks
-    log("## 2b. earshot makes the graphic sounds")
+    hybrid = snd.get("mode") == "hybrid"
+    if hybrid:                  # the channel's own graphic sounds (beeps, countdown, stamp, whooshes) keep the rhythm
+        snd = dict(snd, make={})
+        cfg = dict(cfg, sound=dict(snd, events={k: v for k, v in snd.get("events", {}).items()
+                                               if any(r in (snd.get("find") or {}) for r in
+                                                      ((v.values() if isinstance(v, dict) else [v])))}))
+    log("## 2b. earshot makes the graphic sounds" + (" (hybrid: no, the engine's own graphic sounds stay)" if hybrid else ""))
     for name, spec in (snd.get("make") or {}).items():
         roles_cfg[name] = spec
         bank[name] = make(api, name, spec["words"], out / "takes", n=spec.get("n", 1))
@@ -291,6 +297,15 @@ def main():
     log("## 3. real-sfx places, mixes, verifies, critiques")
     sheet = build_sheet(tl, cfg, bank, Path(a.video).resolve(), roles_cfg)
     log(f"  {len(sheet['cues'])} cues on the frames")
+    if hybrid:                  # graphic layer = engine/audio.py on the timeline without the physical events
+        phys = set(cfg["sound"]["events"])
+        tl_ui = dict(tl, events=[e for e in tl["events"] if e["type"] not in phys])
+        json.dump(tl_ui, open(out / "timeline_ui.json", "w"))
+        repo = Path(__file__).resolve().parents[2]
+        subprocess.run([sys.executable, str(repo / "engine" / "audio.py"), str(out / "timeline_ui.json"), str(out / "ui.wav")],
+                       check=True, cwd=repo)
+        sheet["base_audio"] = [{"file": str(out / "ui.wav"), "keep_level": True}]
+        log(f"  graphic layer: engine sounds for {len(tl_ui['events'])} event(s), physical sounds are the real recordings")
     sp = out / "cues.json"
     json.dump(sheet, open(sp, "w"), indent=1)
     res = out / "result"
