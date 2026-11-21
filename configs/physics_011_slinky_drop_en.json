@@ -199,5 +199,11 @@
       "cta": "pop",
       "replay": "rewind"
     }
+  },
+  "short": {
+    "rounds": [
+      1,
+      2
+    ]
   }
 }
