@@ -32,6 +32,19 @@ Chaîne YouTube/TikTok **Breakpoint Lab**, handle **@BreakpointLabTV**. Séries 
   - Plutôt 45 s claires que 38 s incomplètes.
 - Qualité visuelle soignée : géométrie propre, pas d'artefacts ; vérifier des images clés (`render.js stills`) avant un rendu complet.
 
+## Confort du spectateur (il doit se sentir à l'aise, tout est harmonisé)
+- **Un seul point d'attention à la fois** : le texte OU l'action qui compte, pas les deux qui se battent. Un nouveau texte n'arrive pas pendant le moment clé.
+- **Lisible sans effort** : l'objet testé fait au moins ~80 px de large (sur 1080) au moment clé, hors bandeau de texte et hors des zones de l'appli (boutons à droite, légende en bas, barre du haut).
+- **Temps de lecture** : chaque texte reste ≥ 1,5 s à l'écran (plus si > 4 mots). Pas de texte qui clignote.
+- **Respiration** : marges autour des textes, une ligne de plus vaut mieux qu'un texte serré ; ≤ 2 tailles de texte par écran.
+- **Caméra douce et constante** : même cadrage d'une manche à l'autre (on compare), mouvements lents et lissés, pas de saut sauf coupe franche.
+- **Son sans surprise** : pas de pic plus fort que le reste (limiteur −1 dBTP), pas de silence > 3 s hors effet voulu.
+- **Planche de contrôle** (`tools/review_sheet.py`) : les images clés avec, par-dessus, ce que le téléphone dessine (TikTok + YouTube Shorts). Le workflow la fait à chaque rendu ; pour une nouvelle vidéo, la faire et la montrer à l'utilisateur AVANT le rendu complet.
+
+## Effet « comment il a fait ça ? »
+- Le rendu doit avoir l'air d'un vrai labo filmé : matières crédibles, ombres, lumière, ralenti net. Le chiffre mesuré s'affiche en direct (chrono, force, compteur), comme un instrument.
+- Objectif long terme : montrer comment on fait ces vidéos. Chaque rendu archive son **making-of** sur Drive (`making-of/<nom>/` : config, timeline, images clés, planche, rapport son). Ne pas le supprimer.
+
 ## Rendu
 - `.github/workflows/render.yml` (workflow_dispatch, `config_path` ou `config_json`) : rendu parallèle sur ~20 machines, son, MP4, Google Drive si le secret `RCLONE_CONF` et la variable `DRIVE_FOLDER_ID` existent, sinon la vidéo est un artefact du run.
 - Une PR séparée par modification.
@@ -52,6 +65,7 @@ Le commentaire épinglé promet : « Most liked comment = next experiment ». Qu
    - L = `Tests (ready)` ou `Physics (ready)` : écrire `configs/<serie>_<num>_<slug>_en.json` à partir d'une config existante.
    - L = `(extend)` ou `New engine` : coder la scène dans une PR séparée, vérifier les images clés (`render.js stills`), montrer les stills à l'utilisateur avant le rendu complet.
    - Chiffres à l'écran : uniquement ceux des colonnes D, M, P (et leur source Q). Rien d'autre.
+   - Images clés + planche de contrôle (`render.js stills`, puis `tools/review_sheet.py`) : vérifier le confort du spectateur, montrer la planche à l'utilisateur avant le rendu complet.
    - Écran de fin : choisir le sujet suivant avec la règle de l'étape 1, mettre sa question (colonne C, ≤ 6 mots) dans `next_test`, le réserver dans la Sheet (O = TRUE, P « Announced in episode N »).
 4. **Rendre** : lancer `render.yml` (`config_path` ou `config_json`), suivre le run jusqu'à la fin.
 5. **Clore** : N = `Done`, R = lien du run + lien Drive de la vidéo, AA = numéro d'épisode affiché (fixé dès l'étape 3 : plus grand AA existant + 1).
