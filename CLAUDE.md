@@ -16,6 +16,8 @@ Chaîne YouTube/TikTok **Breakpoint Lab**, handle **@BreakpointLabTV**. Séries 
 - **Une vraie preuve** : de préférence une expérience publiée et mesurée (étude, labo, MythBusters, norme) qu'on reproduit avec ses chiffres et qu'on nomme dès l'accroche (« MIT test », « BBC test »). Sinon, on fait l'expérience nous-mêmes avec la loi physique (ex. pendule T = 2π√(L/g)) : on montre la formule, c'est « Simulated ». Sans l'un ni l'autre : pas d'épisode.
 - **Partir d'une croyance** : l'accroche (≤ 2 s, en pleine action) pose ce que les gens croient ou une question fermée ; la réponse n'arrive qu'après le ralenti.
 - **Faire parier** : question avec 2-3 choix (« 2, 3 or MORE? »), commentaire épinglé qui invite à donner son pari.
+- **Fidéliser (écran de fin)** : `"cta": "Subscribe: you pick the next test"` et `"next_test"` = la question du prochain épisode (≤ 6 mots, une question, chiffres sourcés comme le reste). C'est une promesse : le sujet annoncé est réservé dans la Sheet (O = TRUE, P « Announced in episode N ») et c'est lui qu'on fait ensuite.
+- Le rendu refuse une config dont la légende ne commence pas par une question ou donne un résultat du tampon (`tools/check_config.py`).
 - **Ton** : clair et factuel (c'est ce qui marche en physique/ingénierie), le texte doit se suffire à lui-même (beaucoup regardent sans le son).
 
 ## Règles de contenu
@@ -51,6 +53,7 @@ Le commentaire épinglé promet : « Most liked comment = next experiment ». Qu
    - L = `Tests (ready)` ou `Physics (ready)` : écrire `configs/<serie>_<num>_<slug>_en.json` à partir d'une config existante.
    - L = `(extend)` ou `New engine` : coder la scène dans une PR séparée, vérifier les images clés (`render.js stills`), montrer les stills à l'utilisateur avant le rendu complet.
    - Chiffres à l'écran : uniquement ceux des colonnes D, M, P (et leur source Q). Rien d'autre.
+   - Écran de fin : choisir le sujet suivant avec la règle de l'étape 1, mettre sa question (colonne C, ≤ 6 mots) dans `next_test`, le réserver dans la Sheet (O = TRUE, P « Announced in episode N »).
 4. **Rendre** : lancer `render.yml` (`config_path` ou `config_json`), suivre le run jusqu'à la fin.
 5. **Clore** : N = `Done`, R = lien du run + lien Drive de la vidéo, AA = numéro d'épisode affiché (fixé dès l'étape 3 : plus grand AA existant + 1).
 7. **Mesurer** : l'utilisateur donne les stats à J+3 → W–Z. Toutes les 5 vidéos publiées, comparer les stats aux notes S, T, U, G et proposer d'ajuster les poids du score V.

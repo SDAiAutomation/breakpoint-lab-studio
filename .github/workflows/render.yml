@@ -60,6 +60,7 @@ jobs:
           mkdir -p work
           if [ -n "$CONFIG_JSON" ]; then printf '%s' "$CONFIG_JSON" > work/config.json; else cp "$CONFIG_PATH" work/config.json; fi
           python3 -c "import json;c=json.load(open('work/config.json'));assert c.get('source'), 'config sans source : refusé (chaque chiffre doit être sourcé)';assert c.get('description'), 'config sans description : refusé (explication de l expérience pour le .txt)'"
+          python3 tools/check_config.py work/config.json
       - name: Timeline + stills
         run: |
           node engine/render.js timeline work/config.json work/timeline.json
