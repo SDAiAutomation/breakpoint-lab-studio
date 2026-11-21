@@ -186,5 +186,6 @@
       "ramp": "press",
       "approach": "press"
     }
-  }
+  },
+  "lens": 1.4
 }
