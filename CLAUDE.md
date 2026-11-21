@@ -34,6 +34,12 @@ Chaîne YouTube/TikTok **Breakpoint Lab**, handle **@BreakpointLabTV**. Séries 
 
 ## Rendu
 - Son : mode **hybride** par défaut (choix de l'utilisateur, 21/11/2026). Chaque config a un bloc `"sound": {"mode": "hybrid", ...}` : les sons graphiques du moteur (bips, compte à rebours, tampon, whooshes) gardent le rythme ; les sons physiques (chocs, spires, clacs, impacts) sont de vrais enregistrements CC0 trouvés sur Openverse, choisis et vérifiés par earshot, placés à l'image près par real-sfx (`tools/sound/realsound.py`, exemple : `configs/physics_011_slinky_drop_en.json`). Limiteur −1 dBTP sur chaque MP4. Refaire seulement le son d'un rendu fini : `render.yml` avec `sound_from_run`.
+- **Image** (règles tirées des skills Blender `blender-rendering`, `blender-lighting-lookdev`, `blender-pbr-materials`, `scenario-blender-lighting-rendering`) :
+  - Le sujet se détache du fond par la valeur (clair sur sombre ou l'inverse), jamais noyé dans l'ombre d'une pièce de la machine.
+  - Liseré de lumière côté clé sur les objets (silhouette lisible), reflets jamais brûlés en blanc plat (épaule Khronos PBR Neutral dans le shader).
+  - Brillance jamais constante sur une surface (légère variation), métal = 0 ou 1, pas de noir ni de blanc purs en couleur de base.
+  - Objectif long pour un objet seul (`"lens": 1.4` dans la config, moteur presse) : lignes droites, aspect produit.
+  - Plans Blender (objets « vedettes ») : Cycles sur CPU (EEVEE demande une carte graphique), 85 mm, AgX, débruitage OIDN, rendu image par image puis assemblage (`tools/blender/`).
 - `.github/workflows/render.yml` (workflow_dispatch, `config_path` ou `config_json`) : rendu parallèle sur ~20 machines, son, MP4, Google Drive si le secret `RCLONE_CONF` et la variable `DRIVE_FOLDER_ID` existent, sinon la vidéo est un artefact du run.
 - Une PR séparée par modification.
 

@@ -1,0 +1,191 @@
+{
+  "id": "tests-012-lego-brick-en",
+  "series": "QUALITY CONTROL · TEST 012",
+  "decimal": ".",
+  "handle": "@BreakpointLabTV",
+  "hook": [
+    "How much can ONE",
+    "Lego brick hold?"
+  ],
+  "hook_series": false,
+  "teaser_label": "",
+  "hook_round": 2,
+  "replay_label": "SLOW-MO",
+  "rounds": [
+    {
+      "title": "ROUND 1 · ONE 2x2 BRICK",
+      "kind": "compression",
+      "specimen": "lego",
+      "material": "abs_hold",
+      "label": "LOAD",
+      "unit": "kg",
+      "decimals": 0,
+      "gauge_max": 500,
+      "steps": [
+        25,
+        50,
+        75,
+        100
+      ],
+      "question_value": 100,
+      "question": "100 kg. Holds?",
+      "question_sub": "HOLDS or CRUSHED ↓",
+      "break_value": 100,
+      "threshold": null,
+      "stamp": {
+        "text": "HOLDS 100 kg",
+        "color": "green"
+      },
+      "result_chip": "100 kg",
+      "fact": [
+        "Open University test (BBC)",
+        "Hydraulic ram + load cell"
+      ],
+      "hold": true,
+      "no_replay": true
+    },
+    {
+      "title": "ROUND 2 · SAME BRICK",
+      "kind": "compression",
+      "specimen": "lego",
+      "material": "abs_hold",
+      "label": "LOAD",
+      "unit": "kg",
+      "decimals": 0,
+      "gauge_max": 500,
+      "steps": [
+        150,
+        200,
+        250,
+        300
+      ],
+      "question_value": 300,
+      "question": "300 kg. Holds?",
+      "question_sub": "HOLDS or CRUSHED ↓",
+      "break_value": 300,
+      "threshold": null,
+      "stamp": {
+        "text": "HOLDS 300 kg",
+        "color": "green"
+      },
+      "result_chip": "300 kg",
+      "fact": [
+        "Still standing",
+        "Keep pushing"
+      ],
+      "hold": true,
+      "no_replay": true
+    },
+    {
+      "title": "ROUND 3 · TO THE LIMIT",
+      "kind": "compression",
+      "specimen": "lego",
+      "material": "lego",
+      "label": "LOAD",
+      "unit": "kg",
+      "decimals": 0,
+      "gauge_max": 500,
+      "steps": [
+        350,
+        400
+      ],
+      "question_value": 400,
+      "question": "More than 400 kg?",
+      "question_sub": "YES or NO ↓",
+      "break_value": 432,
+      "threshold": null,
+      "stamp": {
+        "text": "GAVE WAY: 432 kg",
+        "color": "red"
+      },
+      "result_chip": "432 kg",
+      "fact": [
+        "Average 2x2 brick: 4,240 N",
+        "= 375,000 bricks on top"
+      ]
+    }
+  ],
+  "explain": {
+    "scene": "lego",
+    "title": "WHY?",
+    "lines": [
+      "Hard ABS plastic, thick walls",
+      "Load spread over 4 walls",
+      "At the limit it yields",
+      "It squashes, it doesn't shatter"
+    ]
+  },
+  "source": [
+    "Open University test for BBC (2012)",
+    "Simulated with the lab value"
+  ],
+  "cta": "Subscribe: you pick the next test",
+  "next_test": "Hit the top: what breaks?",
+  "caption": "How much can ONE Lego brick hold? 🧱 40 kg, 400 kg or 4 tons? We press a single 2x2 brick, like the Open University test. Place your bet before the end 👇 #physics #science #engineering #lego #hydraulicpress #mythbusting #3d",
+  "description": [
+    "How much weight can one single 2x2 Lego brick hold? We load one brick in a press, step by step, until it gives way.",
+    "The numbers come from a test by the Open University's engineering department for the BBC (2012): a standard 2x2 brick was loaded with a hydraulic ram and a load cell. On average it gave way at 4,240 N, about 432 kg. That is the weight of about 375,000 bricks stacked on top of it, a tower about 3.5 km high.",
+    "In our rounds the brick holds 100 kg, then 300 kg, then gives way at 432 kg.",
+    "Why: the brick is made of hard ABS plastic, and the load is shared by its four thick walls. At the limit the plastic yields: it keeps squashing without the load going up, then gives way. It does not shatter like glass.",
+    "The animation is a simulation built on the measured value of this test; the shape of the squashed brick is illustrative."
+  ],
+  "sources_detail": [
+    "Open University (Dr Ian Johnson's team) for BBC News, Dec 2012: average 2x2 brick crushed at 4,240 N under a hydraulic ram with a load cell (Smithsonian, 2012; The Brothers Brick, 2012). 4,240 / 9.81 = 432 kg.",
+    "375,000 stacked bricks, tower about 3.5 km (2.17 miles) (BBC via The Brothers Brick, 2012). Plastic failure: the brick kept deforming without the load increasing, until the ABS gave way.",
+    "Rounds 1 and 2 (100 kg, 300 kg holds) follow from the 432 kg limit. Simulated: squash shape, stress whitening and timing are illustrative."
+  ],
+  "short": {
+    "round": 3
+  },
+  "sound": {
+    "mode": "hybrid",
+    "find": {
+      "crack": {
+        "q": [
+          "plastic crack",
+          "plastic break",
+          "plastic snap",
+          "plastic crush"
+        ],
+        "hear": "hard plastic cracking under pressure",
+        "role": "hit",
+        "make": "hard plastic cracking and crunching",
+        "max_dur": 1.5
+      },
+      "creak": {
+        "q": [
+          "plastic creak",
+          "plastic squeeze",
+          "plastic stress"
+        ],
+        "hear": "hard plastic creaking under load",
+        "role": "click",
+        "make": "a short plastic creak",
+        "max_dur": 0.8,
+        "gain_db": -4
+      },
+      "press": {
+        "q": [
+          "hydraulic press",
+          "hydraulic",
+          "hydraulic pump",
+          "machine hydraulic"
+        ],
+        "hear": "a hydraulic press moving",
+        "role": "whoosh",
+        "make": "a hydraulic press motor hum",
+        "max_dur": 1.2,
+        "gain_db": -6
+      }
+    },
+    "events": {
+      "break": {
+        "lego": "crack",
+        "abs_hold": "creak"
+      },
+      "ramp": "press",
+      "approach": "press"
+    }
+  },
+  "lens": 1.4
+}
