@@ -333,7 +333,8 @@ jobs:
           mkdir -p ~/.config/rclone && printf '%s\n' "$RCLONE_CONF" > ~/.config/rclone/rclone.conf
           REMOTE=$(rclone listremotes | head -1)
           NAME="$(date -u +%Y-%m-%d)_${TAG}_run${{ inputs.sound_from_run }}"
-          rclone copyto work/sound/result/film_sfx.mp4 "${REMOTE}${NAME}_real-sound.mp4" --drive-root-folder-id "$DRIVE_FOLDER_ID"
+          MODE=$(python3 -c "import json;print(json.load(open('work/config.json')).get('sound',{}).get('mode','real'))")
+          rclone copyto work/sound/result/film_sfx.mp4 "${REMOTE}${NAME}_${MODE}-sound.mp4" --drive-root-folder-id "$DRIVE_FOLDER_ID"
           rclone copyto work/video_synth.mp4 "${REMOTE}${NAME}_synth-sound.mp4" --drive-root-folder-id "$DRIVE_FOLDER_ID"
           rclone copyto work/caption.txt "${REMOTE}${NAME}_caption.txt" --drive-root-folder-id "$DRIVE_FOLDER_ID"
       - uses: actions/upload-artifact@v4
