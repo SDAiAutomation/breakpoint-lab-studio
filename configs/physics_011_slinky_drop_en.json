@@ -1,0 +1,203 @@
+{
+  "id": "phy-011-slinky-drop-en",
+  "engine": "slinky",
+  "series": "PHYSICS · TEST 011",
+  "decimal": ".",
+  "handle": "@BreakpointLabTV",
+  "hook": [
+    "Let go of the top.",
+    "Does the bottom fall?"
+  ],
+  "hook_series": false,
+  "hook_round": 1,
+  "replay_label": "SLOW-MO",
+  "bottom_label": "BOTTOM",
+  "still_label": "STILL",
+  "moving_label": "MOVING",
+  "rounds": [
+    {
+      "title": "ROUND 1 · METAL SLINKY",
+      "slinkies": [
+        "metal"
+      ],
+      "question": "Does the bottom fall at once?",
+      "question_sub": "YES or NO ↓",
+      "stamp": {
+        "text": "NO: IT FLOATS 0.27 s",
+        "color": "red"
+      },
+      "fact": [
+        "Top falls, bottom waits",
+        "Lab: filmed at 300 frames/s"
+      ]
+    },
+    {
+      "title": "ROUND 2 · PLASTIC SLINKY",
+      "slinkies": [
+        "plastic"
+      ],
+      "question": "4x lighter. Floats longer?",
+      "question_sub": "LONGER, SHORTER or SAME? ↓",
+      "stamp": {
+        "text": "SAME: 0.27 s",
+        "color": "green"
+      },
+      "fact": [
+        "Metal 216 g, plastic 49 g",
+        "Same wait for both"
+      ]
+    },
+    {
+      "title": "ROUND 3 · DROP BOTH",
+      "slinkies": [
+        "metal",
+        "plastic"
+      ],
+      "question": "Which bottom moves first?",
+      "question_sub": "METAL, PLASTIC or SAME? ↓",
+      "stamp": {
+        "text": "SAME TIME",
+        "color": "green"
+      },
+      "fact": [
+        "Lab model: 0.27 s for both"
+      ]
+    }
+  ],
+  "explain": {
+    "title": "WHY?",
+    "lines": [
+      "The spring holds the bottom up",
+      "Letting go sends a wave down",
+      "The wave needs 0.27 s",
+      "Until it arrives: nothing changes"
+    ]
+  },
+  "source": [
+    "Cross & Wheatland, Am. J. Phys. 80, 1051 (2012)",
+    "Simulated with the lab values"
+  ],
+  "cta": "NEXT EXPERIMENT? Comment ↓",
+  "caption": "Let go of a hanging Slinky: does the bottom fall right away? 🤯 Metal vs plastic, 1/8 slow motion. What's your guess? 👇 #slinky #physics #science #slowmotion #mythbusting #satisfying",
+  "description": [
+    "We hang a Slinky, let go of the top and watch the bottom. Then we do it again with a plastic Slinky four times lighter, and finally drop both at the same time.",
+    "The bottom does not fall at once. The top collapses downwards, but the bottom stays exactly where it was, floating in the air, for about 0.27 s, until the collapsed top reaches it. Then the whole Slinky falls together.",
+    "The plastic Slinky (49 g) waits about as long as the metal one (216 g): in the 2012 study by Cross and Wheatland (American Journal of Physics), filmed at 300 frames per second, the collapse time from their model fitted to both Slinkies is 0.27 s.",
+    "Why: before the drop, the spring tension holds the bottom up against gravity. Letting go of the top only changes the tension at the top; that change travels down the Slinky and needs about 0.27 s to reach the bottom. Until then, nothing changes for the bottom.",
+    "The animation is a simulation built on the measured values of the two Slinkies in that study."
+  ],
+  "sources_detail": [
+    "Cross & Wheatland, 'Modeling a falling slinky', Am. J. Phys. 80, 1051 (2012), arXiv:1208.4629. Table 1: slinky A (metal) 215.5 g, 86 turns, collapsed 58 mm, hanging 1.26 m; slinky B (plastic) 48.7 g, 39 turns, collapsed 66 mm, hanging 1.14 m. Filmed with a Casio EX-F1 at 300 frames/s. Table 2: fitted k = 0.69 N/m (A), 0.22 N/m (B); collapse time 0.27 s for both. Observed 10 closed turns at the bottom of A while hanging. Abstract: collapse time typically ~0.3 s for real slinkies.",
+    "Masses on screen: 215.5 g shown as 216 g, 48.7 g shown as 49 g; 215.5/48.7 = 4.4, shown as '4x lighter'.",
+    "Simulated: each turn is a mass; springs with stiffness N x k and pretension (10 closed turns for A); fully damped contact when turns close (inelastic, as in the paper's model). With these values the simulation hangs 1.25 m (A) and 1.15 m (B) and the bottom starts to move after 0.275 s (A) and 0.277 s (B); the on-screen timer shows the simulation time, truncated to 0.01 s."
+  ],
+  "sound": {
+    "mode": "hybrid",
+    "find": {
+      "coil_metal": {
+        "q": [
+          "slinky",
+          "metal spring",
+          "spring toy",
+          "coil spring metal"
+        ],
+        "hear": "a metal spring coil clicking",
+        "role": "click",
+        "max_rate": 60,
+        "make": "a small metal clink",
+        "gain_db": 6
+      },
+      "coil_plastic": {
+        "q": [
+          "plastic slinky",
+          "plastic spring",
+          "plastic toy click",
+          "plastic click"
+        ],
+        "hear": "a light plastic click",
+        "role": "click",
+        "max_rate": 60,
+        "make": "a light plastic click",
+        "gain_db": 6
+      },
+      "land_metal": {
+        "q": [
+          "slinky drop",
+          "metal spring dropped",
+          "spring falling",
+          "metal dropped on table"
+        ],
+        "hear": "a metal spring toy dropped on a table",
+        "role": "hit",
+        "make": "a metal object dropped on a wooden table",
+        "max_dur": 1.2
+      },
+      "land_plastic": {
+        "q": [
+          "plastic dropped on table",
+          "plastic cup drop",
+          "plastic object falling",
+          "plastic slinky drop"
+        ],
+        "hear": "a plastic toy dropped on a table",
+        "role": "hit",
+        "make": "a plastic cup dropped on a wooden table"
+      },
+      "release": {
+        "q": [
+          "latch click",
+          "clip release",
+          "metal clamp click"
+        ],
+        "hear": "a metal latch clicking open",
+        "role": "click",
+        "make": "a metal latch clicking"
+      }
+    },
+    "make": {
+      "whoosh": {
+        "words": "a soft whoosh",
+        "role": "whoosh"
+      },
+      "tick": {
+        "words": "a soft ui tick",
+        "role": "ui",
+        "n": 2
+      },
+      "stamp": {
+        "words": "a heavy thump",
+        "role": "hit"
+      },
+      "swish": {
+        "words": "a quick swish",
+        "role": "whoosh"
+      },
+      "pop": {
+        "words": "a soft pop",
+        "role": "pop"
+      },
+      "rewind": {
+        "words": "a reverse swell",
+        "role": "whoosh"
+      }
+    },
+    "events": {
+      "coil": {
+        "metal": "coil_metal",
+        "plastic": "coil_plastic"
+      },
+      "coilland": {
+        "metal": "land_metal",
+        "plastic": "land_plastic"
+      },
+      "drop": "release",
+      "round": "whoosh",
+      "question": "tick",
+      "stamp": "stamp",
+      "card": "swish",
+      "explain": "whoosh",
+      "cta": "pop",
+      "replay": "rewind"
+    }
+  }
+}
