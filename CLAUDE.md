@@ -10,6 +10,8 @@ Chaîne YouTube/TikTok **Breakpoint Lab**, handle **@BreakpointLabTV**. Séries 
 - Numéro à l'écran (`series`, ex. « PHYSICS · TEST 008 ») = numéro d'épisode (colonne AA de la Sheet), jamais le numéro de ligne (colonne A). Il ne fait que monter : dernier numéro publié + 1, même si l'on change de série. On ne réutilise jamais un numéro déjà en ligne.
 
 ## Ligne éditoriale (ce qui fait des vues)
+- **Titres** (YouTube Studio, nov. 2026) : toujours une question à 2-3 choix ou un paradoxe (« Lift 2 balls: how many fly out? 1, 2 or 3? »). Jamais la réponse ni le chiffre clé dans le titre, jamais de titre descriptif de labo (« A 15 cm concrete cube: crushed, then pulled »).
+- **Sujets** : bonus aux tests de rupture ou de limite (canette, diamant, spaghetti). Un classique déjà vu partout (Mentos, plume dans le vide) n'est pas exclu pour sa physique, mais il lui faut un angle ou un pari neuf ; sans angle neuf, il passe derrière.
 - **Un sujet que les gens connaissent** : un objet du quotidien, un mythe, une question qu'on s'est déjà posée (« ah ça, je l'ai déjà vu »). C'est le critère qui pèse le plus.
 - **Une vraie preuve** : de préférence une expérience publiée et mesurée (étude, labo, MythBusters, norme) qu'on reproduit avec ses chiffres et qu'on nomme dès l'accroche (« MIT test », « BBC test »). Sinon, on fait l'expérience nous-mêmes avec la loi physique (ex. pendule T = 2π√(L/g)) : on montre la formule, c'est « Simulated ». Sans l'un ni l'autre : pas d'épisode.
 - **Partir d'une croyance** : l'accroche (≤ 2 s, en pleine action) pose ce que les gens croient ou une question fermée ; la réponse n'arrive qu'après le ralenti.
@@ -21,6 +23,10 @@ Chaîne YouTube/TikTok **Breakpoint Lab**, handle **@BreakpointLabTV**. Séries 
 - Anglais, texte minimal (≤ 6 mots par ligne), textes dans le bandeau du haut (y 260–600 sur 1920) : rien ne couvre la scène. Zone sûre : rien d'important au-dessus de y=250 ni sous y=1440.
 - Chaque config a un champ `description` (liste de paragraphes, langue de la vidéo) : ce qu'on teste, ce qui se passe, pourquoi, avec les mêmes chiffres que la vidéo et la mention « simulation » si c'en est une. Il est écrit dans le .txt envoyé avec la vidéo (`engine/caption.py`) ; le workflow refuse une config sans `description`.
 - Durée ≥ 60 s (rémunération TikTok), rythme serré, mouvement jusqu'à la fin, ralenti sur le moment clé.
+- **Version courte YouTube** (~35-45 s, `tools/shortcut.py`, découpée dans la vidéo longue, pas de nouveau rendu) : accroche + la manche montrée dans l'accroche + l'explication + la fin. TikTok garde la version longue.
+  - Le « pourquoi » est la valeur de la chaîne : il n'est jamais coupé ni accéléré. On coupe des manches secondaires, jamais l'explication.
+  - L'explication doit coller à la manche gardée : si une ligne parle d'une manche coupée, s'arrêter avant elle (`"short": {"round": N, "explain_lines": K}`), ou garder cette manche.
+  - Plutôt 45 s claires que 38 s incomplètes.
 - Qualité visuelle soignée : géométrie propre, pas d'artefacts ; vérifier des images clés (`render.js stills`) avant un rendu complet.
 
 ## Rendu

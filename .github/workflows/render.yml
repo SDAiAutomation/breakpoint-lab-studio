@@ -194,6 +194,9 @@ jobs:
             work/sound/result/film_sfx_sfx_track.wav
           if-no-files-found: ignore
           retention-days: 14
+      - name: YouTube short cut (~40 s, the WHY kept whole)
+        if: needs.render.result == 'success'
+        run: python3 tools/shortcut.py work/config.json work/timeline.json work/video.mp4 work/video_short.mp4
       - name: Upload to Google Drive
         if: needs.render.result == 'success' && env.RCLONE_CONF != '' && env.DRIVE_FOLDER_ID != ''
         run: |
@@ -203,6 +206,7 @@ jobs:
           NAME="$(date -u +%Y-%m-%d)_${VIDEO_TAG}_run${GITHUB_RUN_NUMBER}"
           rclone copyto work/video.mp4 "${REMOTE}${NAME}.mp4" --drive-root-folder-id "$DRIVE_FOLDER_ID"
           rclone copyto work/caption.txt "${REMOTE}${NAME}_caption.txt" --drive-root-folder-id "$DRIVE_FOLDER_ID"
+          if [ -f work/video_short.mp4 ]; then rclone copyto work/video_short.mp4 "${REMOTE}${NAME}_youtube-short.mp4" --drive-root-folder-id "$DRIVE_FOLDER_ID"; fi
           if [ -f work/video_synth.mp4 ]; then rclone copyto work/video_synth.mp4 "${REMOTE}${NAME}_synth-sound.mp4" --drive-root-folder-id "$DRIVE_FOLDER_ID"; fi
           echo "DRIVE_OK=1" >> "$GITHUB_ENV"
       - name: Record in history
@@ -327,6 +331,7 @@ jobs:
                       + ("graphic sounds made with earshot.\n" if any(p.get("made_by") for v in src.values() for p in v) else "graphic sounds: Breakpoint Lab.\n"))
           EOF
           cat work/sound/report.md >> "$GITHUB_STEP_SUMMARY"
+          python3 tools/shortcut.py work/config.json work/timeline.json work/sound/result/film_sfx.mp4 work/video_short.mp4
       - name: Upload to Google Drive
         if: env.RCLONE_CONF != '' && env.DRIVE_FOLDER_ID != ''
         run: |
@@ -335,6 +340,7 @@ jobs:
           NAME="$(date -u +%Y-%m-%d)_${TAG}_run${{ inputs.sound_from_run }}"
           MODE=$(python3 -c "import json;print(json.load(open('work/config.json')).get('sound',{}).get('mode','real'))")
           rclone copyto work/sound/result/film_sfx.mp4 "${REMOTE}${NAME}_${MODE}-sound.mp4" --drive-root-folder-id "$DRIVE_FOLDER_ID"
+          rclone copyto work/video_short.mp4 "${REMOTE}${NAME}_youtube-short.mp4" --drive-root-folder-id "$DRIVE_FOLDER_ID"
           rclone copyto work/video_synth.mp4 "${REMOTE}${NAME}_synth-sound.mp4" --drive-root-folder-id "$DRIVE_FOLDER_ID"
           rclone copyto work/caption.txt "${REMOTE}${NAME}_caption.txt" --drive-root-folder-id "$DRIVE_FOLDER_ID"
       - uses: actions/upload-artifact@v4
