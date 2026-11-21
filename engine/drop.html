@@ -454,8 +454,11 @@ function overlay(cfg,T,t,s){
     ctxt(e.title,W/2,370,fitText(e.title,960,64),COL.ink,fade(t0,t));
     e.lines.forEach((l,i)=>ctxt(l,W/2,450+i*58,fitText(l,960,42),i===e.lines.length-1?COL.green:COL.sub,fade(t0+0.8+i*2.0,t,0.3)));return;}
   const t0=T.outro[0];
-  ctxt('SOURCE',W/2,345,28,COL.sub,fade(t0,t));
-  cfg.source.forEach((l,i)=>ctxt(l,W/2,395+i*48,fitText(l,980,32),COL.ink,fade(t0,t)));
+  // end screen: the source, then the NEXT TEST (an open loop: the next episode, reserved in the Sheet)
+  const nx=cfg.next_test, sw=nx?Math.min(2.6,(T.outro[1]-T.outro[0])*0.4):1e9, sa=fade(t0,t)*(1-fade(t0+sw,t,0.25));
+  ctxt('SOURCE',W/2,345,28,COL.sub,sa);
+  cfg.source.forEach((l,i)=>ctxt(l,W/2,395+i*48,fitText(l,980,32),COL.ink,sa));
+  if(nx&&t>=t0+sw){const na=fade(t0+sw+0.1,t,0.25);ctxt(cfg.next_label||'NEXT TEST',W/2,345,30,COL.sub,na);ctxt(nx,W/2,425,fitText(nx,960,62),COL.red,na);}
   if(t>=t0+1.4){const a=fade(t0+1.4,t,0.25),p=pop(t0+1.4,t);
     c.save();c.translate(W/2,560);c.scale(p,p);panel(-380,-50,760,100,50,COL.brand,a);
     c.font=`700 ${fitText(cfg.cta,700,42)}px P, DJ`;c.textAlign='center';c.textBaseline='middle';c.globalAlpha=a;c.fillStyle=COL.ink;c.fillText(cfg.cta,0,2);c.restore();}
