@@ -26,6 +26,7 @@ Chaîne YouTube/TikTok **Breakpoint Lab**, handle **@BreakpointLabTV**. Séries 
 - **Version courte YouTube** (~35-45 s, `tools/shortcut.py`, découpée dans la vidéo longue, pas de nouveau rendu) : accroche + la manche montrée dans l'accroche + l'explication + la fin. TikTok garde la version longue.
   - Le « pourquoi » est la valeur de la chaîne : il n'est jamais coupé ni accéléré. On coupe des manches secondaires, jamais l'explication.
   - L'explication doit coller à la manche gardée : si une ligne parle d'une manche coupée, s'arrêter avant elle (`"short": {"round": N, "explain_lines": K}`), ou garder cette manche.
+  - Garder toutes les manches qui portent la surprise (ex. Slinky : métal PUIS plastique 4x plus léger, même 0,27 s → `"short": {"rounds": [1, 2]}`). Une manche qui ne fait que confirmer peut partir.
   - Plutôt 45 s claires que 38 s incomplètes.
 - Qualité visuelle soignée : géométrie propre, pas d'artefacts ; vérifier des images clés (`render.js stills`) avant un rendu complet.
 

@@ -6,7 +6,8 @@ the WHY explanation and the outro (source + call to comment). TikTok keeps the l
 
   python tools/shortcut.py work/config.json work/timeline.json work/video.mp4 work/video_short.mp4
 
-Config (optional): "short": {"round": 2, "explain_lines": 3}; default round = hook_round, all explain lines.
+Config (optional): "short": {"round": 2, "explain_lines": 3} or {"rounds": [1, 2]}; default round = hook_round,
+all explain lines. Keep every round the explanation and the surprise rely on, even if the cut goes past 45 s.
 The WHY is never sped up and never dropped. explain_lines stops the explanation just before a line that is about a
 round the short leaves out (each line appears 2.2 s after the previous one, so every kept line stays readable).
 """
@@ -22,10 +23,12 @@ def segments(cfg, tl):
     dur = float(tl["duration"])
     outro = max((e["t"] for e in ev if e["type"] == "card" and explain and e["t"] >= explain["t1"] - 0.01), default=None)
     short = cfg.get("short") or {}
-    k = int(short.get("round", cfg.get("hook_round", 1))) - 1
-    k = max(0, min(k, len(rounds) - 1))
-    end_k = rounds[k + 1] if k + 1 < len(rounds) else (explain["t0"] if explain else dur)
-    segs = [(0.0, rounds[0]), (rounds[k], end_k)]
+    ks = short.get("rounds") or [short.get("round", cfg.get("hook_round", 1))]
+    segs = [(0.0, rounds[0])]
+    for r in ks:                                   # every round the story needs (e.g. metal THEN the lighter plastic)
+        k = max(0, min(int(r) - 1, len(rounds) - 1))
+        end_k = rounds[k + 1] if k + 1 < len(rounds) else (explain["t0"] if explain else dur)
+        segs.append((rounds[k], end_k))
     if explain:
         n = short.get("explain_lines")
         n_all = len((cfg.get("explain") or {}).get("lines", []))
