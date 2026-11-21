@@ -71,6 +71,10 @@ jobs:
           open("work/stills.txt", "w").write(",".join(f"{t:.2f}" for t in ts))
           EOF
           node engine/render.js stills work/config.json work/previews "$(cat work/stills.txt)"
+      - name: Comfort review sheet (stills + what the phone draws on top)
+        run: |
+          pip install -q pillow
+          python3 tools/review_sheet.py work/previews work/review_sheet.png
       - name: Split frames across machines
         id: shards
         run: |
@@ -210,6 +214,14 @@ jobs:
           if [ -f work/video_short.mp4 ]; then rclone copyto work/video_short.mp4 "${REMOTE}${NAME}_youtube-short.mp4" --drive-root-folder-id "$DRIVE_FOLDER_ID"; fi
           if [ -f work/video_synth.mp4 ]; then rclone copyto work/video_synth.mp4 "${REMOTE}${NAME}_synth-sound.mp4" --drive-root-folder-id "$DRIVE_FOLDER_ID"; fi
           echo "DRIVE_OK=1" >> "$GITHUB_ENV"
+          # making-of : de quoi montrer plus tard « comment on l'a fait » (config, images clés, planche, son)
+          MO="${REMOTE}making-of/${NAME}"
+          rclone copyto work/config.json "${MO}/config.json" --drive-root-folder-id "$DRIVE_FOLDER_ID"
+          rclone copyto work/timeline.json "${MO}/timeline.json" --drive-root-folder-id "$DRIVE_FOLDER_ID"
+          [ -f work/review_sheet.png ] && rclone copyto work/review_sheet.png "${MO}/review_sheet.png" --drive-root-folder-id "$DRIVE_FOLDER_ID"
+          [ -d work/previews ] && rclone copy work/previews "${MO}/stills" --drive-root-folder-id "$DRIVE_FOLDER_ID"
+          for f in report.md sources.json cues.json; do [ -f "work/sound/$f" ] && rclone copyto "work/sound/$f" "${MO}/sound_$f" --drive-root-folder-id "$DRIVE_FOLDER_ID"; done
+          true
       - name: Record in history
         if: always()
         run: |
@@ -245,7 +257,9 @@ jobs:
         if: always()
         with:
           name: qc-${{ needs.prepare.outputs.tag }}-${{ github.run_number }}-previews
-          path: work/previews/
+          path: |
+            work/previews/
+            work/review_sheet.png
           if-no-files-found: ignore
           retention-days: 3
       - name: Delete intermediate artifacts
