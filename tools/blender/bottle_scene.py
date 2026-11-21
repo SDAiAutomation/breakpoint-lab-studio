@@ -103,7 +103,7 @@ def build(preview=False, res=(1080, 1920)):
     vapour = principled("BL_Bubble", **{"Base Color": (1, 1, 1, 1), "Transmission Weight": 0.5, "Roughness": 0.15, "IOR": 1.0, "Emission Color": (0.85, 0.92, 1.0, 1), "Emission Strength": 0.6})
     rubber = principled("BL_Rubber", **{"Base Color": (0.035, 0.035, 0.04, 1), "Roughness": 0.55})
     wood = principled("BL_Wood", **{"Base Color": (0.55, 0.36, 0.18, 1), "Roughness": 0.5})
-    steel = principled("BL_Steel", **{"Base Color": (0.80, 0.82, 0.85, 1), "Metallic": 1.0, "Roughness": 0.35})
+    steel = principled("BL_Steel", **{"Base Color": (0.85, 0.86, 0.88, 1), "Metallic": 0.0, "Roughness": 0.5})   # light, not mirror: no black blob under the glass
     bench = principled("BL_Bench", **{"Base Color": (0.55, 0.57, 0.60, 1), "Roughness": 0.45})
     back = principled("BL_Back", **{"Base Color": (0.20, 0.23, 0.27, 1), "Roughness": 0.8})
     black = principled("BL_Black", **{"Base Color": (0.005, 0.005, 0.005, 1), "Roughness": 1.0})
@@ -200,7 +200,7 @@ def build(preview=False, res=(1080, 1920)):
     area("RimR", (0.25, 0.25, 0.15), (90, 0, 145), 0.04, 40, sy=0.5)
 
     cam = bpy.data.cameras.new("Cam")
-    cam.lens = 50
+    cam.lens = 85                                          # skill blender-lighting-lookdev: 85-135 mm for products, no distortion
     co = bpy.data.objects.new("Cam", cam)
     co["bb"] = "Cam"
     sc.collection.objects.link(co)
@@ -208,8 +208,23 @@ def build(preview=False, res=(1080, 1920)):
 
     wd = bpy.data.worlds.get("BL_World") or bpy.data.worlds.new("BL_World")
     wd.use_nodes = True
-    wd.node_tree.nodes["Background"].inputs[0].default_value = (0.9, 0.92, 0.95, 1)
-    wd.node_tree.nodes["Background"].inputs[1].default_value = 0.15
+    nt = wd.node_tree
+    bgn = nt.nodes["Background"]
+    if not any(n.type == 'VALTORGB' for n in nt.nodes):   # vertical black -> white gradient: clean edges on glass
+        tc = nt.nodes.new("ShaderNodeTexCoord")
+        sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+        ramp = nt.nodes.new("ShaderNodeValToRGB")
+        ramp.color_ramp.elements[0].position = 0.45
+        ramp.color_ramp.elements[0].color = (0.02, 0.02, 0.025, 1)
+        ramp.color_ramp.elements[1].position = 0.62
+        ramp.color_ramp.elements[1].color = (0.95, 0.97, 1.0, 1)
+        mp = nt.nodes.new("ShaderNodeMapRange")
+        mp.inputs["From Min"].default_value = -1.0
+        nt.links.new(tc.outputs["Generated"], sep.inputs[0])
+        nt.links.new(sep.outputs["Z"], mp.inputs["Value"])
+        nt.links.new(mp.outputs["Result"], ramp.inputs["Fac"])
+        nt.links.new(ramp.outputs["Color"], bgn.inputs["Color"])
+    bgn.inputs[1].default_value = 0.6
     sc.world = wd
 
     r = sc.render
@@ -219,11 +234,24 @@ def build(preview=False, res=(1080, 1920)):
     if preview:
         r.engine = 'BLENDER_EEVEE_NEXT' if 'BLENDER_EEVEE_NEXT' in [e.identifier for e in bpy.types.RenderSettings.bl_rna.properties['engine'].enum_items] else 'BLENDER_EEVEE'
     else:
-        r.engine = 'CYCLES'
-        sc.cycles.samples = 48
+        r.engine = 'CYCLES'                                # skill blender-rendering: Cycles CPU on CI (EEVEE needs a GPU)
+        sc.cycles.device = 'CPU'
+        sc.cycles.samples = 256
+        sc.cycles.use_adaptive_sampling = True
+        sc.cycles.adaptive_threshold = 0.03
         sc.cycles.use_denoising = True
-        sc.cycles.max_bounces = 16
-        sc.cycles.transmission_bounces = 16
+        sc.cycles.denoiser = 'OPENIMAGEDENOISE'
+        sc.cycles.denoising_input_passes = 'RGB_ALBEDO_NORMAL'
+        sc.cycles.max_bounces = 12
+        sc.cycles.glossy_bounces = 4
+        sc.cycles.transmission_bounces = 12
+        sc.cycles.sample_clamp_indirect = 8.0
+        r.use_persistent_data = True
+    try:
+        sc.view_settings.view_transform = 'AgX'                 # one colour pipeline for every shot
+        sc.view_settings.look = 'AgX - Base Contrast'
+    except TypeError:
+        pass
     r.film_transparent = False
     set_physical_time(-30.0, sc)
     return sc
@@ -267,7 +295,7 @@ def set_physical_time(t, sc=None, cam_k=0.0):
         s.rotation_euler = (0.08 * h * k * math.sin(a), 0.08 * h * k * math.cos(a), 0.03 * k * (h - 0.5))
     # camera: low, slightly below the bottom to see the base, slow push-in on cam_k (0..1)
     cam = ob["Cam"]
-    d = 1.0 - 0.08 * cam_k
+    d = 1.30 - 0.10 * cam_k                               # 85 mm: further back, same framing
     cam.location = (math.sin(0.35) * d, -math.cos(0.35) * d, 0.10)
     look = (0.0, 0.0, 0.125)
     dx, dy, dz = look[0] - cam.location[0], look[1] - cam.location[1], look[2] - cam.location[2]
