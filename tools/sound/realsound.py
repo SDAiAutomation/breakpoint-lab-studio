@@ -305,6 +305,7 @@ def main():
         subprocess.run([sys.executable, str(repo / "engine" / "audio.py"), str(out / "timeline_ui.json"), str(out / "ui.wav")],
                        check=True, cwd=repo)
         sheet["base_audio"] = [{"file": str(out / "ui.wav"), "keep_level": True}]
+        sheet["keep_audio"] = "yes"   # "no" would drop the base stems too (real-sfx: the stems ARE the original audio)
         log(f"  graphic layer: engine sounds for {len(tl_ui['events'])} event(s), physical sounds are the real recordings")
     sp = out / "cues.json"
     json.dump(sheet, open(sp, "w"), indent=1)
