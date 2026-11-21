@@ -24,6 +24,7 @@ Chaîne YouTube/TikTok **Breakpoint Lab**, handle **@BreakpointLabTV**. Séries 
 - Qualité visuelle soignée : géométrie propre, pas d'artefacts ; vérifier des images clés (`render.js stills`) avant un rendu complet.
 
 ## Rendu
+- Son : mode **hybride** par défaut (choix de l'utilisateur, 21/11/2026). Chaque config a un bloc `"sound": {"mode": "hybrid", ...}` : les sons graphiques du moteur (bips, compte à rebours, tampon, whooshes) gardent le rythme ; les sons physiques (chocs, spires, clacs, impacts) sont de vrais enregistrements CC0 trouvés sur Openverse, choisis et vérifiés par earshot, placés à l'image près par real-sfx (`tools/sound/realsound.py`, exemple : `configs/physics_011_slinky_drop_en.json`). Limiteur −1 dBTP sur chaque MP4. Refaire seulement le son d'un rendu fini : `render.yml` avec `sound_from_run`.
 - `.github/workflows/render.yml` (workflow_dispatch, `config_path` ou `config_json`) : rendu parallèle sur ~20 machines, son, MP4, Google Drive si le secret `RCLONE_CONF` et la variable `DRIVE_FOLDER_ID` existent, sinon la vidéo est un artefact du run.
 - Une PR séparée par modification.
 
