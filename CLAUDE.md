@@ -47,6 +47,13 @@ Chaîne YouTube/TikTok **Breakpoint Lab**, handle **@BreakpointLabTV**. Séries 
 - Légende Instagram (écrite dans le .txt par `engine/caption.py`) : la question + le pari, une phrase qui pousse à envoyer (`"send_line"`, ex. « Send this to the friend who said 40 kg 👀 »), une ligne de mots-clés (`"keywords"`), « Simulated in 3D… », 3 hashtags max.
 - Publier 3-4 fois par semaine, 19 h-21 h (heure de Bruxelles) ; un compte = un thème (pas de découpe ASMR sur le compte du labo).
 
+## Voix off : par plateforme (décision du 22/11/2026)
+- Par défaut **sans voix** partout : la vidéo se comprend en muet (texte ≤ 6 mots, son hybride). Données : Virlo, 70 787 vidéos postées du 1/10 au 5/11/2026 — vidéos sans visage et sans voix avec texte 1,59× les vues habituelles sur TikTok contre 1,06× avec voix off ; sur Instagram 1,06× contre 0,98×. Corrélation, pas preuve, mais rien ne montre que la voix aide.
+- **TikTok** : version longue, sans voix. **YouTube Shorts** : version courte, sans voix (aucune donnée fiable sur la voix).
+- **Instagram** : test A/B de la voix off sur la version courte (`.github/workflows/voiceover.yml`, voix ElevenLabs « Miles », phrases calées sur les textes à l'écran, son de la vidéo baissé dessous). Alterner avec et sans voix, même horaire, 4 vidéos de chaque.
+- Règle de décision : à J+3, comparer la durée moyenne de visionnage et les envois (Insights). La voix n'est adoptée sur une plateforme que si elle gagne sur les deux ; sinon on l'arrête. Le texte reste toujours à l'écran (beaucoup regardent sans le son).
+- Le texte dit par la voix = les textes à l'écran + le pourquoi en une phrase ; aucun chiffre qui ne soit pas déjà à l'écran.
+
 ## Effet « comment il a fait ça ? »
 - Le rendu doit avoir l'air d'un vrai labo filmé : matières crédibles, ombres, lumière, ralenti net. Le chiffre mesuré s'affiche en direct (chrono, force, compteur), comme un instrument.
 - Objectif long terme : montrer comment on fait ces vidéos. Chaque rendu archive son **making-of** sur Drive (`making-of/<nom>/` : config, timeline, images clés, planche, rapport son). Ne pas le supprimer.
