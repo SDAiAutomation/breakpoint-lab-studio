@@ -41,8 +41,31 @@ def pinned(cfg):
     return "\n" + "=" * 40 + "\nPINNED COMMENT (post it, then pin it)\n" + text.strip() + "\n"
 
 
+SEND_DEFAULT = "Send this to the friend who bet wrong 👀"
+
+
+def instagram(cfg):
+    """Légende Instagram (Reels) : la question, une raison d'envoyer en DM (le signal n°1 pour les non-abonnés),
+    une ligne de mots-clés, 3 hashtags max. On y poste la version courte (~30 s), pas la longue."""
+    cap = (cfg.get("caption") or "").strip()
+    words = cap.split()
+    tags = [w for w in words if w.startswith("#")][:3]
+    text = " ".join(w for w in words if not w.startswith("#"))
+    qs = [q.strip() + "?" for q in text.split("?")[:-1]]
+    question = " ".join(qs[:2]) if len(" ".join(qs[:2])) <= 110 else (qs[0] if qs else text)   # the question + the bet
+    lines = [question, cfg.get("send_line") or SEND_DEFAULT]
+    if cfg.get("keywords"):
+        lines.append(cfg["keywords"].strip())
+    lines.append("Simulated in 3D with published test values." if any("imulat" in s for s in as_list(cfg.get("source")))
+                 else "3D animation of a published test.")
+    lines.append(" ".join(tags))
+    return ("\n" + "=" * 40 + "\nINSTAGRAM (post the _youtube-short.mp4, 19:00-21:00 Brussels time)\n"
+            + "\n".join(l for l in lines if l) + "\n")
+
+
 if __name__ == "__main__":
     cfg = json.load(open(sys.argv[1], encoding="utf-8"))
     with open(sys.argv[2], "w", encoding="utf-8") as f:
         f.write(build(cfg))
         f.write(pinned(cfg))
+        f.write(instagram(cfg))
