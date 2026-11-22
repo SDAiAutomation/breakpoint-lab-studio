@@ -46,7 +46,7 @@ jobs:
         env:
           V: ${{ inputs.blender_version }}
         run: |
-          sudo apt-get install -y -qq libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libxkbcommon0 libsm6 libegl1 > /dev/null
+          sudo apt-get update -qq && sudo apt-get install -y -qq libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libxkbcommon0 libsm6 libegl1 > /dev/null
           MM=$(echo "$V" | cut -d. -f1,2)
           F="blender-${V}-linux-x64.tar.xz"
           if [ ! -s "/tmp/$F" ]; then for U in "https://download.blender.org/release/Blender${MM}/$F" "https://mirrors.ocf.berkeley.edu/blender/release/Blender${MM}/$F" \
