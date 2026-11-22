@@ -1,0 +1,52 @@
+name: Voice-over test
+
+# Lays a voice-over (one ElevenLabs take) on a video already on Drive, uploads <name>_voice.mp4 next to it.
+on:
+  workflow_dispatch:
+    inputs:
+      drive_file:
+        description: "Video file name in the Drive folder (e.g. 2026-11-22_tests-012-lego-brick-en_run25_youtube-short.mp4)"
+        required: true
+      voice_url:
+        description: "Signed URL of the voice take (mp3)"
+        required: true
+      cues:
+        description: "Start time (s) of each spoken line, comma-separated"
+        required: true
+
+jobs:
+  voiceover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      RCLONE_CONF: ${{ secrets.RCLONE_CONF }}
+      DRIVE_FOLDER_ID: ${{ vars.DRIVE_FOLDER_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tools
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg rclone > /dev/null
+      - name: Fetch video and voice
+        env:
+          FILE: ${{ inputs.drive_file }}
+          VOICE: ${{ inputs.voice_url }}
+        run: |
+          mkdir -p work ~/.config/rclone && printf '%s\n' "$RCLONE_CONF" > ~/.config/rclone/rclone.conf
+          REMOTE=$(rclone listremotes | head -1)
+          rclone copyto "${REMOTE}${FILE}" work/in.mp4 --drive-root-folder-id "$DRIVE_FOLDER_ID"
+          curl -sSfL -o work/voice.mp3 "$VOICE"
+      - name: Mix
+        env:
+          CUES: ${{ inputs.cues }}
+        run: python3 tools/voiceover.py work/in.mp4 work/voice.mp3 "$CUES" work/out.mp4 | tee work/voiceover.json
+      - name: Upload to Drive
+        env:
+          FILE: ${{ inputs.drive_file }}
+        run: |
+          REMOTE=$(rclone listremotes | head -1)
+          rclone copyto work/out.mp4 "${REMOTE}${FILE%.mp4}_voice.mp4" --drive-root-folder-id "$DRIVE_FOLDER_ID"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: voiceover
+          path: |
+            work/out.mp4
+            work/voiceover.json
