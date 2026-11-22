@@ -1,0 +1,87 @@
+name: Blender stills (check before a full render)
+
+# For an engine whose scene is rendered in Blender (engine/bottle.html): renders only the scene images needed at a few
+# times, lays the texts on top (render.js stills), builds the comfort review sheet, and pushes the images to the
+# branch previews/<run id> so they can be looked at before the full render.
+on:
+  workflow_dispatch:
+    inputs:
+      config_path:
+        description: "Config (in the repo)"
+        default: "configs/tests_013_bottle_bottom_en.json"
+      times:
+        description: "Video times (s), comma-separated"
+        default: "1.2,5.5,17.6,19.6,22.5,34.5,46,57"
+      samples:
+        description: "Cycles samples (adaptive)"
+        default: "128"
+      blender_version:
+        description: "Blender version (download.blender.org)"
+        default: "5.3.0"
+
+permissions:
+  contents: write
+
+env:
+  PLAYWRIGHT_VERSION: "1.50.1"
+
+jobs:
+  stills:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Playwright + Chromium
+        run: |
+          npm install --no-save --no-audit --no-fund playwright@${PLAYWRIGHT_VERSION}
+          npx playwright install --with-deps chromium
+      - name: Blender
+        env:
+          V: ${{ inputs.blender_version }}
+        run: |
+          sudo apt-get install -y -qq libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libxkbcommon0 libsm6 libegl1 > /dev/null
+          MM=$(echo "$V" | cut -d. -f1,2)
+          curl -sSfL "https://download.blender.org/release/Blender${MM}/blender-${V}-linux-x64.tar.xz" | tar -xJ -C "$HOME"
+          echo "BLENDER=$HOME/blender-${V}-linux-x64/blender" >> "$GITHUB_ENV"
+          "$HOME/blender-${V}-linux-x64/blender" --version | head -1
+      - name: Poses for the requested times
+        env:
+          CFG: ${{ inputs.config_path }}
+          TIMES: ${{ inputs.times }}
+        run: |
+          mkdir -p work && cp "$CFG" work/config.json
+          node engine/render.js timeline work/config.json work/timeline.json
+          node engine/render.js keys work/config.json work/keys.json "$TIMES"
+          python3 - <<'EOF'
+          import json
+          tl = json.load(open("work/timeline.json")); keys = set(json.load(open("work/keys.json")).values())
+          sel = [p for p in tl["poses"] if p["key"] in keys]
+          json.dump(sel, open("work/poses_sel.json", "w")); print(len(sel), "poses")
+          EOF
+      - name: Render scene images (Cycles CPU)
+        env:
+          SAMPLES: ${{ inputs.samples }}
+        run: |
+          START=$(date +%s)
+          "$BLENDER" -b -P tools/blender/bottle_scene.py -- --poses work/poses_sel.json --out work/bscene --samples "$SAMPLES" 2>&1 | grep -E "rendered|Error|Traceback|error" || true
+          N=$(ls work/bscene/*.jpg | wc -l); T=$(( $(date +%s) - START ))
+          echo "$N images in ${T}s ($(( T / (N>0?N:1) )) s per image)" | tee work/blender_speed.txt
+          test "$N" -gt 0
+      - name: Stills with texts + review sheet
+        env:
+          TIMES: ${{ inputs.times }}
+        run: |
+          node engine/render.js stills work/config.json work/previews "$TIMES"
+          pip install -q pillow
+          python3 tools/review_sheet.py work/previews work/review_sheet.png --cols 4
+      - name: Push to previews/<run>
+        run: |
+          B="previews/${{ github.run_id }}"
+          mkdir -p /tmp/pv && cp work/previews/*.png work/review_sheet.png work/blender_speed.txt work/keys.json /tmp/pv/
+          cp work/bscene/*.jpg /tmp/pv/ 2>/dev/null || true
+          git config user.name "github-actions[bot]" && git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan "$B" && git rm -rfq . && cp /tmp/pv/* . && git add -A && git commit -qm "Blender stills ${{ github.run_id }}" && git push -q origin "$B"
+          echo "pushed to $B"
