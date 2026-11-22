@@ -37,7 +37,9 @@ jobs:
       - name: Mix
         env:
           CUES: ${{ inputs.cues }}
-        run: python3 tools/voiceover.py work/in.mp4 work/voice.mp3 "$CUES" work/out.mp4 | tee work/voiceover.json
+        run: |
+          set -o pipefail
+          python3 tools/voiceover.py work/in.mp4 work/voice.mp3 "$CUES" work/out.mp4 | tee work/voiceover.json
       - name: Upload to Drive
         env:
           FILE: ${{ inputs.drive_file }}
