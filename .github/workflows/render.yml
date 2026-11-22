@@ -43,6 +43,7 @@ jobs:
     outputs:
       shards: ${{ steps.shards.outputs.list }}
       tag: ${{ steps.shards.outputs.tag }}
+      blender: ${{ steps.shards.outputs.blender }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -88,6 +89,8 @@ jobs:
           tl = json.load(open("work/timeline.json")); n = tl["frames"]; per = int("${{ inputs.frames_per_machine || '160' }}")
           cfg = json.load(open("work/config.json"))
           print("list=" + json.dumps([f"{a}-{min(a + per, n) - 1}" for a in range(0, n, per)]))
+          P = len(tl.get("poses", [])); bp = 18                    # Blender scene images (bottle engine): 18 per machine
+          print("blender=" + json.dumps([f"{a}-{min(a + bp, P) - 1}" for a in range(0, P, bp)]))
           print("tag=" + cfg.get("id", "qc"))
           EOF
       - uses: actions/upload-artifact@v4
@@ -96,8 +99,91 @@ jobs:
           path: work/
           retention-days: 1
 
-  render:
+  blender:
     needs: prepare
+    if: needs.prepare.outputs.blender != '[]' && needs.prepare.outputs.blender != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    strategy:
+      fail-fast: true
+      matrix:
+        poses: ${{ fromJSON(needs.prepare.outputs.blender) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: qc-work
+          path: work
+      - uses: actions/cache@v4
+        with:
+          path: /tmp/blender-5.3.0-linux-x64.tar.xz
+          key: blender-5.3.0
+      - name: Blender
+        run: |
+          sudo apt-get install -y -qq libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libxkbcommon0 libsm6 libegl1 > /dev/null
+          F="blender-5.3.0-linux-x64.tar.xz"
+          if [ ! -s "/tmp/$F" ]; then for U in "https://download.blender.org/release/Blender5.3/$F" "https://mirrors.ocf.berkeley.edu/blender/release/Blender5.3/$F" \
+                   "https://ftp.halifax.rwth-aachen.de/blender/release/Blender5.3/$F" "https://mirror.clarkson.edu/blender/release/Blender5.3/$F"; do
+            for i in 1 2; do curl -sSfL --retry 3 -o "/tmp/$F" "$U" && break 2; echo "retry $U"; sleep 10; done
+          done; fi
+          tar -xJf "/tmp/$F" -C "$HOME"
+      - name: Scene images ${{ matrix.poses }} (Cycles CPU)
+        run: |
+          "$HOME/blender-5.3.0-linux-x64/blender" -b -P tools/blender/bottle_scene.py -- --poses work/timeline.json --out work/bscene --range ${{ matrix.poses }} --samples 96 2>&1 | grep -E "rendered|Error|Traceback" || true
+          echo "$(ls work/bscene/*.jpg | wc -l) images"
+          test -n "$(ls work/bscene/*.jpg 2>/dev/null)"
+      - name: Shard id
+        id: sid
+        run: echo "id=$(echo '${{ matrix.poses }}' | tr '-' '_')" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qc-bscene-${{ steps.sid.outputs.id }}
+          path: work/bscene/*.jpg
+          retention-days: 1
+
+  bpreviews:
+    needs: [prepare, blender]
+    if: needs.blender.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Playwright + Chromium
+        run: |
+          npm install --no-save --no-audit --no-fund playwright@${PLAYWRIGHT_VERSION}
+          npx playwright install --with-deps chromium
+      - uses: actions/download-artifact@v4
+        with:
+          name: qc-work
+          path: work
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: qc-bscene-*
+          path: work/bscene
+          merge-multiple: true
+      - name: Stills, review sheet and cover with the real scene
+        run: |
+          rm -rf work/previews && node engine/render.js stills work/config.json work/previews "$(cat work/stills.txt)"
+          pip install -q pillow
+          python3 tools/review_sheet.py work/previews work/review_sheet.png
+          T=$(python3 tools/cover.py time work/config.json work/timeline.json)
+          node engine/render.js clean work/config.json work/cover_scene.png "$T"
+          python3 tools/cover.py build work/config.json work/cover_scene.png work/cover.jpg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qc-bprev
+          path: |
+            work/previews/
+            work/review_sheet.png
+            work/cover.jpg
+          retention-days: 1
+
+  render:
+    needs: [prepare, blender]
+    if: always() && needs.prepare.result == 'success' && (needs.blender.result == 'success' || needs.blender.result == 'skipped')
     runs-on: ubuntu-24.04
     timeout-minutes: 240
     strategy:
@@ -117,6 +203,12 @@ jobs:
         with:
           name: qc-work
           path: work
+      - uses: actions/download-artifact@v4
+        if: needs.blender.result == 'success'
+        with:
+          pattern: qc-bscene-*
+          path: work/bscene
+          merge-multiple: true
       - name: Render frames ${{ matrix.frames }}
         run: node engine/render.js frames work/config.json work/frames ${{ matrix.frames }}
       - name: Shard id
@@ -129,7 +221,7 @@ jobs:
           retention-days: 1
 
   finalize:
-    needs: [prepare, render]
+    needs: [prepare, blender, bpreviews, render]
     if: always() && needs.prepare.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 75
@@ -152,6 +244,11 @@ jobs:
           pattern: qc-frames-*
           path: work/frames
           merge-multiple: true
+      - uses: actions/download-artifact@v4
+        if: needs.bpreviews.result == 'success'
+        with:
+          name: qc-bprev
+          path: work
       - name: Sound + MP4
         if: needs.render.result == 'success'
         run: |
