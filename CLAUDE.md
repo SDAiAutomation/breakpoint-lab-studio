@@ -41,6 +41,12 @@ Chaîne YouTube/TikTok **Breakpoint Lab**, handle **@BreakpointLabTV**. Séries 
 - **Son sans surprise** : pas de pic plus fort que le reste (limiteur −1 dBTP), pas de silence > 3 s hors effet voulu.
 - **Planche de contrôle** (`tools/review_sheet.py`) : les images clés avec, par-dessus, ce que le téléphone dessine (TikTok + YouTube Shorts). Le workflow la fait à chaque rendu ; pour une nouvelle vidéo, la faire et la montrer à l'utilisateur AVANT le rendu complet.
 
+## Instagram (Reels) — ce qui compte (Meta + réponse de Meta AI vérifiée, nov. 2026)
+- Instagram teste chaque Reel sur un petit groupe de non-abonnés puis élargit selon : ne pas swiper dans les 3 premières s, temps de visionnage / vu jusqu'au bout, **envois en DM** (le signal le plus fort pour les non-abonnés), puis likes par personne touchée.
+- On y poste la **version courte** (`_youtube-short.mp4`, ~30 s), jamais la longue de 60 s. Première image : la question + l'action déjà lancée.
+- Légende Instagram (écrite dans le .txt par `engine/caption.py`) : la question + le pari, une phrase qui pousse à envoyer (`"send_line"`, ex. « Send this to the friend who said 40 kg 👀 »), une ligne de mots-clés (`"keywords"`), « Simulated in 3D… », 3 hashtags max.
+- Publier 3-4 fois par semaine, 19 h-21 h (heure de Bruxelles) ; un compte = un thème (pas de découpe ASMR sur le compte du labo).
+
 ## Effet « comment il a fait ça ? »
 - Le rendu doit avoir l'air d'un vrai labo filmé : matières crédibles, ombres, lumière, ralenti net. Le chiffre mesuré s'affiche en direct (chrono, force, compteur), comme un instrument.
 - Objectif long terme : montrer comment on fait ces vidéos. Chaque rendu archive son **making-of** sur Drive (`making-of/<nom>/` : config, timeline, images clés, planche, rapport son). Ne pas le supprimer.
