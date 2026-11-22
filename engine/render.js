@@ -1,6 +1,7 @@
 // Contrôle Qualité renderer (headless Chromium + WebGL/SwiftShader).
 //   node engine/render.js timeline <config.json> <out.json>          -> duration + sound events
 //   node engine/render.js stills   <config.json> <outdir> t1,t2,...  -> PNG stills (checks)
+//   node engine/render.js clean    <config.json> <out.png> t           -> scene only, no text (cover)
 //   node engine/render.js frames   <config.json> <outdir> [a-b]      -> JPEG frames a..b (inclusive, 30 fps)
 //   node engine/render.js video    <config.json> <out.mp4>           -> silent MP4, all frames
 const path = require('path'); const fs = require('fs'); const { spawn } = require('child_process');
@@ -29,6 +30,11 @@ const FPS = 30;
       const t0 = Date.now(); fs.writeFileSync(path.join(outArg, `still_${t.toFixed(2)}.png`), await grab(t, 'image/png'));
       console.log(`t=${t} ${Date.now() - t0} ms`);
     }
+  } else if (mode === 'clean') {                       // scene only, no text (cover image)
+    fs.mkdirSync(path.dirname(outArg), { recursive: true });
+    await page.evaluate(() => { window.CLEAN = true; });
+    fs.writeFileSync(outArg, await grab(Number(extra), 'image/png'));
+    console.log(`clean t=${extra} -> ${outArg}`);
   } else if (mode === 'frames') {
     fs.mkdirSync(outArg, { recursive: true });
     let [a, b] = (extra || `0-${N - 1}`).split('-').map(Number); b = Math.min(b, N - 1);

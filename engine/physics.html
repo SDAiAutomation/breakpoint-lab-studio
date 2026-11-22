@@ -457,7 +457,7 @@ function drawFrame(t){
   ['tops0','tops1','tops2'].forEach((n,j)=>gl.uniform4fv(U[n],new Float32Array(postTops(g,lanes[j].curve))));
   gl.drawArrays(gl.TRIANGLES,0,3);gl.finish();
   c.imageSmoothingQuality='high';c.drawImage(document.getElementById('gl'),0,0,W,H);
-  overlay(CFG,TL,t,s);
+  if(!window.CLEAN)overlay(CFG,TL,t,s);   // CLEAN: scene only (cover image)
 }
 window.ready=Promise.all([document.fonts.load('700 40px P'),document.fonts.load('700 40px DJ')]).then(()=>true);
 </script>
