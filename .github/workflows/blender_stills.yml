@@ -38,13 +38,22 @@ jobs:
         run: |
           npm install --no-save --no-audit --no-fund playwright@${PLAYWRIGHT_VERSION}
           npx playwright install --with-deps chromium
+      - uses: actions/cache@v4
+        with:
+          path: /tmp/blender-${{ inputs.blender_version }}-linux-x64.tar.xz
+          key: blender-${{ inputs.blender_version }}
       - name: Blender
         env:
           V: ${{ inputs.blender_version }}
         run: |
           sudo apt-get install -y -qq libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libxkbcommon0 libsm6 libegl1 > /dev/null
           MM=$(echo "$V" | cut -d. -f1,2)
-          curl -sSfL "https://download.blender.org/release/Blender${MM}/blender-${V}-linux-x64.tar.xz" | tar -xJ -C "$HOME"
+          F="blender-${V}-linux-x64.tar.xz"
+          if [ ! -s "/tmp/$F" ]; then for U in "https://download.blender.org/release/Blender${MM}/$F" "https://mirrors.ocf.berkeley.edu/blender/release/Blender${MM}/$F" \
+                   "https://ftp.halifax.rwth-aachen.de/blender/release/Blender${MM}/$F" "https://mirror.clarkson.edu/blender/release/Blender${MM}/$F"; do
+            for i in 1 2; do curl -sSfL --retry 3 -o "/tmp/$F" "$U" && break 2; echo "retry $U"; sleep 10; done
+          done; fi
+          tar -xJf "/tmp/$F" -C "$HOME"
           echo "BLENDER=$HOME/blender-${V}-linux-x64/blender" >> "$GITHUB_ENV"
           "$HOME/blender-${V}-linux-x64/blender" --version | head -1
       - name: Poses for the requested times
