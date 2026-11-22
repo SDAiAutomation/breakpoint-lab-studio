@@ -45,6 +45,7 @@ Chaîne YouTube/TikTok **Breakpoint Lab**, handle **@BreakpointLabTV**. Séries 
 - Instagram teste chaque Reel sur un petit groupe de non-abonnés puis élargit selon : ne pas swiper dans les 3 premières s, temps de visionnage / vu jusqu'au bout, **envois en DM** (le signal le plus fort pour les non-abonnés), puis likes par personne touchée.
 - On y poste la **version courte** (`_youtube-short.mp4`, ~30 s), jamais la longue de 60 s. Première image : la question + l'action déjà lancée.
 - Légende Instagram (écrite dans le .txt par `engine/caption.py`) : la question + le pari, une phrase qui pousse à envoyer (`"send_line"`, ex. « Send this to the friend who said 40 kg 👀 »), une ligne de mots-clés (`"keywords"`), « Simulated in 3D… », 3 hashtags max.
+- **Couverture** (`<nom>_cover.jpg` sur Drive, faite à chaque rendu par `tools/cover.py`) : le moment de tension juste avant la casse (jamais la réponse), la question en gros + le pari, même style à chaque épisode, tout dans le recadrage 3:4 de la grille du profil (y 240-1680). Peu utile dans le fil (la vidéo démarre seule), importante sur le profil et dans l'aperçu des envois en DM. Réglages : `"cover_t"`, `"cover_question"`, `"cover_bet"`.
 - Publier 3-4 fois par semaine, 19 h-21 h (heure de Bruxelles) ; un compte = un thème (pas de découpe ASMR sur le compte du labo).
 
 ## Voix off : par plateforme (décision du 22/11/2026)

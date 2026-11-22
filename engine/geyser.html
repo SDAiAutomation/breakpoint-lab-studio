@@ -604,7 +604,7 @@ function drawFrame(t){
   gl.drawArrays(gl.TRIANGLES,0,3);gl.finish();
   c.imageSmoothingQuality='high';c.drawImage(document.getElementById('gl'),0,0,W,H);
   if(s.mode===0) drawSpray(s);
-  overlay(CFG,TL,t,s);
+  if(!window.CLEAN)overlay(CFG,TL,t,s);   // CLEAN: scene only (cover image)
 }
 window.ready=Promise.all([document.fonts.load('700 40px P'),document.fonts.load('700 40px DJ')]).then(()=>true);
 </script>
