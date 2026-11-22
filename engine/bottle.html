@@ -1,0 +1,202 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<!-- Bottle engine (Breakpoint Lab "Tests" series): hit the top of a bottle, the bottom breaks (cavitation).
+     The scene itself is rendered in Blender (Cycles, tools/blender/bottle_scene.py); this page only lays out the
+     video (timeline), says which scene pose each frame shows, and draws the texts on top. Static moments hold one
+     Blender image, so only ~160 different images are rendered for a 60 s video.
+     Physics (Pan, Kiyama et al., PNAS 114, 2017): the hit pushes the bottle down faster than the water follows,
+     the pressure at the bottom drops, vapour bubbles grow and collapse, the collapse breaks the bottom.
+     Cavitation number Ca = (p - pv) / (rho a h): small Ca -> bubbles. Less water (smaller h) -> bigger Ca. -->
+<style>
+@font-face{font-family:P;src:url("fonts/Poppins-Bold.ttf");font-weight:700}
+@font-face{font-family:DJ;src:url("fonts/DejaVuSans-Bold.ttf");font-weight:700}
+html,body{margin:0;background:#000}canvas{display:block}
+</style></head>
+<body>
+<canvas id="out" width="1080" height="1920"></canvas>
+<script>
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const sm=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);};
+const lerp=(a,b,t)=>a+(b-a)*t;
+const FPS=30;
+const out=document.getElementById('out'),c=out.getContext('2d');const W=1080,H=1920;
+const COL={green:'#1F9D55',red:'#E0303F',ink:'#1d2126',sub:'#5b636c',brand:'#F7C21A',blue:'#2F6FE0'};
+
+// ---------------------------------------------------------------- timeline
+const D_={hook:2.4,title:1.3,setup:0.5,question:2.8,qFirst:2.2,swing:0.25,after:0.9,rpGap:0.25,replay:3.0,stampGap:0.3,
+          stampHold:0.9,fact:2.7,explainLead:0.8,line:2.2,explainTail:1.8,outro:6.5};
+const RP_MAP=[[0,-2],[0.12,0],[0.55,3.4],[1,60]];         // slow motion: video fraction -> physical ms (slowest at the bubbles)
+function mapPW(m,u){for(let i=0;i<m.length-1;i++){const [u0,t0]=m[i],[u1,t1]=m[i+1];if(u<=u1)return t0+(t1-t0)*(u-u0)/(u1-u0);}return m[m.length-1][1];}
+const T_BREAK=3.2;                                       // ms after the hit (same constant as the Blender script)
+
+function buildTimeline(cfg){
+  const T={rounds:[],events:[]},ev=e=>T.events.push(e);
+  let t=D_.hook;T.hook=[0,D_.hook];
+  cfg.rounds.forEach((r,i)=>{
+    const R={cfg:r,i,fill:r.fill,breaks:!!r.breaks,replay:r.replay!=null?!!r.replay:!!r.breaks};
+    R.start=t;ev({type:'round',t});
+    R.titleEnd=t+D_.title;R.qStart=R.titleEnd+D_.setup;R.qEnd=R.qStart+(i===0?D_.qFirst:D_.question);
+    ev({type:'question',t0:R.qStart,t1:R.qEnd});
+    R.swing0=R.qEnd+0.15;R.hitT=R.swing0+D_.swing;ev({type:'swing',t:R.swing0});
+    ev({type:'clank',t:R.hitT,gain:0.9});
+    if(R.breaks) ev({type:'shatter',t:R.hitT+T_BREAK/1000,gain:1});
+    R.afterEnd=R.hitT+D_.after;
+    if(R.replay){R.replayT0=R.afterEnd+D_.rpGap;R.replayT1=R.replayT0+D_.replay;ev({type:'replay',t0:R.replayT0,t1:R.replayT1});
+      const u=x=>{for(let k=0;k<200;k++){const v=k/200;if(mapPW(RP_MAP,v)>=x) return v;}return 1;};
+      ev({type:'clank',t:R.replayT0+u(0)*D_.replay,gain:0.6});if(R.breaks) ev({type:'shatter',t:R.replayT0+u(T_BREAK)*D_.replay,gain:0.8});}
+    else {R.replayT0=R.replayT1=R.afterEnd;}
+    R.stampT=R.replayT1+D_.stampGap;ev({type:'stamp',t:R.stampT,color:r.stamp.color});
+    R.factT=R.stampT+D_.stampHold;ev({type:'card',t:R.factT});
+    R.end=R.factT+D_.fact+((r.fact||[]).length>1?0.8:0);t=R.end;
+    T.rounds.push(R);
+  });
+  const nl=(cfg.explain.lines||[]).length, ex=D_.explainLead+nl*D_.line+D_.explainTail;
+  T.explain=[t,t+ex];ev({type:'explain',t0:t,t1:t+ex});t+=ex;
+  T.outro=[t,t+D_.outro];ev({type:'card',t});ev({type:'cta',t:t+1.4});t+=D_.outro;
+  T.duration=t;
+  T.hero=T.rounds.find(R=>R.breaks)||T.rounds[0];
+  T.events.sort((a,b)=>(a.t??a.t0)-(b.t??b.t0));
+  return T;
+}
+
+// ---------------------------------------------------------------- scene pose (what Blender renders for this frame)
+// fill 0/0.5/1, breaks, raise (mallet 1 = up, 0 = on the mouth), t (ms after the hit), cam wide|close, k (camera push 0..1)
+const q=(x,s)=>Math.round(x/s)*s;
+function poseAt(T,t){
+  if(t<T.hook[1]){                                        // hook: the hero round in slow motion, stopped before the break
+    const R=T.hero,u=t/T.hook[1];return {fill:R.fill,breaks:R.breaks,raise:0,t:lerp(-1.5,2.6,u),cam:'close',k:u};}
+  if(t>=T.explain[0]){
+    if(t<T.outro[0]){const R=T.hero;return {fill:R.fill,breaks:R.breaks,raise:0,t:2.2,cam:'close',k:0.5};}
+    const R=T.hero;return {fill:R.fill,breaks:R.breaks,raise:0.6,t:900,cam:'wide',k:0};}
+  let R=T.rounds[0];for(const r of T.rounds) if(t>=r.start) R=r;
+  const base={fill:R.fill,breaks:R.breaks,cam:'wide',k:0};
+  if(t<R.swing0) return {...base,raise:1,t:-1000};
+  if(t<R.hitT){const u=(t-R.swing0)/D_.swing;return {...base,raise:1-u*u,t:-1000};}
+  if(t<R.afterEnd) return {...base,raise:0,t:Math.min(900,(t-R.hitT)*1000)};
+  if(R.replay&&t>=R.replayT0&&t<R.replayT1){const u=(t-R.replayT0)/(R.replayT1-R.replayT0);return {...base,raise:0,t:mapPW(RP_MAP,u),cam:'close',k:u};}
+  return {...base,raise:0,t:900};
+}
+function poseKey(p){
+  const t=p.t<=-999?-1000:(p.t<10?q(p.t,0.01):q(p.t,1));
+  return `f${Math.round(p.fill*100)}_b${p.breaks?1:0}_r${q(p.raise,0.02).toFixed(2)}_t${t.toFixed(2)}_${p.cam}_k${q(p.k,0.01).toFixed(2)}`;
+}
+
+// ---------------------------------------------------------------- drawing helpers (same look as the other engines)
+let DEC='.';
+const fade=(t0,t,d=0.25)=>clamp((t-t0)/d,0,1);
+const pop=(t0,t)=>{const k=clamp((t-t0)/0.25,0,1);return 1+0.18*Math.sin(k*Math.PI)*(1-k);};
+function rrect(x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+function panel(x,y,w,h,r,fill,a=1){if(a<=0)return;c.save();c.globalAlpha=a;c.fillStyle=fill;rrect(x,y,w,h,r);c.fill();c.restore();}
+function fitText(s,maxW,size){c.font=`700 ${size}px P, DJ`;while(c.measureText(s).width>maxW&&size>18){size-=2;c.font=`700 ${size}px P, DJ`;}return size;}
+function ctxt(s,x,y,size,color,a=1){if(a<=0)return;c.save();c.globalAlpha=a;c.font=`700 ${size}px P, DJ`;c.textAlign='center';c.textBaseline='middle';
+  c.lineJoin='round';c.lineWidth=size*0.16;c.strokeStyle='rgba(255,255,255,0.85)';c.strokeText(s,x,y);
+  c.shadowColor='rgba(0,0,0,0.18)';c.shadowBlur=size*0.12;c.shadowOffsetY=size*0.04;c.fillStyle=color;c.fillText(s,x,y);c.restore();}
+function pill(s,x,y,size,fill,a=1){if(a<=0)return;const fs=size;c.font=`700 ${fs}px P, DJ`;const w=c.measureText(s).width+fs*1.1;
+  panel(x-w/2,y-fs*0.85,w,fs*1.7,fs*0.85,fill,a);c.save();c.globalAlpha=a;c.font=`700 ${fs}px P, DJ`;c.textAlign='center';c.textBaseline='middle';c.fillStyle='#fff';c.fillText(s,x,y+1);c.restore();}
+function drawHandle(cfg){
+  if(!cfg.handle) return;
+  c.save(); c.font='700 24px P, DJ'; c.textBaseline='middle'; c.textAlign='left';
+  const tw=c.measureText(cfg.handle).width, gap=12, dot=7, y=256, x=W/2-(tw+gap+2*dot)/2;
+  c.fillStyle='#f5c400'; c.beginPath(); c.arc(x+dot,y,dot,0,Math.PI*2); c.fill();
+  c.lineWidth=2; c.strokeStyle='rgba(22,24,29,0.85)'; c.stroke();
+  c.globalAlpha=0.8; c.fillStyle='#2a2e36'; c.fillText(cfg.handle,x+2*dot+gap,y+1); c.restore();
+}
+function fillBadge(R,a){                                  // EMPTY / HALF / FULL, with a small water gauge drawn as a bottle
+  const lab=R.cfg.fill_label||(R.fill>=0.99?'FULL':R.fill>0.01?'HALF FULL':'EMPTY');
+  const x=W/2, y=545;
+  c.save();c.globalAlpha=a;c.translate(x-150,y);
+  c.strokeStyle=COL.ink;c.lineWidth=4;rrect(-16,-34,32,68,8);c.stroke();
+  c.fillStyle=COL.blue;const h=60*R.fill;if(h>0){rrect(-12,30-h,24,h,5);c.fill();}
+  c.restore();ctxt(lab,x+20,y,44,COL.blue,a);
+}
+function pressureBar(p,t,a){                              // qualitative instrument: no number, just the drop and the bubbles
+  if(a<=0) return;
+  const x0=W/2-300,y=520,w=600;
+  ctxt(CFG.pressure_label||'PRESSURE AT THE BOTTOM',W/2,470,30,COL.sub,a);
+  const drop=p.breaks?sm(0,0.6,p.t)*(1-sm(2.6,3.0,p.t)):(p.fill>0?0.45*sm(0,0.6,p.t)*(1-sm(3,8,p.t)):0), v=1-0.92*drop;
+  panel(x0,y,w,26,13,'rgba(29,33,38,0.15)',a);panel(x0,y,w*v,26,13,v<0.3?COL.red:COL.blue,a);
+  if(p.breaks&&p.t>=0.4&&p.t<3.0) ctxt(CFG.bubbles_label||'VAPOUR BUBBLES!',W/2,590,40,COL.red,a*fade(0.4,p.t,0.3));
+  if(!p.breaks&&p.fill>0&&p.t>=0.8) ctxt(CFG.nobubbles_label||'NOT LOW ENOUGH: NO BUBBLES',W/2,590,36,COL.green,a*fade(0.8,p.t,0.3));
+}
+
+function overlay(cfg,T,t,p){
+  { const gr=c.createLinearGradient(0,0,0,690);gr.addColorStop(0,'rgba(236,240,243,0.92)');gr.addColorStop(0.78,'rgba(236,240,243,0.80)');gr.addColorStop(1,'rgba(236,240,243,0)');
+    c.save();c.fillStyle=gr;c.fillRect(0,0,W,690);c.restore(); }
+  if(t>=T.hook[1]||cfg.hook_series!==false) ctxt(cfg.series,W/2,292,34,COL.sub,0.9);
+  drawHandle(cfg);
+  if(t<T.hook[1]){const a=1-fade(T.hook[1]-0.3,t,0.3),hn=cfg.hook.length;
+    cfg.hook.forEach((l,i)=>ctxt(l,W/2,400+i*95,fitText(l,960,84),hn>1&&i===hn-1?COL.red:COL.ink,a));return;}
+  if(t<T.hook[1]+0.18){c.save();c.globalAlpha=1-fade(T.hook[1],t,0.18);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
+  if(t<T.explain[0]){
+    let R=T.rounds[0];for(const r of T.rounds) if(t>=r.start) R=r;const r=R.cfg, stampOn=t>=R.stampT;
+    if(t<R.titleEnd+0.2){const a=1-fade(R.titleEnd-0.1,t,0.3),pp=pop(R.start,t);c.save();c.translate(W/2,430);c.scale(pp,pp);ctxt(r.title,0,0,fitText(r.title,960,72),COL.ink,a);c.restore();}
+    else if(t<R.qStart) fillBadge(R,fade(R.titleEnd,t));
+    else if(t<R.swing0){const a=fade(R.qStart,t)*(1-fade(R.swing0-0.15,t,0.15)),pp=1+0.05*Math.sin((t-R.qStart)*Math.PI*4);
+      c.save();c.translate(W/2,415);c.scale(pp,pp);ctxt(r.question,0,0,fitText(r.question,960,92),COL.red,a);c.restore();
+      ctxt(r.question_sub,W/2,515,fitText(r.question_sub,900,40),COL.ink,a);
+      const n=Math.ceil(R.qEnd-t);if(n>=1&&n<=3&&t>R.qEnd-3) ctxt(String(n),W/2,590,56,COL.ink,a);}
+    else if(!stampOn&&t<R.replayT0) fillBadge(R,1);
+    if(R.replay&&t>=R.replayT0&&t<R.replayT1){const a=fade(R.replayT0,t,0.15)*(1-fade(R.replayT1-0.15,t,0.15));
+      c.save();c.globalAlpha=a*0.9;c.fillStyle='#000';c.fillRect(0,640,W,16);c.fillRect(0,1424,W,16);c.restore();
+      pill((cfg.replay_label||'SLOW-MO'),W/2,700,28,'rgba(224,48,63,0.92)',a);pressureBar(p,t,a);}
+    if(stampOn){
+      const k=clamp((t-R.stampT)/0.18,0,1),sc2=lerp(2.2,1,k*k)+(k>=1?0.05*Math.exp(-(t-R.stampT-0.18)*10)*Math.sin((t-R.stampT-0.18)*40):0);
+      const col=r.stamp.color==='green'?COL.green:COL.red;
+      c.save();c.translate(W/2,425);c.rotate(-0.08);c.scale(sc2,sc2);c.globalAlpha=Math.min(1,k*1.5);
+      c.strokeStyle=col;c.lineWidth=10;rrect(-330,-72,660,144,22);c.stroke();c.fillStyle='rgba(255,255,255,0.7)';rrect(-330,-72,660,144,22);c.fill();
+      const fs=fitText(r.stamp.text,600,84);c.font=`700 ${fs}px P, DJ`;c.textAlign='center';c.textBaseline='middle';c.fillStyle=col;c.fillText(r.stamp.text,0,5);c.restore();}
+    if(t>=R.factT){const a=fade(R.factT,t,0.3)*(1-fade(R.end-0.25,t));(r.fact||[]).forEach((l,i)=>ctxt(l,W/2,555+i*50,fitText(l,980,38),COL.ink,a));}
+    if(t<R.start+0.3){c.save();c.globalAlpha=1-fade(R.start,t,0.3);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
+    return;}
+  if(t<T.explain[0]+0.3){c.save();c.globalAlpha=1-fade(T.explain[0],t,0.3);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
+  if(t<T.outro[0]){const e=cfg.explain,t0=T.explain[0],n=e.lines.length;
+    ctxt(e.title,W/2,352,fitText(e.title,960,56),COL.ink,fade(t0,t));
+    e.lines.forEach((l,i)=>{const isF=/=/.test(l);ctxt(l,W/2,414+i*46,fitText(l,960,isF?44:38),isF?COL.blue:(i===n-1?COL.green:COL.sub),fade(t0+D_.explainLead+i*D_.line,t,0.3));});
+    return;}
+  const t0=T.outro[0];
+  const nx=cfg.next_test, sw=nx?Math.min(2.6,(T.outro[1]-T.outro[0])*0.4):1e9, sa=fade(t0,t)*(1-fade(t0+sw,t,0.25));
+  ctxt('SOURCE',W/2,345,28,COL.sub,sa);
+  cfg.source.forEach((l,i)=>ctxt(l,W/2,395+i*48,fitText(l,980,32),COL.ink,sa));
+  if(nx&&t>=t0+sw){const na=fade(t0+sw+0.1,t,0.25);ctxt(cfg.next_label||'NEXT TEST',W/2,345,30,COL.sub,na);ctxt(nx,W/2,425,fitText(nx,960,62),COL.red,na);}
+  if(t>=t0+1.4){const a=fade(t0+1.4,t,0.25),pp=pop(t0+1.4,t);
+    c.save();c.translate(W/2,560);c.scale(pp,pp);panel(-380,-50,760,100,50,COL.brand,a);
+    c.font=`700 ${fitText(cfg.cta,700,42)}px P, DJ`;c.textAlign='center';c.textBaseline='middle';c.globalAlpha=a;c.fillStyle=COL.ink;c.fillText(cfg.cta,0,2);c.restore();}
+}
+
+// ---------------------------------------------------------------- scene images
+const IMG={};
+function loadImg(src){return new Promise(res=>{const im=new Image();im.onload=()=>res(im);im.onerror=()=>res(null);im.src=src;});}
+async function sceneImage(key){
+  if(!(key in IMG)) IMG[key]=await loadImg((CFG.scene_dir||'../work/bscene')+'/'+key+'.jpg');
+  return IMG[key];
+}
+function placeholder(key,p){                              // before the Blender render: grey stage + the pose, so overlays can be checked
+  const g=c.createLinearGradient(0,0,0,H);g.addColorStop(0,'#c9ced4');g.addColorStop(1,'#8d949c');c.fillStyle=g;c.fillRect(0,0,W,H);
+  c.save();c.fillStyle='rgba(255,255,255,0.35)';const bw=180,bh=560,by=p.cam==='close'?820:900;rrect(W/2-bw/2,by,bw,bh,40);c.fill();
+  c.fillStyle='rgba(47,111,224,0.45)';const wh=bh*0.7*p.fill;if(wh>0){rrect(W/2-bw/2+10,by+bh-10-wh,bw-20,wh,30);c.fill();}
+  c.font='700 26px P, DJ';c.textAlign='center';c.fillStyle='#1d2126';c.fillText(key,W/2,1500);c.restore();
+}
+
+// ---------------------------------------------------------------- API used by render.js
+let CFG=null,TL=null;
+window.setup=function(cfg){CFG=cfg;DEC=cfg.decimal||'.';TL=buildTimeline(cfg);
+  const seen=new Map();const N=Math.round(TL.duration*FPS);
+  for(let i=0;i<N;i++){const p=poseAt(TL,i/FPS),k=poseKey(p);if(!seen.has(k)) seen.set(k,{key:k,...p});}
+  return {duration:TL.duration,events:TL.events,poses:[...seen.values()],rounds:TL.rounds.map(R=>({title:R.cfg.title,fill:R.fill,breaks:R.breaks,hit:R.hitT}))};};
+window.poseKeyAt=t=>poseKey(poseAt(TL,t));
+async function drawFrame(t){
+  const p=poseAt(TL,t),key=poseKey(p),im=await sceneImage(key);
+  if(im){c.imageSmoothingQuality='high';c.drawImage(im,0,0,W,H);} else placeholder(key,p);
+  if(!window.CLEAN) overlay(CFG,TL,t,p);   // CLEAN: scene only (cover image)
+}
+window.renderFrame=async function(t,type='image/jpeg'){
+  const L=0.45;
+  if(t>TL.duration-L){                                    // loop: fade the last frame into the first (same as the press engine)
+    await drawFrame(0);const first=document.createElement('canvas');first.width=W;first.height=H;first.getContext('2d').drawImage(out,0,0);
+    await drawFrame(t);c.save();c.globalAlpha=clamp((t-(TL.duration-L))/L,0,1);c.drawImage(first,0,0);c.restore();
+    return out.toDataURL(type,0.93);}
+  await drawFrame(t);return out.toDataURL(type,0.93);
+};
+window.ready=Promise.all([document.fonts.load('700 40px P'),document.fonts.load('700 40px DJ')]).then(()=>true);
+</script>
+</body></html>
