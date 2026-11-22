@@ -63,7 +63,7 @@ def solid_sweep(name, poly, a0=0.0, a1=2 * math.pi, steps=96):
         face = bm.faces.new(vs)
         bmesh.ops.spin(bm, geom=[face] + vs + list(face.edges), cent=(0, 0, 0), axis=(0, 0, 1),
                        angle=a1 - a0, steps=steps, use_duplicate=False)
-    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-6)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=2e-5)   # closes the sweep seam (no vertical line)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     bm.to_mesh(me)
     bm.free()
@@ -96,11 +96,11 @@ def water_mesh(fill):
     if name in bpy.data.meshes:
         return bpy.data.meshes[name]
     top = 0.0072 + (WATER_TOP - 0.0072) * fill
-    prof = [(0.0005, 0.0072), (0.0258, 0.0065), (0.0298, 0.012)]
-    for r, z in [(0.0298, 0.126), (0.0278, 0.149)]:
+    prof = [(0.0005, 0.0068), (0.0262, 0.0061), (0.0302, 0.012)]
+    for r, z in [(0.0302, 0.126), (0.0282, 0.149)]:
         if z < top:
             prof.append((r, z))
-    r_top = 0.0298 if top <= 0.126 else (0.0278 if top <= 0.149 else 0.0255)
+    r_top = 0.0302 if top <= 0.126 else (0.0282 if top <= 0.149 else 0.0259)
     prof += [(r_top, top), (0.0005, top)]
     me = solid_sweep(name, prof)
     for mat in bpy.data.materials:
@@ -134,6 +134,8 @@ def build(preview=False, res=(1080, 1920)):
     top = obj(sc, "BottleTop", solid_sweep("BottleTop", clip_profile(prof, CUT, 1.0)), glass)
     top.parent = root
     base_poly = clip_profile(prof, -1.0, CUT)
+    bse = obj(sc, "Base", solid_sweep("Base", base_poly), glass)   # intact bottom; swapped for the shards at the break
+    bse.parent = root
     for i in range(N_SHARDS):                               # the bottom, pre-cut into wedges that fly off at the break
         a0 = 2 * math.pi * i / N_SHARDS
         a1 = a0 + 2 * math.pi / N_SHARDS * 0.985
@@ -232,7 +234,7 @@ def build(preview=False, res=(1080, 1920)):
         sep = nt.nodes.new("ShaderNodeSeparateXYZ")
         ramp = nt.nodes.new("ShaderNodeValToRGB")
         ramp.color_ramp.elements[0].position = 0.45
-        ramp.color_ramp.elements[0].color = (0.02, 0.02, 0.025, 1)
+        ramp.color_ramp.elements[0].color = (0.30, 0.31, 0.33, 1)
         ramp.color_ramp.elements[1].position = 0.62
         ramp.color_ramp.elements[1].color = (0.95, 0.97, 1.0, 1)
         mp = nt.nodes.new("ShaderNodeMapRange")
@@ -282,7 +284,7 @@ def set_pose(p, sc=None):
     t, fill, brk = float(p["t"]), float(p["fill"]), bool(p["breaks"])
     # mallet: resting on the mouth (top of glass at 0.220 m) when raise = 0, 10 cm higher when raise = 1
     hit = t >= 0
-    z = 0.220 + 0.030 + 0.10 * float(p["raise"])
+    z = 0.220 + 0.030 + 0.05 * float(p["raise"])
     if hit:
         z += -0.0018 * smooth(0, 0.6, t) + 0.004 * smooth(1.0, 12.0, t) + 0.03 * smooth(20, 400, t)   # small rebound
     ob["Mallet"].location = (0, 0, z)
@@ -314,8 +316,11 @@ def set_pose(p, sc=None):
         b.hide_render = b.hide_viewport = g < 0.02
     # the bottom comes off in shards that slide out on the plate
     k = max(0.0, t - T_BREAK) if (brk and hit) else 0.0
+    broken = brk and hit and t >= T_BREAK
+    ob["Base"].hide_render = ob["Base"].hide_viewport = broken
     for i in range(N_SHARDS):
         sh = ob[f"Shard{i}"]
+        sh.hide_render = sh.hide_viewport = not broken
         a = sh["a"]
         h = (math.sin(i * 3.7 + 1.1) * 4375.85) % 1.0
         v = (0.6 + 0.8 * h) * min(k, 120) / 1000.0
@@ -326,9 +331,9 @@ def set_pose(p, sc=None):
     # close: the bottom, where the bubbles and the crack are; k = slow push-in
     kk = float(p.get("k", 0))
     if p.get("cam") == "close":
-        d, look, elev = 0.52 - 0.07 * kk, (0.0, 0.0, 0.072), 0.10
+        d, look, elev = 0.78 - 0.06 * kk, (0.0, 0.0, 0.058), 0.09
     else:
-        d, look, elev = 1.55, (0.0, 0.0, 0.135), 0.20
+        d, look, elev = 1.85, (0.0, 0.0, 0.171), 0.22
     cam = ob["Cam"]
     cam.location = (math.sin(0.30) * d, -math.cos(0.30) * d, elev)
     dx, dy, dz = look[0] - cam.location[0], look[1] - cam.location[1], look[2] - cam.location[2]
