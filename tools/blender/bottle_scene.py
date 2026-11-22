@@ -18,10 +18,10 @@ import bpy
 
 SCENE = "BL_bottle"
 CUT = 0.028                      # height (m) of the crack ring where the bottom comes off
-OUTER = [(0.0005, 0.0), (0.026, 0.0), (0.031, 0.003), (0.033, 0.010), (0.033, 0.125), (0.031, 0.150), (0.022, 0.175),
+OUTER = [(0.0, 0.0), (0.026, 0.0), (0.031, 0.003), (0.033, 0.010), (0.033, 0.125), (0.031, 0.150), (0.022, 0.175),
          (0.015, 0.195), (0.0135, 0.205), (0.0135, 0.214), (0.015, 0.216), (0.015, 0.220), (0.011, 0.220)]
 INNER = [(0.011, 0.220), (0.0105, 0.214), (0.0105, 0.200), (0.012, 0.192), (0.019, 0.172), (0.028, 0.149),
-         (0.0300, 0.126), (0.0300, 0.012), (0.026, 0.006), (0.0005, 0.007)]
+         (0.0300, 0.126), (0.0300, 0.012), (0.026, 0.006), (0.0, 0.007)]
 WATER_TOP = 0.155
 N_SHARDS = 9
 T_HIT, T_BUBBLE, T_COLLAPSE, T_BREAK = 0.0, 0.4, 2.6, 3.2     # ms
@@ -96,12 +96,12 @@ def water_mesh(fill):
     if name in bpy.data.meshes:
         return bpy.data.meshes[name]
     top = 0.0072 + (WATER_TOP - 0.0072) * fill
-    prof = [(0.0005, 0.0068), (0.0262, 0.0061), (0.0302, 0.012)]
+    prof = [(0.0, 0.0068), (0.0262, 0.0061), (0.0302, 0.012)]
     for r, z in [(0.0302, 0.126), (0.0282, 0.149)]:
         if z < top:
             prof.append((r, z))
     r_top = 0.0302 if top <= 0.126 else (0.0282 if top <= 0.149 else 0.0259)
-    prof += [(r_top, top), (0.0005, top)]
+    prof += [(r_top, top), (0.0, top)]
     me = solid_sweep(name, prof)
     for mat in bpy.data.materials:
         if mat.name == "BL_Water":
@@ -119,7 +119,7 @@ def build(preview=False, res=(1080, 1920)):
 
     glass = principled("BL_Glass", **{"Base Color": (0.86, 0.95, 0.90, 1), "Transmission Weight": 1.0, "Roughness": 0.02, "IOR": 1.5})
     water = principled("BL_Water", **{"Base Color": (0.80, 0.92, 1.0, 1), "Transmission Weight": 1.0, "Roughness": 0.0, "IOR": 1.33})
-    vapour = principled("BL_Bubble", **{"Base Color": (1, 1, 1, 1), "Transmission Weight": 0.5, "Roughness": 0.15, "IOR": 1.0, "Emission Color": (0.85, 0.92, 1.0, 1), "Emission Strength": 0.6})
+    vapour = principled("BL_Bubble", **{"Base Color": (1, 1, 1, 1), "Transmission Weight": 1.0, "Roughness": 0.0, "IOR": 0.752, "Emission Strength": 0.0})
     rubber = principled("BL_Rubber", **{"Base Color": (0.035, 0.035, 0.04, 1), "Roughness": 0.55})
     wood = principled("BL_Wood", **{"Base Color": (0.55, 0.36, 0.18, 1), "Roughness": 0.5})
     steel = principled("BL_Steel", **{"Base Color": (0.85, 0.86, 0.88, 1), "Metallic": 0.0, "Roughness": 0.5})   # light, not mirror: no black blob under the glass
@@ -159,7 +159,7 @@ def build(preview=False, res=(1080, 1920)):
         sc.collection.objects.link(b)
         b.data.materials.append(vapour)
         b.parent = root
-        b["size"] = 0.0007 + 0.0016 * h2
+        b["size"] = 0.0015 + 0.0025 * h2
         b["delay"] = 0.5 * h
     # rubber mallet coming down on the mouth
     mal = bpy.data.objects.new("Mallet", None)
@@ -203,6 +203,7 @@ def build(preview=False, res=(1080, 1920)):
         f = obj(sc, nm, me, black)
         f.location = (x, 0.02, 0)
         f.visible_camera = False
+        f.hide_render = True
 
     def area(name, loc, rot, size, e, sy=None):
         l = bpy.data.lights.new(name, 'AREA')
@@ -312,7 +313,7 @@ def set_pose(p, sc=None):
         d = b["delay"]
         g = smooth(T_BUBBLE + d, T_BUBBLE + d + 1.2, t) * (1 - smooth(T_COLLAPSE + d * 0.3, T_COLLAPSE + d * 0.3 + 0.25, t)) if (brk and hit) else 0.0
         s = max(1e-5, b["size"] * g)
-        b.scale = (s, s, s * 0.8)
+        b.scale = (s, s, s)
         b.hide_render = b.hide_viewport = g < 0.02
     # the bottom comes off in shards that slide out on the plate
     k = max(0.0, t - T_BREAK) if (brk and hit) else 0.0
