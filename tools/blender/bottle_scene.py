@@ -117,7 +117,7 @@ def build(preview=False, res=(1080, 1920)):
     for o in list(sc.collection.objects):
         bpy.data.objects.remove(o, do_unlink=True)
 
-    glass = principled("BL_Glass", **{"Base Color": (0.30, 0.52, 0.98, 1), "Transmission Weight": 1.0, "Roughness": 0.02, "IOR": 1.5})
+    glass = principled("BL_Glass", **{"Base Color": (0.48, 0.68, 1.0, 1), "Transmission Weight": 1.0, "Roughness": 0.02, "IOR": 1.5})
     water = principled("BL_Water", **{"Base Color": (0.80, 0.92, 1.0, 1), "Transmission Weight": 1.0, "Roughness": 0.0, "IOR": 1.33})
     vapour = principled("BL_Bubble", **{"Base Color": (1, 1, 1, 1), "Transmission Weight": 1.0, "Roughness": 0.0, "IOR": 0.752, "Emission Strength": 0.0})
     rubber = principled("BL_Rubber", **{"Base Color": (0.035, 0.035, 0.04, 1), "Roughness": 0.55})
