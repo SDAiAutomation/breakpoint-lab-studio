@@ -123,5 +123,6 @@
       "clank": "mallet",
       "shatter": "glass"
     }
-  }
+  },
+  "cover_t": 20.1
 }

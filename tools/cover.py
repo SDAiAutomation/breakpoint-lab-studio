@@ -22,13 +22,13 @@ EMOJI = re.compile("[\U0001F000-\U0001FAFF☀-➿️]")
 
 
 def cover_time(cfg, tl):
+    """snapped to a video frame: engines that hold pre-rendered images (bottle) only have images for frame times"""
     if cfg.get("cover_t") is not None:
-        return float(cfg["cover_t"])
-    reps = [e for e in tl["events"] if e["type"] == "replay"]
-    if reps:
-        r = reps[-1]
-        return r["t0"] + 0.35 * (r["t1"] - r["t0"])
-    return tl["duration"] * 0.4
+        t = float(cfg["cover_t"])
+    else:
+        reps = [e for e in tl["events"] if e["type"] == "replay"]
+        t = reps[-1]["t0"] + 0.35 * (reps[-1]["t1"] - reps[-1]["t0"]) if reps else tl["duration"] * 0.4
+    return round(t * 30) / 30
 
 
 def texts(cfg):
