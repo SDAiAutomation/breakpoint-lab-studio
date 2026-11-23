@@ -15,7 +15,7 @@ const FPS = 30;
   const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--allow-file-access-from-files'] });
   const page = await browser.newPage({ viewport: { width: 400, height: 400 } });
   page.on('pageerror', e => { console.error('pageerror:', e.message); process.exitCode = 1; });
-  await page.goto('file://' + path.join(__dirname, ({ physics: 'physics.html', drop: 'drop.html', snap: 'snap.html', bounce: 'bounce.html', impact: 'impact.html', geyser: 'geyser.html', cradle: 'cradle.html', slinky: 'slinky.html' })[cfg.engine] || 'engine.html'));
+  await page.goto('file://' + path.join(__dirname, ({ physics: 'physics.html', drop: 'drop.html', snap: 'snap.html', bounce: 'bounce.html', impact: 'impact.html', geyser: 'geyser.html', cradle: 'cradle.html', slinky: 'slinky.html', bottle: 'bottle.html' })[cfg.engine] || 'engine.html'));
   await page.evaluate(() => window.ready);
   const tl = await page.evaluate(c => window.setup(c), cfg);
   const N = Math.round(tl.duration * FPS);
@@ -30,6 +30,11 @@ const FPS = 30;
       const t0 = Date.now(); fs.writeFileSync(path.join(outArg, `still_${t.toFixed(2)}.png`), await grab(t, 'image/png'));
       console.log(`t=${t} ${Date.now() - t0} ms`);
     }
+  } else if (mode === 'keys') {                        // bottle engine: which scene image each time shows
+    const keys = {};
+    for (const t of extra.split(',').map(Number)) keys[t.toFixed(2)] = await page.evaluate(t => window.poseKeyAt(t), t);
+    fs.writeFileSync(outArg, JSON.stringify(keys, null, 1));
+    console.log(`keys -> ${outArg}`);
   } else if (mode === 'clean') {                       // scene only, no text (cover image)
     fs.mkdirSync(path.dirname(outArg), { recursive: true });
     await page.evaluate(() => { window.CLEAN = true; });

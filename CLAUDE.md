@@ -67,6 +67,7 @@ Chaîne YouTube/TikTok **Breakpoint Lab**, handle **@BreakpointLabTV**. Séries 
   - Brillance jamais constante sur une surface (légère variation), métal = 0 ou 1, pas de noir ni de blanc purs en couleur de base.
   - Objectif long pour un objet seul (`"lens": 1.4` dans la config, moteur presse) : lignes droites, aspect produit.
   - Plans Blender (objets « vedettes ») : Cycles sur CPU (EEVEE demande une carte graphique), 85 mm, AgX, débruitage OIDN, rendu image par image puis assemblage (`tools/blender/`).
+  - Moteur `bottle` (épisode 013) : toute la scène est rendue par Blender (`tools/blender/bottle_scene.py`), le moteur (`engine/bottle.html`) ne dessine que les textes et dit quelle « pose » chaque image montre ; les moments immobiles gardent la même image (≈ 360 images Blender pour 60 s). `render.yml` lance alors un job `blender` (18 poses par machine, ~5 min par image) avant les images. Vérifier d'abord avec `blender_stills.yml` (quelques images + textes + planche poussées sur la branche `previews/<run>`).
 - `.github/workflows/render.yml` (workflow_dispatch, `config_path` ou `config_json`) : rendu parallèle sur ~20 machines, son, MP4, Google Drive si le secret `RCLONE_CONF` et la variable `DRIVE_FOLDER_ID` existent, sinon la vidéo est un artefact du run.
 - Une PR séparée par modification.
 
