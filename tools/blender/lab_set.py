@@ -10,9 +10,9 @@ import os
 import bpy
 
 FONT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "engine", "fonts", "Poppins-Bold.ttf")
-BASE_COL = (0.86, 0.86, 0.84, 1)        # same as the press base (m<2.5 in engine.html)
-DARK_COL = (0.16, 0.17, 0.19, 1)        # "BREAKPOINT"
-GOLD_COL = (0.85, 0.62, 0.05, 1)        # "LAB"
+BASE_COL = (0.50, 0.50, 0.49, 1)        # reads like the press base once lit by the bright Blender studio (0.86 burnt to white)
+DARK_COL = (0.03, 0.035, 0.04, 1)        # "BREAKPOINT"
+GOLD_COL = (0.80, 0.45, 0.02, 1)        # "LAB"
 
 
 def _mat(name, col, rough=0.5, metal=0.0):
