@@ -1,0 +1,128 @@
+{
+  "id": "tests-013-bottle-bottom-en",
+  "engine": "bottle",
+  "series": "QUALITY CONTROL · TEST 013",
+  "decimal": ".",
+  "handle": "@BreakpointLabTV",
+  "hook": [
+    "Hit the TOP.",
+    "What breaks?"
+  ],
+  "hook_series": false,
+  "replay_label": "SLOW-MO",
+  "rounds": [
+    {
+      "title": "ROUND 1 · EMPTY BOTTLE",
+      "fill": 0,
+      "breaks": false,
+      "question": "What breaks?",
+      "question_sub": "TOP, BOTTOM or NOTHING ↓",
+      "stamp": {
+        "text": "NOTHING BREAKS",
+        "color": "green"
+      },
+      "fact": [
+        "Empty: nothing happens",
+        "Now fill it with water"
+      ]
+    },
+    {
+      "title": "ROUND 2 · FULL BOTTLE",
+      "fill": 1,
+      "breaks": true,
+      "question": "Same hit. What breaks?",
+      "question_sub": "TOP, BOTTOM or NOTHING ↓",
+      "stamp": {
+        "text": "THE BOTTOM BREAKS",
+        "color": "red"
+      },
+      "fact": [
+        "Bubbles at the bottom",
+        "PNAS study, 2017"
+      ]
+    },
+    {
+      "title": "ROUND 3 · HALF FULL",
+      "fill": 0.5,
+      "breaks": false,
+      "question": "Less water: does it break?",
+      "question_sub": "YES or NO ↓",
+      "stamp": {
+        "text": "IT SURVIVES",
+        "color": "green"
+      },
+      "fact": [
+        "Same hit, half the water",
+        "No bubbles, no break"
+      ],
+      "fill_label": "HALF FULL",
+      "replay": true
+    }
+  ],
+  "explain": {
+    "title": "WHY?",
+    "lines": [
+      "Bottle pushed down, water lags",
+      "Pressure drops: bubbles form",
+      "They collapse: the bottom breaks"
+    ]
+  },
+  "source": [
+    "Pan, Kiyama et al., PNAS 114 (2017)",
+    "Simulated with their cavitation number"
+  ],
+  "cta": "Subscribe: you pick the next test",
+  "next_test": "Can sound break glass?",
+  "caption": "Hit the top of a bottle: what breaks? 🍾 Top, bottom or nothing? Empty, full, then half full. Place your bet before the slow-mo 👇 #physics #science #engineering",
+  "send_line": "Send this to the friend who said the top 👀",
+  "keywords": "Bottle bottom break trick: why hitting the top of a full bottle breaks the bottom. Cavitation physics.",
+  "description": [
+    "Hit the top of a glass bottle: what breaks? We test the same hit on an empty bottle, a full bottle and a half-full bottle.",
+    "The empty bottle survives. The full bottle loses its bottom. The half-full bottle survives the same hit.",
+    "Why: the hit pushes the bottle down faster than the water can follow. The pressure at the bottom drops so low that the water boils into vapour bubbles, even at room temperature. The bubbles then collapse violently, and that shock breaks the glass. Researchers filmed it at high speed: the bubbles collapse near the bottom just before it breaks (Pan, Kiyama et al., PNAS, 2017).",
+    "They describe when it happens with a cavitation number, Ca = (p − pv) / (ρ·a·h): pressure minus vapour pressure, divided by water density × acceleration × height of water. Small Ca means bubbles. With half the water (h halved), Ca doubles, so the same hit no longer makes bubbles.",
+    "This video is a 3D simulation (Blender) based on that study; the hit strength and the exact timings are illustrative."
+  ],
+  "sources_detail": [
+    "Pan, Kiyama, Tagawa, Daily, Thomson, Hurd, Truscott, 'Cavitation onset caused by acceleration', PNAS 114 (32): 8470-8474 (2017), doi 10.1073/pnas.1702502114.",
+    "Ca = (p - pv) / (rho a h) and 'cavitation is expected if Ca << 1' (as restated in arXiv 2412.10332); TUAT news 1 Aug 2017: bubbles collapse near the bottom just before the fracture (~3.20 ms). On screen: mechanism only (formula in the description).",
+    "Round 3 (half full survives) follows from the formula: h/2 -> Ca x2 for the same acceleration. Simulated: hit strength, bubble sizes, timing."
+  ],
+  "short": {
+    "round": 2
+  },
+  "sound": {
+    "mode": "hybrid",
+    "find": {
+      "mallet": {
+        "q": [
+          "rubber mallet hit",
+          "mallet glass bottle",
+          "bottle tap",
+          "mallet hit"
+        ],
+        "hear": "a rubber mallet hitting the top of a glass bottle",
+        "role": "hit",
+        "make": "a rubber mallet hitting the mouth of a glass bottle",
+        "max_dur": 0.8
+      },
+      "glass": {
+        "q": [
+          "glass bottle break",
+          "bottle smash",
+          "glass break water",
+          "bottle bottom break"
+        ],
+        "hear": "a glass bottle breaking with water splashing",
+        "role": "hit",
+        "make": "the bottom of a glass bottle full of water breaking, water splashing",
+        "max_dur": 2.0
+      }
+    },
+    "events": {
+      "clank": "mallet",
+      "shatter": "glass"
+    }
+  },
+  "cover_t": 20.1
+}
