@@ -10,9 +10,9 @@ import os
 import bpy
 
 FONT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "engine", "fonts", "Poppins-Bold.ttf")
-BASE_COL = (0.50, 0.50, 0.49, 1)        # reads like the press base once lit by the bright Blender studio (0.86 burnt to white)
-DARK_COL = (0.03, 0.035, 0.04, 1)        # "BREAKPOINT"
-GOLD_COL = (0.80, 0.45, 0.02, 1)        # "LAB"
+BASE_COL = (0.28, 0.28, 0.275, 1)        # reads like the press base once lit by the bright Blender studio (0.86 burnt to white)
+DARK_COL = (0.012, 0.013, 0.015, 1)        # "BREAKPOINT"
+GOLD_COL = (0.55, 0.28, 0.01, 1)        # "LAB"
 
 
 def _mat(name, col, rough=0.5, metal=0.0):
@@ -39,7 +39,7 @@ def _text(sc, key, body, size, mat, x, y, z):
     cu = bpy.data.curves.new(key, type='FONT')
     cu.body = body
     cu.size = size
-    cu.extrude = size * 0.04
+    cu.extrude = size * 0.015
     cu.align_x = 'CENTER'
     cu.align_y = 'CENTER'
     try:
@@ -64,20 +64,15 @@ def add_logo_base(sc, width=0.40, height=0.06, depth=0.26, top_z=0.0):
     base.modifiers[-1].segments = 3
     base.data.materials.append(_mat("BL_LabBase", BASE_COL, 0.85))
     _link(sc, base, "LabBase")
-    # logo: BREAKPOINT + LAB on one line, ~78% of the base width, centred on the front face
+    # logo: one text object "BREAKPOINT LAB" (dark + gold per character), centred by Blender itself,
+    # never wider than 78% of the base
     size = height * 0.42
-    y = -depth / 2 - 0.0006
-    z = top_z - height / 2
-    bp = _text(sc, "LogoBreakpoint", "BREAKPOINT", size, _mat("BL_LogoDark", DARK_COL, 0.9), 0, y, z)
-    lab = _text(sc, "LogoLab", "LAB", size, _mat("BL_LogoGold", GOLD_COL, 0.8, 0.0), 0, y, z)
+    lg = _text(sc, "Logo", "BREAKPOINT LAB", size, _mat("BL_LogoDark", DARK_COL, 0.9), 0, -depth / 2 - 0.0006, top_z - height / 2)
+    lg.data.materials.append(_mat("BL_LogoGold", GOLD_COL, 0.8, 0.0))
+    for i in range(len("BREAKPOINT "), len("BREAKPOINT LAB")):
+        lg.data.body_format[i].material_index = 1
     for vl in sc.view_layers:
-        vl.update()                                   # real text widths (font metrics), then lay out on one line
-    w_bp, w_lab, gap = bp.dimensions.x, lab.dimensions.x, size * 0.35
-    k = min(1.0, 0.78 * width / (w_bp + gap + w_lab))  # never wider than 78% of the base
-    for o in (bp, lab):
-        o.scale = (k, k, k)
-    w_bp, w_lab, gap = w_bp * k, w_lab * k, gap * k
-    x0 = -(w_bp + gap + w_lab) / 2
-    bp.location.x = x0 + w_bp / 2
-    lab.location.x = x0 + w_bp + gap + w_lab / 2
+        vl.update()
+    k = min(1.0, 0.78 * width / max(lg.dimensions.x, 1e-6))
+    lg.scale = (k, k, k)
     return base
