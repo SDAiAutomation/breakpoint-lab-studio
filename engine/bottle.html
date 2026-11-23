@@ -24,7 +24,7 @@ const COL={green:'#1F9D55',red:'#E0303F',ink:'#1d2126',sub:'#5b636c',brand:'#F7C
 
 // ---------------------------------------------------------------- timeline
 const D_={hook:2.4,title:1.3,setup:0.5,question:2.8,qFirst:2.2,swing:0.25,after:0.9,rpGap:0.25,replay:3.0,stampGap:0.3,
-          stampHold:0.9,fact:2.7,explainLead:0.8,line:2.2,explainTail:1.8,outro:6.5};
+          stampHold:0.9,fact:3.2,explainLead:0.8,line:3.2,explainTail:1.8,outro:6.5};
 const RP_MAP=[[0,-2],[0.12,0],[0.55,3.4],[1,60]];         // slow motion: video fraction -> physical ms (slowest at the bubbles)
 function mapPW(m,u){for(let i=0;i<m.length-1;i++){const [u0,t0]=m[i],[u1,t1]=m[i+1];if(u<=u1)return t0+(t1-t0)*(u-u0)/(u1-u0);}return m[m.length-1][1];}
 const T_BREAK=3.2;                                       // ms after the hit (same constant as the Blender script)
@@ -150,8 +150,8 @@ function overlay(cfg,T,t,p){
     return;}
   if(t<T.explain[0]+0.3){c.save();c.globalAlpha=1-fade(T.explain[0],t,0.3);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
   if(t<T.outro[0]){const e=cfg.explain,t0=T.explain[0],n=e.lines.length;
-    ctxt(e.title,W/2,352,fitText(e.title,960,56),COL.ink,fade(t0,t));
-    e.lines.forEach((l,i)=>{const isF=/=/.test(l);ctxt(l,W/2,414+i*46,fitText(l,960,isF?44:38),isF?COL.blue:(i===n-1?COL.green:COL.sub),fade(t0+D_.explainLead+i*D_.line,t,0.3));});
+    ctxt(e.title,W/2,350,fitText(e.title,960,60),COL.ink,fade(t0,t));
+    e.lines.forEach((l,i)=>{const isF=/=/.test(l);ctxt(l,W/2,430+i*62,fitText(l,960,isF?48:46),isF?COL.blue:(i===n-1?COL.green:COL.sub),fade(t0+D_.explainLead+i*D_.line,t,0.3));});
     return;}
   const t0=T.outro[0];
   const nx=cfg.next_test, sw=nx?Math.min(2.6,(T.outro[1]-T.outro[0])*0.4):1e9, sa=fade(t0,t)*(1-fade(t0+sw,t,0.25));
@@ -186,7 +186,11 @@ window.setup=function(cfg){CFG=cfg;DEC=cfg.decimal||'.';TL=buildTimeline(cfg);
 window.poseKeyAt=t=>poseKey(poseAt(TL,t));
 async function drawFrame(t){
   const p=poseAt(TL,t),key=poseKey(p),im=await sceneImage(key);
-  if(im){c.imageSmoothingQuality='high';c.drawImage(im,0,0,W,H);} else placeholder(key,p);
+  // slow push-in on held images (explain, stamp/fact): the picture never freezes ("movement until the end")
+  let z=1;
+  if(t>=TL.explain[0]&&t<TL.outro[0]) z=1+0.10*sm(TL.explain[0],TL.outro[0],t);
+  else for(const R of TL.rounds) if(t>=R.stampT&&t<R.end) z=1+0.05*sm(R.stampT,R.end,t);
+  if(im){c.imageSmoothingQuality='high';const zw=W*z,zh=H*z;c.drawImage(im,(W-zw)/2,(H-zh)*0.62,zw,zh);} else placeholder(key,p);
   if(!window.CLEAN) overlay(CFG,TL,t,p);   // CLEAN: scene only (cover image)
 }
 window.renderFrame=async function(t,type='image/jpeg'){
