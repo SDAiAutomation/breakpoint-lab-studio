@@ -22,6 +22,8 @@ def _mat(name, col, rough=0.5, metal=0.0):
     b.inputs["Base Color"].default_value = col
     b.inputs["Roughness"].default_value = rough
     b.inputs["Metallic"].default_value = metal
+    if "Specular IOR Level" in b.inputs:
+        b.inputs["Specular IOR Level"].default_value = 0.15   # matte print: the bright studio must not wash the logo out
     return m
 
 
@@ -37,7 +39,7 @@ def _text(sc, key, body, size, mat, x, y, z):
     cu = bpy.data.curves.new(key, type='FONT')
     cu.body = body
     cu.size = size
-    cu.extrude = size * 0.02
+    cu.extrude = size * 0.04
     cu.align_x = 'CENTER'
     cu.align_y = 'CENTER'
     try:
@@ -60,14 +62,14 @@ def add_logo_base(sc, width=0.40, height=0.06, depth=0.26, top_z=0.0):
     bpy.ops.object.modifier_add(type='BEVEL')
     base.modifiers[-1].width = 0.003
     base.modifiers[-1].segments = 3
-    base.data.materials.append(_mat("BL_LabBase", BASE_COL, 0.55))
+    base.data.materials.append(_mat("BL_LabBase", BASE_COL, 0.85))
     _link(sc, base, "LabBase")
     # logo: BREAKPOINT + LAB on one line, ~78% of the base width, centred on the front face
     size = height * 0.42
     y = -depth / 2 - 0.0006
     z = top_z - height / 2
-    bp = _text(sc, "LogoBreakpoint", "BREAKPOINT", size, _mat("BL_LogoDark", DARK_COL, 0.4), 0, y, z)
-    lab = _text(sc, "LogoLab", "LAB", size, _mat("BL_LogoGold", GOLD_COL, 0.35, 0.0), 0, y, z)
+    bp = _text(sc, "LogoBreakpoint", "BREAKPOINT", size, _mat("BL_LogoDark", DARK_COL, 0.9), 0, y, z)
+    lab = _text(sc, "LogoLab", "LAB", size, _mat("BL_LogoGold", GOLD_COL, 0.8, 0.0), 0, y, z)
     for vl in sc.view_layers:
         vl.update()                                   # real text widths (font metrics), then lay out on one line
     w_bp, w_lab, gap = bp.dimensions.x, lab.dimensions.x, size * 0.35
