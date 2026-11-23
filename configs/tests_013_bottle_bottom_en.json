@@ -62,11 +62,9 @@
   "explain": {
     "title": "WHY?",
     "lines": [
-      "The bottle moves down, the water lags",
-      "Pressure at the bottom drops",
-      "Vapour bubbles grow, then collapse",
-      "Ca = (p − pᵥ) / (ρ·a·h)",
-      "Small Ca: bubbles. Less water: bigger Ca"
+      "Bottle pushed down, water lags",
+      "Pressure drops: bubbles form",
+      "They collapse: the bottom breaks"
     ]
   },
   "source": [
@@ -87,7 +85,7 @@
   ],
   "sources_detail": [
     "Pan, Kiyama, Tagawa, Daily, Thomson, Hurd, Truscott, 'Cavitation onset caused by acceleration', PNAS 114 (32): 8470-8474 (2017), doi 10.1073/pnas.1702502114.",
-    "Ca = (p - pv) / (rho a h) and 'cavitation is expected if Ca << 1' (as restated in arXiv 2412.10332); TUAT news 1 Aug 2017: bubbles collapse near the bottom just before the fracture (~3.20 ms).",
+    "Ca = (p - pv) / (rho a h) and 'cavitation is expected if Ca << 1' (as restated in arXiv 2412.10332); TUAT news 1 Aug 2017: bubbles collapse near the bottom just before the fracture (~3.20 ms). On screen: mechanism only (formula in the description).",
     "Round 3 (half full survives) follows from the formula: h/2 -> Ca x2 for the same acceleration. Simulated: hit strength, bubble sizes, timing."
   ],
   "short": {

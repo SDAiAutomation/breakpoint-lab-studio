@@ -117,7 +117,7 @@ def build(preview=False, res=(1080, 1920)):
     for o in list(sc.collection.objects):
         bpy.data.objects.remove(o, do_unlink=True)
 
-    glass = principled("BL_Glass", **{"Base Color": (0.86, 0.95, 0.90, 1), "Transmission Weight": 1.0, "Roughness": 0.02, "IOR": 1.5})
+    glass = principled("BL_Glass", **{"Base Color": (0.30, 0.52, 0.98, 1), "Transmission Weight": 1.0, "Roughness": 0.02, "IOR": 1.5})
     water = principled("BL_Water", **{"Base Color": (0.80, 0.92, 1.0, 1), "Transmission Weight": 1.0, "Roughness": 0.0, "IOR": 1.33})
     vapour = principled("BL_Bubble", **{"Base Color": (1, 1, 1, 1), "Transmission Weight": 1.0, "Roughness": 0.0, "IOR": 0.752, "Emission Strength": 0.0})
     rubber = principled("BL_Rubber", **{"Base Color": (0.035, 0.035, 0.04, 1), "Roughness": 0.55})
@@ -144,6 +144,15 @@ def build(preview=False, res=(1080, 1920)):
         s["a"] = (a0 + a1) / 2
     w = obj(sc, "Water", water_mesh(1.0), water)
     w.parent = root
+    bpy.ops.mesh.primitive_cylinder_add(vertices=96, radius=1.0, depth=0.0016, location=(0, 0, 0.0008))
+    pud = bpy.context.object
+    pud.name = "Puddle"
+    pud["bb"] = "Puddle"
+    for c in pud.users_collection:
+        c.objects.unlink(pud)
+    sc.collection.objects.link(pud)
+    pud.data.materials.append(water)
+    bpy.ops.object.shade_smooth()
     # cavitation bubbles: a ring of small vapour pockets on the bottom
     for i in range(60):
         h = (math.sin(i * 12.9898) * 43758.5453) % 1.0
@@ -266,7 +275,7 @@ def build(preview=False, res=(1080, 1920)):
         sc.cycles.glossy_bounces = 4
         sc.cycles.transmission_bounces = 12
         sc.cycles.sample_clamp_indirect = 8.0
-        r.use_persistent_data = True
+        r.use_persistent_data = False
     try:
         sc.view_settings.view_transform = 'AgX'                 # one colour pipeline for every shot
         sc.view_settings.look = 'AgX - Base Contrast'
@@ -285,9 +294,9 @@ def set_pose(p, sc=None):
     t, fill, brk = float(p["t"]), float(p["fill"]), bool(p["breaks"])
     # mallet: resting on the mouth (top of glass at 0.220 m) when raise = 0, 10 cm higher when raise = 1
     hit = t >= 0
-    z = 0.220 + 0.030 + 0.05 * float(p["raise"])
+    z = 0.220 + 0.030 + 0.08 * float(p["raise"])
     if hit:
-        z += -0.0018 * smooth(0, 0.6, t) + 0.004 * smooth(1.0, 12.0, t) + 0.03 * smooth(20, 400, t)   # small rebound
+        z += -0.0018 * smooth(0, 0.6, t) + 0.004 * smooth(1.0, 12.0, t) + 0.012 * smooth(20, 400, t)   # small rebound
     ob["Mallet"].location = (0, 0, z)
     # bottle pushed down ~1.5 mm by the hit (the water lags behind: that is the pressure drop)
     push = 0.0015 * smooth(0, 0.6, t) * (1 - smooth(4, 20, t)) if hit else 0.0
@@ -301,12 +310,18 @@ def set_pose(p, sc=None):
         w.data = water_mesh(fill)
         lag = 0.0012 * smooth(0, 0.6, t) * (1 - smooth(1.5, 3.2, t)) if hit else 0.0
         if brk and hit:
-            k = smooth(T_BREAK + 0.3, T_BREAK + 250, t)
-            w.scale = (1 + 3.5 * k, 1 + 3.5 * k, 1 - 0.95 * k)
-            w.location = (0, 0, lag - 0.004 * k)
+            dt = max(0.0, t - T_BREAK - 0.5) / 1000.0
+            fall = 0.5 * 9.81 * dt * dt + 0.8 * dt              # pushed out by the collapse, then gravity
+            w.scale = (1, 1, 1)
+            w.location = (0, 0, lag - fall)
+            w.hide_render = w.hide_viewport = fall > WATER_TOP + 0.01
         else:
             w.scale = (1, 1, 1)
             w.location = (0, 0, lag)
+    pd = ob["Puddle"]
+    pr = 0.11 * smooth(T_BREAK + 5, T_BREAK + 450, t) if (brk and hit and fill > 0.01) else 0.0
+    pd.hide_render = pd.hide_viewport = pr < 0.002
+    pd.scale = (max(pr, 1e-4), max(pr, 1e-4), 1)
     # bubbles: only when the bottle breaks (full): grow from T_BUBBLE, collapse at T_COLLAPSE
     for i in range(60):
         b = ob[f"Bubble{i}"]
