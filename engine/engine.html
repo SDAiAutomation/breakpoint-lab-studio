@@ -344,7 +344,7 @@ vec3 shade(vec2 fc){
     } else {
       vec3 alb=vec3(0.8); float spec_=0.2, gloss=16.0, refl=0.0;
       if(m<2.5){ alb=vec3(0.86,0.86,0.84)*(0.96+0.04*hash3(floor(p*90.0))); spec_=0.05;
-        if(n.z>0.9 && mode<2.5){ vec2 lu=vec2((p.x+0.62)/1.24,(p.y-0.055)/0.19);
+        if(n.z>0.9 && mode<2.5){ vec2 lu=vec2((p.x+0.44)/0.88,(p.y-0.083)/0.135);   // logo kept inside the wide shot (was ±0.62: BREAKPOINT cut at the frame edge)
           if(lu.x>0.0&&lu.x<1.0&&lu.y>0.0&&lu.y<1.0){ float lg=texture2D(logo,vec2(lu.x,1.0-lu.y)).a; alb=mix(alb,lu.x>0.735?vec3(0.85,0.62,0.05):vec3(0.16,0.17,0.19),lg*0.9); } } }
       else if(m<3.5){ alb=vec3(0.62,0.64,0.67)*(0.94+0.06*hash3(floor(vec3(p.x*700.0,p.y*4.0,p.z*700.0)))); spec_=0.8; gloss=60.0; refl=0.35; }
       else if(m<4.5){ alb=vec3(0.75,0.76,0.78)*(0.95+0.05*hash3(floor(vec3(p.x*6.0,p.y*500.0,p.z*6.0)))); spec_=1.3; gloss=140.0; refl=0.8; }

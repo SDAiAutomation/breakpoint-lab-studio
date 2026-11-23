@@ -57,6 +57,7 @@ Chaîne YouTube/TikTok **Breakpoint Lab**, handle **@BreakpointLabTV**. Séries 
 
 ## Effet « comment il a fait ça ? »
 - Le rendu doit avoir l'air d'un vrai labo filmé : matières crédibles, ombres, lumière, ralenti net. Le chiffre mesuré s'affiche en direct (chrono, force, compteur), comme un instrument.
+- **Logo de la chaîne** : « BREAKPOINT » (gris foncé) + « LAB » (or), Poppins Bold, sur la face avant du socle gris clair, centré, le même dans toutes les scènes (moteur presse : décalque du socle ; Blender : `tools/blender/lab_set.py`, `add_logo_base`). Il doit être lisible dans chaque plan large, au-dessus de la légende de l'appli (y < 1440) ; une config qui zoome au point de le sortir du cadre est refusée. À vérifier sur la planche de contrôle à chaque nouvelle vidéo.
 - Objectif long terme : montrer comment on fait ces vidéos. Chaque rendu archive son **making-of** sur Drive (`making-of/<nom>/` : config, timeline, images clés, planche, rapport son). Ne pas le supprimer.
 
 ## Rendu

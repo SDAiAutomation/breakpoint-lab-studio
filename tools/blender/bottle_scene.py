@@ -13,8 +13,13 @@ and the collapse shock breaks the bottom off. Timings in ms are illustrative (la
 import math
 import sys
 
+import os
+
 import bmesh
 import bpy
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from lab_set import add_logo_base   # noqa: E402  (the BREAKPOINT LAB base, same in every scene)
 
 SCENE = "BL_bottle"
 CUT = 0.028                      # height (m) of the crack ring where the bottom comes off
@@ -190,7 +195,7 @@ def build(preview=False, res=(1080, 1920)):
         part.data.materials.append(m)
         part.parent = mal
     # bench, backdrop, steel plate under the bottle
-    bpy.ops.mesh.primitive_plane_add(size=3, location=(0, 0, -0.004))
+    bpy.ops.mesh.primitive_plane_add(size=3, location=(0, 0, -0.064))   # floor under the lab base
     pl = bpy.context.object
     pl.name = "Bench"
     pl.data.materials.append(bench)
@@ -206,6 +211,7 @@ def build(preview=False, res=(1080, 1920)):
         for c in o.users_collection:
             c.objects.unlink(o)
         sc.collection.objects.link(o)
+    add_logo_base(sc, width=0.40, height=0.06, depth=0.26, top_z=-0.004)
     for nm, x in (("FlagL", -0.16), ("FlagR", 0.16)):       # black cards: dark edges on the glass
         me = bpy.data.meshes.new(nm)
         me.from_pydata([(0, -0.12, 0), (0, 0.12, 0), (0, 0.12, 0.45), (0, -0.12, 0.45)], [], [(0, 1, 2, 3)])
