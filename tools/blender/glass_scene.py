@@ -37,10 +37,25 @@ AMP_MAX = 0.0045                                     # rim bend at amp = 1 (m), 
 DEF = {}                                             # rest coordinates of the bowl, for the oval mode
 
 
+def densify(pts, n=6):
+    """Catmull-Rom through the profile points: a smooth bowl, no flat bands"""
+    out = []
+    P = [pts[0]] + list(pts) + [pts[-1]]
+    for i in range(1, len(P) - 2):
+        p0, p1, p2, p3 = P[i - 1], P[i], P[i + 1], P[i + 2]
+        for k in range(n):
+            t = k / n
+            out.append(tuple(0.5 * (2 * p1[j] + (-p0[j] + p2[j]) * t + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t * t
+                                    + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * t ** 3) for j in range(2)))
+    out.append(pts[-1])
+    return out
+
+
 def bowl_profile():
-    inner = [(max(0.0, r - WALL), z + (WALL if i == 0 else 0)) for i, (r, z) in enumerate(BOWL_OUT)]
-    inner[-1] = (BOWL_OUT[-1][0] - WALL, RIM_Z - 0.0004)
-    out = list(BOWL_OUT[:-1]) + [(BOWL_OUT[-1][0], RIM_Z - 0.0004), (BOWL_OUT[-1][0] - WALL * 0.5, RIM_Z)]
+    smooth_out = densify(BOWL_OUT)
+    inner = [(max(0.0, r - WALL), z + (WALL if i == 0 else 0)) for i, (r, z) in enumerate(smooth_out)]
+    inner[-1] = (smooth_out[-1][0] - WALL, RIM_Z - 0.0004)
+    out = list(smooth_out[:-1]) + [(smooth_out[-1][0], RIM_Z - 0.0004), (smooth_out[-1][0] - WALL * 0.5, RIM_Z)]
     return out + list(reversed(inner))
 
 
@@ -214,8 +229,9 @@ def set_pose(p, sc=None):
             a = s["a"]
             h = (math.sin((i + 8 * b) * 3.7 + 1.1) * 4375.85) % 1.0
             dt = min(tb, 260.0) / 1000.0
-            v = (0.55 + 0.9 * abs(math.cos(2 * a)) + 0.4 * h) * (1.0 + 0.35 * b)     # m/s
-            dx, dy = math.cos(a) * v * dt, math.sin(a) * v * dt
+            v = (0.12 + 0.18 * abs(math.cos(2 * a)) + 0.08 * h) * (1.0 + 0.25 * b)   # m/s: they stay on the base
+            rr = min(v * dt, 0.11)
+            dx, dy = math.cos(a) * rr, math.sin(a) * rr
             zc = 0.12 + 0.04 * b
             dz = (0.25 + 0.3 * h) * dt - 0.5 * 9.81 * dt * dt
             dz = max(dz, -zc + 0.004)                                                  # lands on the base
@@ -226,9 +242,9 @@ def set_pose(p, sc=None):
     # close = the bowl and the rim, where the oval is seen; k = slow push-in
     kk = float(p.get("k", 0))
     if p.get("cam") == "close":
-        d, look, elev = 0.62 - 0.08 * kk, (0.0, 0.0, 0.138), 0.15
+        d, look, elev = 0.88 - 0.08 * kk, (0.0, 0.0, 0.130), 0.15
     else:
-        d, look, elev = 1.70, (0.0, 0.0, 0.135), 0.21
+        d, look, elev = 1.55, (0.0, 0.0, 0.130), 0.21
     cam = ob["Cam"]
     cam.location = (math.sin(0.30) * d, -math.cos(0.30) * d, elev)
     dx, dy, dz = look[0] - cam.location[0], look[1] - cam.location[1], look[2] - cam.location[2]
