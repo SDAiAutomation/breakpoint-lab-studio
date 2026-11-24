@@ -99,6 +99,8 @@ def build(res=(1080, 1920)):
 
     crystal = principled("BL_Crystal", **{"Base Color": (0.94, 0.97, 1.0, 1), "Transmission Weight": 1.0, "Roughness": 0.0,
                                          "IOR": 1.56})
+    shard = principled("BL_Shard", **{"Base Color": (0.80, 0.86, 0.95, 1), "Transmission Weight": 1.0, "Roughness": 0.08,
+                                     "IOR": 1.56})     # a touch of tint: broken pieces lying on the white base stay visible
     bench = principled("BL_Bench", **{"Base Color": (0.55, 0.57, 0.60, 1), "Roughness": 0.45})
     back = principled("BL_Back", **{"Base Color": (0.20, 0.23, 0.27, 1), "Roughness": 0.8})
     black = principled("BL_Black", **{"Base Color": (0.01, 0.01, 0.012, 1), "Roughness": 1.0})
@@ -114,7 +116,7 @@ def build(res=(1080, 1920)):
             off = 0.5 * b                                  # staggered cracks between the two bands
             a0 = 2 * math.pi * (i + off) / N_SECT
             a1 = a0 + 2 * math.pi / N_SECT * 0.97
-            s = obj(sc, f"Shard{b}_{i}", solid_sweep(f"Shard{b}_{i}", poly, a0, a1, steps=10), crystal)
+            s = obj(sc, f"Shard{b}_{i}", solid_sweep(f"Shard{b}_{i}", poly, a0, a1, steps=10), shard)
             s["a"] = (a0 + a1) / 2
             s["band"] = b
 
