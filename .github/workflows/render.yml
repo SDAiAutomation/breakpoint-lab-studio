@@ -129,7 +129,8 @@ jobs:
           tar -xJf "/tmp/$F" -C "$HOME"
       - name: Scene images ${{ matrix.poses }} (Cycles CPU)
         run: |
-          "$HOME/blender-5.3.0-linux-x64/blender" -b -P tools/blender/bottle_scene.py -- --poses work/timeline.json --out work/bscene --range ${{ matrix.poses }} --samples 96 2>&1 | grep -E "rendered|Error|Traceback" || true
+          SCN=$(python3 -c "import json;print(json.load(open('work/config.json')).get('blender_scene','tools/blender/bottle_scene.py'))")
+          "$HOME/blender-5.3.0-linux-x64/blender" -b -P "$SCN" -- --poses work/timeline.json --out work/bscene --range ${{ matrix.poses }} --samples 96 2>&1 | grep -E "rendered|Error|Traceback" || true
           echo "$(ls work/bscene/*.jpg | wc -l) images"
           test -n "$(ls work/bscene/*.jpg 2>/dev/null)"
       - name: Shard id

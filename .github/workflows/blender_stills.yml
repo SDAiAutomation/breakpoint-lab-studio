@@ -75,7 +75,8 @@ jobs:
           SAMPLES: ${{ inputs.samples }}
         run: |
           START=$(date +%s)
-          "$BLENDER" -b -P tools/blender/bottle_scene.py -- --poses work/poses_sel.json --out work/bscene --samples "$SAMPLES" 2>&1 | grep -E "rendered|Error|Traceback|error" || true
+          SCN=$(python3 -c "import json;print(json.load(open('work/config.json')).get('blender_scene','tools/blender/bottle_scene.py'))")
+          "$BLENDER" -b -P "$SCN" -- --poses work/poses_sel.json --out work/bscene --samples "$SAMPLES" 2>&1 | grep -E "rendered|Error|Traceback|error" || true
           N=$(ls work/bscene/*.jpg | wc -l); T=$(( $(date +%s) - START ))
           echo "$N images in ${T}s ($(( T / (N>0?N:1) )) s per image)" | tee work/blender_speed.txt
           test "$N" -gt 0
