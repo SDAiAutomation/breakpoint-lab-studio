@@ -74,7 +74,7 @@ function poseAt(T,t){
     const R=T.hero;return {fill:R.fill,breaks:R.breaks,raise:0.6,t:900,cam:'wide',k:0};}
   let R=T.rounds[0];for(const r of T.rounds) if(t>=r.start) R=r;
   const base={fill:R.fill,breaks:R.breaks,cam:'wide',k:0};
-  if(t<R.swing0){const u=clamp((t-R.start)/(R.swing0-R.start),0,1);return {...base,raise:0.84+0.16*u*(2-u),t:-1000};}   // slow wind-up: never a still frame
+  if(t<R.swing0){const u=clamp((t-R.start)/(R.swing0-R.start),0,1);return {...base,raise:0.5+0.5*u*(2-u),t:-1000};}   // slow wind-up, big enough to read under the text: never a still frame
   if(t<R.hitT){const u=(t-R.swing0)/D_.swing;return {...base,raise:1-u*u,t:-1000};}
   if(t<R.afterEnd) return {...base,raise:0,t:Math.min(900,(t-R.hitT)*1000)};
   if(R.replay&&t>=R.replayT0&&t<R.replayT1){const u=(t-R.replayT0)/(R.replayT1-R.replayT0);return {...base,raise:0,t:mapPW(RP_MAP,u),cam:'close',k:u};}
