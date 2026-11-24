@@ -23,8 +23,8 @@ const out=document.getElementById('out'),c=out.getContext('2d');const W=1080,H=1
 const COL={green:'#1F9D55',red:'#E0303F',ink:'#1d2126',sub:'#5b636c',brand:'#F7C21A',blue:'#2F6FE0'};
 
 // ---------------------------------------------------------------- timeline
-const D_={hook:2.4,title:1.3,setup:0.5,question:2.8,qFirst:2.2,swing:0.25,after:0.9,rpGap:0.25,replay:3.0,stampGap:0.3,
-          stampHold:0.9,fact:3.2,explainLead:0.8,line:3.2,explainTail:1.8,outro:6.5};
+const D_={hook:2.4,hookFall:0.35,title:1.3,setup:0.5,question:1.9,qFirst:1.6,swing:0.25,after:0.9,rpGap:0.25,replay:3.0,stampGap:0.3,
+          stampHold:0.9,fact:3.6,explainLead:0.8,line:3.2,explainTail:2.6,outro:7.0};
 const RP_MAP=[[0,-2],[0.12,0],[0.55,3.4],[1,60]];         // slow motion: video fraction -> physical ms (slowest at the bubbles)
 function mapPW(m,u){for(let i=0;i<m.length-1;i++){const [u0,t0]=m[i],[u1,t1]=m[i+1];if(u<=u1)return t0+(t1-t0)*(u-u0)/(u1-u0);}return m[m.length-1][1];}
 const T_BREAK=3.2;                                       // ms after the hit (same constant as the Blender script)
@@ -32,6 +32,7 @@ const T_BREAK=3.2;                                       // ms after the hit (sa
 function buildTimeline(cfg){
   const T={rounds:[],events:[]},ev=e=>T.events.push(e);
   let t=D_.hook;T.hook=[0,D_.hook];
+  ev({type:'clank',t:D_.hookFall,gain:0.8});                // the hook's hit (mallet falls from frame 0)
   cfg.rounds.forEach((r,i)=>{
     const R={cfg:r,i,fill:r.fill,breaks:!!r.breaks,replay:r.replay!=null?!!r.replay:!!r.breaks};
     R.start=t;ev({type:'round',t});
@@ -63,14 +64,17 @@ function buildTimeline(cfg){
 // fill 0/0.5/1, breaks, raise (mallet 1 = up, 0 = on the mouth), t (ms after the hit), cam wide|close, k (camera push 0..1)
 const q=(x,s)=>Math.round(x/s)*s;
 function poseAt(T,t){
-  if(t<T.hook[1]){                                        // hook: the hero round in slow motion, stopped before the break
-    const R=T.hero,u=t/T.hook[1];return {fill:R.fill,breaks:R.breaks,raise:0,t:lerp(-1.5,2.6,u),cam:'close',k:u};}
+  if(t<T.hook[1]){                                        // hook: motion from frame 0 (YouTube Studio, 013: a still opening lost 3 viewers in 4)
+    const R=T.hero;                                       // 0-0.35 s: the mallet falls (wide); then slow-mo up to just before the break, frozen
+    if(t<D_.hookFall){const u=t/D_.hookFall;return {fill:R.fill,breaks:R.breaks,raise:1-u*u,t:-1000,cam:'wide',k:0};}
+    const u=clamp((t-D_.hookFall)/(T.hook[1]-0.35-D_.hookFall),0,1);
+    return {fill:R.fill,breaks:R.breaks,raise:0,t:lerp(-0.3,T_BREAK-0.3,u),cam:'close',k:u};}
   if(t>=T.explain[0]){
     if(t<T.outro[0]){const R=T.hero;return {fill:R.fill,breaks:R.breaks,raise:0,t:2.2,cam:'close',k:0.5};}
     const R=T.hero;return {fill:R.fill,breaks:R.breaks,raise:0.6,t:900,cam:'wide',k:0};}
   let R=T.rounds[0];for(const r of T.rounds) if(t>=r.start) R=r;
   const base={fill:R.fill,breaks:R.breaks,cam:'wide',k:0};
-  if(t<R.swing0) return {...base,raise:1,t:-1000};
+  if(t<R.swing0){const u=clamp((t-R.start)/(R.swing0-R.start),0,1);return {...base,raise:0.84+0.16*u*(2-u),t:-1000};}   // slow wind-up: never a still frame
   if(t<R.hitT){const u=(t-R.swing0)/D_.swing;return {...base,raise:1-u*u,t:-1000};}
   if(t<R.afterEnd) return {...base,raise:0,t:Math.min(900,(t-R.hitT)*1000)};
   if(R.replay&&t>=R.replayT0&&t<R.replayT1){const u=(t-R.replayT0)/(R.replayT1-R.replayT0);return {...base,raise:0,t:mapPW(RP_MAP,u),cam:'close',k:u};}
@@ -131,10 +135,9 @@ function overlay(cfg,T,t,p){
     let R=T.rounds[0];for(const r of T.rounds) if(t>=r.start) R=r;const r=R.cfg, stampOn=t>=R.stampT;
     if(t<R.titleEnd+0.2){const a=1-fade(R.titleEnd-0.1,t,0.3),pp=pop(R.start,t);c.save();c.translate(W/2,430);c.scale(pp,pp);ctxt(r.title,0,0,fitText(r.title,960,72),COL.ink,a);c.restore();}
     else if(t<R.qStart) fillBadge(R,fade(R.titleEnd,t));
-    else if(t<R.swing0){const a=fade(R.qStart,t)*(1-fade(R.swing0-0.15,t,0.15)),pp=1+0.05*Math.sin((t-R.qStart)*Math.PI*4);
+    else if(t<R.hitT){const a=fade(R.qStart,t)*(1-fade(R.hitT-0.1,t,0.1)),pp=1+0.05*Math.sin((t-R.qStart)*Math.PI*4);
       c.save();c.translate(W/2,415);c.scale(pp,pp);ctxt(r.question,0,0,fitText(r.question,960,92),COL.red,a);c.restore();
-      ctxt(r.question_sub,W/2,515,fitText(r.question_sub,900,40),COL.ink,a);
-      const n=Math.ceil(R.qEnd-t);if(n>=1&&n<=3&&t>R.qEnd-3) ctxt(String(n),W/2,590,56,COL.ink,a);}
+      ctxt(r.question_sub,W/2,515,fitText(r.question_sub,900,40),COL.ink,a);}   // no 3-2-1: the bet is made while the mallet moves
     else if(!stampOn&&t<R.replayT0) fillBadge(R,1);
     if(R.replay&&t>=R.replayT0&&t<R.replayT1){const a=fade(R.replayT0,t,0.15)*(1-fade(R.replayT1-0.15,t,0.15));
       c.save();c.globalAlpha=a*0.9;c.fillStyle='#000';c.fillRect(0,640,W,16);c.fillRect(0,1424,W,16);c.restore();
