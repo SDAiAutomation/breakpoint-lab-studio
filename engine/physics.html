@@ -253,7 +253,7 @@ function ballCenter(g,kind,p,z){              // sit the ball on the lane surfac
 }
 
 // ---------------------------------------------------------------- timeline
-const D={hook:2.6,title:1.4,show:2.6,question:3.0,go:0.25,after:0.7,settle:1.0,stampHold:0.9,fact:4.0,explain:9.5,outro:6.0};
+const D={hook:2.6,title:1.4,show:2.6,question:2.2,go:0.25,after:0.7,settle:1.0,stampHold:0.9,fact:4.0,explain:9.5,outro:6.0};
 const SLOW=0.25;
 function buildTimeline(cfg){
   const T={rounds:[],events:[]};let t=0;const S=cfg.scale_m||2;
@@ -353,7 +353,7 @@ function overlay(cfg,T,t,s){
     else if(t<R.go){const a=fade(R.qStart,t)*(1-fade(R.go-0.15,t,0.15)),p=1+0.05*Math.sin((t-R.qStart)*Math.PI*4);
       c.save();c.translate(W/2,415);c.scale(p,p);ctxt(r.question,0,0,fitText(r.question,960,104),COL.red,a);c.restore();
       ctxt(r.question_sub,W/2,515,fitText(r.question_sub,900,40),COL.ink,a);
-      const n=Math.ceil(R.qEnd-t);if(n>=1&&n<=3&&t>R.qEnd-3) ctxt(String(n),W/2,600,64,COL.ink,a);}
+}   // no 3-2-1 countdown (YouTube Studio, 013: a still countdown makes viewers swipe)
     else if(!stampOn){ timers(R,s,t); }
     if(t<R.go) labels(s,t<R.titleEnd?0:fade(R.titleEnd,t));
     if(s.replay){const a=fade(R.replayT0,t,0.15)*(1-fade(R.replayT1-0.15,t,0.15));
