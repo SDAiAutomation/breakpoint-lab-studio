@@ -1,0 +1,230 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<!-- Glass engine (Breakpoint Lab, episode 014): can a voice break a wine glass?
+     The scene is rendered in Blender (Cycles, tools/blender/glass_scene.py); this page lays out the video (timeline),
+     says which scene pose each frame shows, and draws the texts, the sound waves and the live meter on top.
+     Physics (MythBusters ep. 31, 2005; Scientific American): a voice at the glass's own note (resonance) makes the rim
+     flex, each cycle adds to the last until the crystal cracks; the wrong note barely moves it; unamplified, it takes
+     upward of 100 dB (Vendera's break registered 105 dB). Motion is exaggerated to be seen: "Simulated". -->
+<style>
+@font-face{font-family:P;src:url("fonts/Poppins-Bold.ttf");font-weight:700}
+@font-face{font-family:DJ;src:url("fonts/DejaVuSans-Bold.ttf");font-weight:700}
+html,body{margin:0;background:#000}canvas{display:block}
+</style></head>
+<body>
+<canvas id="out" width="1080" height="1920"></canvas>
+<script>
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const sm=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);};
+const lerp=(a,b,t)=>a+(b-a)*t;
+const FPS=30;
+const out=document.getElementById('out'),c=out.getContext('2d');const W=1080,H=1920;
+const COL={green:'#1F9D55',red:'#E0303F',ink:'#1d2126',sub:'#5b636c',brand:'#F7C21A',blue:'#2F6FE0'};
+
+// ---------------------------------------------------------------- timeline
+const D_={hook:2.4,hookGrow:2.05,title:1.3,setup:0.4,question:1.9,qFirst:1.6,climax:2.0,hold:0.7,after:0.9,rpGap:0.25,
+          replay:3.0,stampGap:0.3,stampHold:0.9,fact:4.0,explainLead:0.8,line:3.2,explainTail:2.6,outro:7.5};
+const RP_SPLIT=0.55;                                     // slow motion: first the last oscillations, then the break
+const TB_SHOW=260;                                       // ms of flying shards shown
+
+function buildTimeline(cfg){
+  const T={rounds:[],events:[]},ev=e=>T.events.push(e);
+  let t=D_.hook;T.hook=[0,D_.hook];
+  ev({type:'sing',t0:0,t1:D_.hookGrow,note:'right',gain:0.9,speed:0.25});   // the hook: the slow-mo note, frozen before the break
+  cfg.rounds.forEach((r,i)=>{
+    const R={cfg:r,i,breaks:!!r.breaks,right:r.note==='right',loud:r.loud!==false,amp:r.breaks?1:(r.amp!=null?r.amp:(r.note==='right'?0.45:0.12)),
+             replay:r.replay!=null?!!r.replay:!!r.breaks};
+    R.start=t;ev({type:'round',t});
+    R.titleEnd=t+D_.title;R.qStart=R.titleEnd+D_.setup;R.qEnd=R.qStart+(i===0?D_.qFirst:D_.question);
+    ev({type:'question',t0:R.qStart,t1:R.qEnd});
+    R.resT=R.qEnd+D_.climax;                              // the glass breaks / reaches its biggest wobble
+    R.singEnd=R.breaks?R.resT:R.resT+D_.hold;
+    ev({type:'sing',t0:R.start+0.15,t1:R.singEnd,note:R.right?'right':'wrong',gain:R.loud?1:0.35});
+    if(R.breaks) ev({type:'shatter',t:R.resT,gain:1});
+    R.afterEnd=(R.breaks?R.resT:R.singEnd)+D_.after;
+    if(R.replay){R.replayT0=R.afterEnd+D_.rpGap;R.replayT1=R.replayT0+D_.replay;ev({type:'replay',t0:R.replayT0,t1:R.replayT1});
+      ev({type:'sing',t0:R.replayT0,t1:R.replayT0+RP_SPLIT*D_.replay,note:'right',gain:0.8,speed:0.25});
+      if(R.breaks) ev({type:'shatter',t:R.replayT0+RP_SPLIT*D_.replay,gain:0.8,speed:0.25});}
+    else {R.replayT0=R.replayT1=R.afterEnd;}
+    R.stampT=R.replayT1+D_.stampGap;ev({type:'stamp',t:R.stampT,color:r.stamp.color});
+    R.factT=R.stampT+D_.stampHold;ev({type:'card',t:R.factT});
+    R.end=R.factT+D_.fact;t=R.end;
+    T.rounds.push(R);
+  });
+  const nl=(cfg.explain.lines||[]).length, ex=D_.explainLead+nl*D_.line+D_.explainTail;
+  T.explain=[t,t+ex];ev({type:'explain',t0:t,t1:t+ex});t+=ex;
+  T.outro=[t,t+D_.outro];ev({type:'card',t});ev({type:'cta',t:t+1.4});t+=D_.outro;
+  T.duration=t;
+  T.hero=T.rounds.find(R=>R.breaks)||T.rounds[T.rounds.length-1];
+  T.events.sort((a,b)=>(a.t??a.t0)-(b.t??b.t0));
+  return T;
+}
+
+// ---------------------------------------------------------------- scene pose (what Blender renders for this frame)
+// amp 0..1 (rim bend), ph 0..7 (phase of the oval), tb ms after the break (-1 intact), cam wide|close, k push-in
+const q=(x,s)=>Math.round(x/s)*s;
+const frameOf=t=>Math.round(t*FPS);
+function singAmp(R,t){                                   // how far the rim bends while the voice holds the note
+  if(t<R.start+0.15||t>R.singEnd+0.4) return 0;
+  const grow=sm(R.start+0.15,R.resT,t);
+  const amp=R.breaks?Math.pow(grow,1.6):R.amp*Math.min(1,grow*1.25)*(1-sm(R.singEnd,R.singEnd+0.4,t));
+  return amp;
+}
+function poseAt(T,t){
+  const f=frameOf(t);
+  if(t<T.hook[1]){                                        // hook: moving from frame 0, slow-mo wobble growing, frozen before the break
+    if(t<D_.hookGrow){const u=t/D_.hookGrow;return {amp:lerp(0.3,0.95,u*u),ph:f%8,tb:-1,cam:'close',k:u};}
+    return {amp:0.95,ph:0,tb:-1,cam:'close',k:1};}
+  if(t>=T.explain[0]){
+    if(t<T.outro[0]) return {amp:0.6,ph:f%8,tb:-1,cam:'closelow',k:0};   // glass lower: room for the wave      // the oval, looping, under the WHY
+    return {amp:0,ph:0,tb:TB_SHOW,cam:'wide',k:0};}
+  let R=T.rounds[0];for(const r of T.rounds) if(t>=r.start) R=r;
+  if(R.breaks&&t>=R.resT&&!(R.replay&&t>=R.replayT0&&t<R.replayT1))
+    return {amp:0,ph:0,tb:Math.min(TB_SHOW,q((t-R.resT)*1000,10)),cam:'wide',k:0};
+  if(R.replay&&t>=R.replayT0&&t<R.replayT1){const u=(t-R.replayT0)/(R.replayT1-R.replayT0);
+    if(u<RP_SPLIT) return {amp:lerp(0.7,1,u/RP_SPLIT),ph:f%8,tb:-1,cam:'close',k:0.4};
+    return {amp:0,ph:0,tb:q(lerp(0,180,(u-RP_SPLIT)/(1-RP_SPLIT)),3),cam:'close',k:0.4};}
+  const a=singAmp(R,t);
+  return {amp:a,ph:a>0.02?(f*3)%8:0,tb:-1,cam:'wide',k:0};
+}
+function poseKey(p){
+  const amp=q(p.amp,0.05),ph=amp>0?p.ph:0;
+  return `a${amp.toFixed(2)}_p${ph}_b${p.tb<0?-1:Math.round(p.tb)}_${p.cam}_k${q(p.k,0.02).toFixed(2)}`;
+}
+
+// ---------------------------------------------------------------- drawing helpers (same look as the other engines)
+let DEC='.';
+const fade=(t0,t,d=0.25)=>clamp((t-t0)/d,0,1);
+const pop=(t0,t)=>{const k=clamp((t-t0)/0.25,0,1);return 1+0.18*Math.sin(k*Math.PI)*(1-k);};
+function rrect(x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+function panel(x,y,w,h,r,fill,a=1){if(a<=0)return;c.save();c.globalAlpha=a;c.fillStyle=fill;rrect(x,y,w,h,r);c.fill();c.restore();}
+function fitText(s,maxW,size){c.font=`700 ${size}px P, DJ`;while(c.measureText(s).width>maxW&&size>18){size-=2;c.font=`700 ${size}px P, DJ`;}return size;}
+function ctxt(s,x,y,size,color,a=1){if(a<=0)return;c.save();c.globalAlpha=a;c.font=`700 ${size}px P, DJ`;c.textAlign='center';c.textBaseline='middle';
+  c.lineJoin='round';c.lineWidth=size*0.16;c.strokeStyle='rgba(255,255,255,0.85)';c.strokeText(s,x,y);
+  c.shadowColor='rgba(0,0,0,0.18)';c.shadowBlur=size*0.12;c.shadowOffsetY=size*0.04;c.fillStyle=color;c.fillText(s,x,y);c.restore();}
+function pill(s,x,y,size,fill,a=1){if(a<=0)return;const fs=size;c.font=`700 ${fs}px P, DJ`;const w=c.measureText(s).width+fs*1.1;
+  panel(x-w/2,y-fs*0.85,w,fs*1.7,fs*0.85,fill,a);c.save();c.globalAlpha=a;c.font=`700 ${fs}px P, DJ`;c.textAlign='center';c.textBaseline='middle';c.fillStyle='#fff';c.fillText(s,x,y+1);c.restore();}
+function drawHandle(cfg){
+  if(!cfg.handle) return;
+  c.save(); c.font='700 24px P, DJ'; c.textBaseline='middle'; c.textAlign='left';
+  const tw=c.measureText(cfg.handle).width, gap=12, dot=7, y=256, x=W/2-(tw+gap+2*dot)/2;
+  c.fillStyle='#f5c400'; c.beginPath(); c.arc(x+dot,y,dot,0,Math.PI*2); c.fill();
+  c.lineWidth=2; c.strokeStyle='rgba(22,24,29,0.85)'; c.stroke();
+  c.globalAlpha=0.8; c.fillStyle='#2a2e36'; c.fillText(cfg.handle,x+2*dot+gap,y+1); c.restore();
+}
+function waves(t,a,loud,right,y0){                      // the voice: arcs coming from the left (no singer, no speaker)
+  if(a<=0) return;
+  const n=5,sp=loud?1:0.55;
+  c.save();c.lineCap='round';
+  for(let i=0;i<n;i++){const ph=((t*0.9)+i/n)%1, r=lerp(140,620,ph);
+    c.globalAlpha=a*(1-ph)*(loud?0.55:0.3);c.strokeStyle=right?COL.blue:'#8a939c';c.lineWidth=(loud?9:5)*(1-0.5*ph);
+    c.beginPath();c.arc(-60,y0,r,-0.42*sp-0.15,0.42*sp+0.15);c.stroke();}
+  c.restore();
+}
+function meter(R,t,a){                                    // live instrument: the note (right/wrong) and the level
+  if(a<=0) return;
+  const right=R.right, lab=(right?'RIGHT NOTE':'WRONG NOTE')+'  ·  '+(R.loud?(CFG.loud_label||'105 dB'):(CFG.quiet_label||'UNDER 100 dB'));
+  pill('♪ '+lab,W/2,628,30,right?'rgba(47,111,224,0.92)':'rgba(91,99,108,0.92)',a);
+  const lv=(R.loud?1:0.45)*sm(R.start+0.15,R.start+0.6,t);
+  scope(W/2,700,460,62,t,right,lv,a);
+}
+// the wave: the glass's own note (dashed) and the voice (solid). Right note = same wave, the pushes line up;
+// wrong note = a different wave that drifts against it. Height = how loud.
+function scope(cx,cy,w,h,t,right,lv,a){
+  if(a<=0) return;
+  const x0=cx-w/2,cyc=3,fv=right?cyc:cyc*1.45,sp=1.6;
+  c.save();c.globalAlpha=a;
+  panel(x0-14,cy-h/2-10,w+28,h+20,16,'rgba(255,255,255,0.72)',a);
+  c.beginPath();c.rect(x0,cy-h/2-6,w,h+12);c.clip();
+  c.setLineDash([10,9]);c.lineWidth=3;c.strokeStyle='rgba(29,33,38,0.45)';c.beginPath();
+  for(let i=0;i<=120;i++){const x=i/120;c.lineTo(x0+x*w,cy-0.42*h*Math.sin(2*Math.PI*(cyc*x-sp*t)));}
+  c.stroke();c.setLineDash([]);
+  c.lineWidth=5;c.lineJoin='round';c.strokeStyle=right?COL.blue:'#6b747d';c.beginPath();
+  for(let i=0;i<=160;i++){const x=i/160;c.lineTo(x0+x*w,cy-0.48*h*lv*Math.sin(2*Math.PI*(fv*x-sp*t*fv/cyc)));}
+  c.stroke();c.restore();
+}
+
+function overlay(cfg,T,t,p){
+  if(t>=T.hook[1]||cfg.hook_series!==false) ctxt(cfg.series,W/2,292,34,COL.sub,0.9);
+  drawHandle(cfg);
+  if(t<T.hook[1]){const a=1-fade(T.hook[1]-0.3,t,0.3),hn=cfg.hook.length;
+    waves(t,1-fade(D_.hookGrow-0.2,t,0.2),true,true,cfg.glass_y||1130);
+    cfg.hook.forEach((l,i)=>ctxt(l,W/2,400+i*95,fitText(l,960,84),hn>1&&i===hn-1?COL.red:COL.ink,a));return;}
+  if(t<T.hook[1]+0.18){c.save();c.globalAlpha=1-fade(T.hook[1],t,0.18);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
+  if(t<T.explain[0]){
+    let R=T.rounds[0];for(const r of T.rounds) if(t>=r.start) R=r;const r=R.cfg, stampOn=t>=R.stampT;
+    const singOn=t>=R.start+0.15&&t<R.singEnd+0.3, inRp=R.replay&&t>=R.replayT0&&t<R.replayT1;
+    if(singOn&&!inRp) waves(t,fade(R.start+0.15,t,0.3)*(1-fade(R.singEnd,t,0.3)),R.loud,R.right,cfg.glass_y||1130);
+    if(t<R.titleEnd+0.2){const a=1-fade(R.titleEnd-0.1,t,0.3),pp=pop(R.start,t);c.save();c.translate(W/2,430);c.scale(pp,pp);ctxt(r.title,0,0,fitText(r.title,960,72),COL.ink,a);c.restore();}
+    else if(t<R.qStart) {}
+    else if(t<R.resT-0.5){const a=fade(R.qStart,t)*(1-fade(R.resT-0.6,t,0.1)),pp=1+0.05*Math.sin((t-R.qStart)*Math.PI*4);
+      c.save();c.translate(W/2,415);c.scale(pp,pp);ctxt(r.question,0,0,fitText(r.question,960,92),COL.red,a);c.restore();
+      ctxt(r.question_sub,W/2,515,fitText(r.question_sub,900,40),COL.ink,a);}   // gone before the key moment: one thing at a time
+    if(!stampOn&&!inRp&&t>=R.titleEnd) meter(R,t,fade(R.titleEnd,t)*(1-fade(R.afterEnd,t,0.2)));
+    if(inRp){const a=fade(R.replayT0,t,0.15)*(1-fade(R.replayT1-0.15,t,0.15));
+      pill((cfg.replay_label||'SLOW-MO'),W/2,700,28,'rgba(224,48,63,0.92)',a);}
+    if(stampOn){
+      const k=clamp((t-R.stampT)/0.18,0,1),sc2=lerp(2.2,1,k*k)+(k>=1?0.05*Math.exp(-(t-R.stampT-0.18)*10)*Math.sin((t-R.stampT-0.18)*40):0);
+      const col=r.stamp.color==='green'?COL.green:COL.red;
+      c.save();c.translate(W/2,425);c.rotate(-0.08);c.scale(sc2,sc2);c.globalAlpha=Math.min(1,k*1.5);
+      c.strokeStyle=col;c.lineWidth=10;rrect(-330,-72,660,144,22);c.stroke();c.fillStyle='rgba(255,255,255,0.7)';rrect(-330,-72,660,144,22);c.fill();
+      const fs=fitText(r.stamp.text,600,84);c.font=`700 ${fs}px P, DJ`;c.textAlign='center';c.textBaseline='middle';c.fillStyle=col;c.fillText(r.stamp.text,0,5);c.restore();}
+    if(t>=R.factT){const a=fade(R.factT,t,0.3)*(1-fade(R.end-0.25,t));(r.fact||[]).forEach((l,i)=>ctxt(l,W/2,555+i*50,fitText(l,980,38),COL.ink,a));}
+    if(t<R.start+0.3){c.save();c.globalAlpha=1-fade(R.start,t,0.3);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
+    return;}
+  if(t<T.explain[0]+0.3){c.save();c.globalAlpha=1-fade(T.explain[0],t,0.3);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
+  if(t<T.outro[0]){const e=cfg.explain,t0=T.explain[0],n=e.lines.length;
+    ctxt(e.title,W/2,350,fitText(e.title,960,60),COL.ink,fade(t0,t));
+    scope(W/2,672,520,70,t,true,0.9,fade(t0+D_.explainLead+D_.line,t,0.4));   // "same note": the two waves on top of each other
+    e.lines.forEach((l,i)=>{const isF=/=/.test(l);ctxt(l,W/2,430+i*62,fitText(l,960,isF?48:46),isF?COL.blue:(i===n-1?COL.green:COL.sub),fade(t0+D_.explainLead+i*D_.line,t,0.3));});
+    return;}
+  const t0=T.outro[0];
+  const nx=cfg.next_test, sw=nx?Math.min(2.6,(T.outro[1]-T.outro[0])*0.4):1e9, sa=fade(t0,t)*(1-fade(t0+sw,t,0.25));
+  ctxt('SOURCE',W/2,345,28,COL.sub,sa);
+  cfg.source.forEach((l,i)=>ctxt(l,W/2,395+i*48,fitText(l,980,32),COL.ink,sa));
+  if(nx&&t>=t0+sw){const na=fade(t0+sw+0.1,t,0.25);ctxt(cfg.next_label||'NEXT TEST',W/2,345,30,COL.sub,na);ctxt(nx,W/2,425,fitText(nx,960,62),COL.red,na);}
+  if(t>=t0+1.4){const a=fade(t0+1.4,t,0.25),pp=pop(t0+1.4,t);
+    c.save();c.translate(W/2,560);c.scale(pp,pp);panel(-380,-50,760,100,50,COL.brand,a);
+    c.font=`700 ${fitText(cfg.cta,700,42)}px P, DJ`;c.textAlign='center';c.textBaseline='middle';c.globalAlpha=a;c.fillStyle=COL.ink;c.fillText(cfg.cta,0,2);c.restore();}
+}
+
+// ---------------------------------------------------------------- scene images
+const IMG={};
+function loadImg(src){return new Promise(res=>{const im=new Image();im.onload=()=>res(im);im.onerror=()=>res(null);im.src=src;});}
+async function sceneImage(key){
+  if(!(key in IMG)) IMG[key]=await loadImg((CFG.scene_dir||'../work/bscene')+'/'+key+'.jpg');
+  return IMG[key];
+}
+function placeholder(key,p){                              // before the Blender render: grey stage + the pose, so overlays can be checked
+  const g=c.createLinearGradient(0,0,0,H);g.addColorStop(0,'#c9ced4');g.addColorStop(1,'#8d949c');c.fillStyle=g;c.fillRect(0,0,W,H);
+  c.save();c.fillStyle='rgba(255,255,255,0.35)';const bw=180,bh=560,by=p.cam==='close'?820:900;rrect(W/2-bw/2,by,bw,bh,40);c.fill();
+  c.font='700 26px P, DJ';c.textAlign='center';c.fillStyle='#1d2126';c.fillText(key,W/2,1500);c.restore();
+}
+
+// ---------------------------------------------------------------- API used by render.js
+let CFG=null,TL=null;
+window.setup=function(cfg){CFG=cfg;DEC=cfg.decimal||'.';TL=buildTimeline(cfg);
+  const seen=new Map();const N=Math.round(TL.duration*FPS);
+  for(let i=0;i<N;i++){const p=poseAt(TL,i/FPS),k=poseKey(p);if(!seen.has(k)) seen.set(k,{key:k,...p});}
+  return {duration:TL.duration,events:TL.events,poses:[...seen.values()],rounds:TL.rounds.map(R=>({title:R.cfg.title,breaks:R.breaks,hit:R.resT}))};};
+window.poseKeyAt=t=>poseKey(poseAt(TL,t));
+async function drawFrame(t){
+  const p=poseAt(TL,t),key=poseKey(p),im=await sceneImage(key);
+  // slow push-in on held images (explain, stamp/fact): the picture never freezes ("movement until the end")
+  let z=1;
+  if(t>=TL.explain[0]&&t<TL.outro[0]) z=1+0.10*sm(TL.explain[0],TL.outro[0],t);
+  else for(const R of TL.rounds) if(t>=R.stampT&&t<R.end) z=1+0.05*sm(R.stampT,R.end,t);
+  if(im){c.imageSmoothingQuality='high';const zw=W*z,zh=H*z;c.drawImage(im,(W-zw)/2,(H-zh)*0.62,zw,zh);} else placeholder(key,p);
+  if(!window.CLEAN) overlay(CFG,TL,t,p);   // CLEAN: scene only (cover image)
+}
+window.renderFrame=async function(t,type='image/jpeg'){
+  const L=0.45;
+  if(t>TL.duration-L){                                    // loop: fade the last frame into the first (same as the press engine)
+    await drawFrame(0);const first=document.createElement('canvas');first.width=W;first.height=H;first.getContext('2d').drawImage(out,0,0);
+    await drawFrame(t);c.save();c.globalAlpha=clamp((t-(TL.duration-L))/L,0,1);c.drawImage(first,0,0);c.restore();
+    return out.toDataURL(type,0.93);}
+  await drawFrame(t);return out.toDataURL(type,0.93);
+};
+window.ready=Promise.all([document.fonts.load('700 40px P'),document.fonts.load('700 40px DJ')]).then(()=>true);
+</script>
+</body></html>

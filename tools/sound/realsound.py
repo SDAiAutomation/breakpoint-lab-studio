@@ -115,10 +115,91 @@ def earshot_api():
         return None
 
 
+def _stretch(x, max_len, min_len, sr=16000, hop=800):
+    import numpy as np
+    if len(x) < sr * min_len:
+        return None
+    rms = np.sqrt(np.convolve(x * x, np.ones(hop) / hop, "same")[::hop] + 1e-12)
+    db = 20 * np.log10(rms)
+    loud = db > db.max() - 18
+    ref = np.median(db[loud]) if loud.any() else db.max()
+    ok = loud & (np.abs(db - ref) < 6)
+    best, cur, start = (0, 0), 0, 0
+    for i, v in enumerate(ok):
+        if v:
+            if cur == 0:
+                start = i
+            cur += 1
+            if cur > best[1]:
+                best = (start, cur)
+        else:
+            cur = 0
+    s0, n = best
+    if n * hop / sr < min_len:
+        return None
+    t0 = s0 * hop / sr + 0.05
+    return t0, min(t0 + max_len, (s0 + n) * hop / sr - 0.05)
+
+
+def choose_sustain(api, name, spec, cands, out_dir, takes=2, length=12.0):
+    """a held note (a voice): the steadiest loud stretch of the best-ranked recordings, looped smoothly to `length` s"""
+    import subprocess as sp
+    try:
+        ranked = api.rank([c["file"] for c in cands], spec["hear"])["results"]
+    except Exception as e:
+        log(f"  {name}: rank failed ({e})")
+        return []
+    by_path = {c["file"]: c for c in cands}
+    picks = []
+    for r in ranked:
+        if r.get("near_silent") or r["verdict"] in ("no match",) or r["z"] < 1.5:
+            continue
+        c = by_path[r["path"]]
+        raw = sp.run(["ffmpeg", "-v", "error", "-i", r["path"], "-ac", "1", "-ar", "16000", "-f", "f32le", "-"],
+                     capture_output=True).stdout
+        import numpy as np
+        st = _stretch(np.frombuffer(raw, np.float32), 4.0, 1.2) if raw else None
+        if not st:
+            log(f"  {name}: {r['name']} has no steady held note, skipped")
+            continue
+        a0, a1 = st
+        try:
+            real = api.realness(r["path"], start=a0, end=a1)
+        except Exception as e:
+            real = {"p_real": None, "verdict": f"not checked ({e})"}
+        if real.get("p_real") is not None and real["p_real"] < 0.6:
+            log(f"  {name}: {r['name']} {a0:.2f}-{a1:.2f} not clearly a real recording, skipped")
+            continue
+        seg = (out_dir / f"{name}_seg{len(picks) + 1}.wav").resolve()
+        take = (out_dir / f"{name}_{len(picks) + 1}.wav").resolve()
+        sh(["ffmpeg", "-v", "error", "-y", "-ss", f"{a0:.3f}", "-to", f"{a1:.3f}", "-i", r["path"], str(seg)])
+        d = a1 - a0
+        xf = min(0.4, d / 4)
+        n = max(1, int(math.ceil(length / max(d - xf, 0.3))))
+        ins = []
+        for _ in range(n + 1):
+            ins += ["-i", str(seg)]
+        f, last = [], "[0:a]"
+        for i in range(1, n + 1):
+            f.append(f"{last}[{i}:a]acrossfade=d={xf:.2f}:c1=qsin:c2=qsin[x{i}]")
+            last = f"[x{i}]"
+        f.append(f"{last}atrim=0:{length},afade=t=in:d=0.25,afade=t=out:st={length - 0.15}:d=0.15[o]")
+        sh(["ffmpeg", "-v", "error", "-y", *ins, "-filter_complex", ";".join(f), "-map", "[o]", str(take)])
+        picks.append(dict(c, take=str(take), trim=[a0, a1], z_file=r["z"], p_real=real.get("p_real"),
+                          real_verdict=real.get("verdict"), hear=spec["hear"], looped_to=length))
+        log(f"  {name}: take {len(picks)} = {r['name']} {a0:.2f}-{a1:.2f} s held note, looped to {length:.0f} s "
+            f"(match z {r['z']:+.1f}, real p {real.get('p_real')})  '{c.get('title')}' by {c.get('creator')}")
+        if len(picks) >= takes:
+            break
+    return picks
+
+
 def choose(api, name, spec, cands, out_dir, takes=3):
     """rank the candidates by how they sound against spec['hear'], take the clean single hits of the best one(s)"""
     if not cands or api is None:
         return []
+    if spec.get("sustain"):
+        return choose_sustain(api, name, spec, cands, out_dir)
     hear = spec["hear"]
     try:
         ranked = api.rank([c["file"] for c in cands], hear)["results"]
@@ -196,6 +277,8 @@ def cue_times(ev):
         return ts
     if ty == "replay":
         return [max(0.0, ev["t0"] - 0.1)]
+    if ty == "sing":                                        # a held note: one cue at its start, lasting to t1
+        return [ev["t0"]]
     if ty == "stamp":
         return [ev["t"] + 0.17]
     if "t" in ev:
@@ -227,6 +310,10 @@ def build_sheet(tl, cfg, bank, video, roles_cfg):
             if speed < 1:                                     # slow motion: a lower, heavier take of the same sound
                 c["pitch"] = -12 if speed <= 0.25 else round(12 * math.log2(speed), 1)
                 c["lowpass"] = 6000
+            if spec.get("sustain") and "t1" in ev:            # a held note lasts the whole event (the voice)
+                c["max_dur"] = round(ev["t1"] - ev["t0"], 3)
+                if ev.get("note") == "wrong":                # the wrong note: the same voice, a few semitones off
+                    c["pitch"] = c.get("pitch", 0) + float(spec.get("wrong_semitones", 4))
             if spec.get("anchor"):
                 c["anchor"] = spec["anchor"]
             if spec.get("max_dur"):
