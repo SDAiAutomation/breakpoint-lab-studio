@@ -76,7 +76,7 @@ function poseAt(T,t){
     if(t<D_.hookGrow){const u=t/D_.hookGrow;return {amp:lerp(0.3,0.95,u*u),ph:f%8,tb:-1,cam:'close',k:u};}
     return {amp:0.95,ph:0,tb:-1,cam:'close',k:1};}
   if(t>=T.explain[0]){
-    if(t<T.outro[0]) return {amp:0.6,ph:f%8,tb:-1,cam:'close',k:0};      // the oval, looping, under the WHY
+    if(t<T.outro[0]) return {amp:0.6,ph:f%8,tb:-1,cam:'closelow',k:0};   // glass lower: room for the wave      // the oval, looping, under the WHY
     return {amp:0,ph:0,tb:TB_SHOW,cam:'wide',k:0};}
   let R=T.rounds[0];for(const r of T.rounds) if(t>=r.start) R=r;
   if(R.breaks&&t>=R.resT&&!(R.replay&&t>=R.replayT0&&t<R.replayT1))
@@ -124,9 +124,24 @@ function waves(t,a,loud,right,y0){                      // the voice: arcs comin
 function meter(R,t,a){                                    // live instrument: the note (right/wrong) and the level
   if(a<=0) return;
   const right=R.right, lab=(right?'RIGHT NOTE':'WRONG NOTE')+'  ·  '+(R.loud?(CFG.loud_label||'105 dB'):(CFG.quiet_label||'UNDER 100 dB'));
-  pill('♪ '+lab,W/2,668,30,right?'rgba(47,111,224,0.92)':'rgba(91,99,108,0.92)',a);
-  const lv=(R.loud?1:0.45)*sm(R.start+0.15,R.start+0.6,t),x0=W/2-220,w=440;
-  panel(x0,712,w,14,7,'rgba(29,33,38,0.15)',a);panel(x0,712,w*lv,14,7,R.loud?COL.red:COL.blue,a);
+  pill('♪ '+lab,W/2,628,30,right?'rgba(47,111,224,0.92)':'rgba(91,99,108,0.92)',a);
+  const lv=(R.loud?1:0.45)*sm(R.start+0.15,R.start+0.6,t);
+  scope(W/2,700,460,62,t,right,lv,a);
+}
+// the wave: the glass's own note (dashed) and the voice (solid). Right note = same wave, the pushes line up;
+// wrong note = a different wave that drifts against it. Height = how loud.
+function scope(cx,cy,w,h,t,right,lv,a){
+  if(a<=0) return;
+  const x0=cx-w/2,cyc=3,fv=right?cyc:cyc*1.45,sp=1.6;
+  c.save();c.globalAlpha=a;
+  panel(x0-14,cy-h/2-10,w+28,h+20,16,'rgba(255,255,255,0.72)',a);
+  c.beginPath();c.rect(x0,cy-h/2-6,w,h+12);c.clip();
+  c.setLineDash([10,9]);c.lineWidth=3;c.strokeStyle='rgba(29,33,38,0.45)';c.beginPath();
+  for(let i=0;i<=120;i++){const x=i/120;c.lineTo(x0+x*w,cy-0.42*h*Math.sin(2*Math.PI*(cyc*x-sp*t)));}
+  c.stroke();c.setLineDash([]);
+  c.lineWidth=5;c.lineJoin='round';c.strokeStyle=right?COL.blue:'#6b747d';c.beginPath();
+  for(let i=0;i<=160;i++){const x=i/160;c.lineTo(x0+x*w,cy-0.48*h*lv*Math.sin(2*Math.PI*(fv*x-sp*t*fv/cyc)));}
+  c.stroke();c.restore();
 }
 
 function overlay(cfg,T,t,p){
@@ -161,6 +176,7 @@ function overlay(cfg,T,t,p){
   if(t<T.explain[0]+0.3){c.save();c.globalAlpha=1-fade(T.explain[0],t,0.3);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
   if(t<T.outro[0]){const e=cfg.explain,t0=T.explain[0],n=e.lines.length;
     ctxt(e.title,W/2,350,fitText(e.title,960,60),COL.ink,fade(t0,t));
+    scope(W/2,672,520,70,t,true,0.9,fade(t0+D_.explainLead+D_.line,t,0.4));   // "same note": the two waves on top of each other
     e.lines.forEach((l,i)=>{const isF=/=/.test(l);ctxt(l,W/2,430+i*62,fitText(l,960,isF?48:46),isF?COL.blue:(i===n-1?COL.green:COL.sub),fade(t0+D_.explainLead+i*D_.line,t,0.3));});
     return;}
   const t0=T.outro[0];

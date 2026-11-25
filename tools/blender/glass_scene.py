@@ -243,7 +243,9 @@ def set_pose(p, sc=None):
     # cameras (85 mm): wide = whole glass on the base, glass in the lower-middle (text band clear);
     # close = the bowl and the rim, where the oval is seen; k = slow push-in
     kk = float(p.get("k", 0))
-    if p.get("cam") == "close":
+    if p.get("cam") == "closelow":                       # explain: same close-up, glass lower (room for the wave under the text)
+        d, look, elev = 0.95, (0.0, 0.0, 0.156), 0.15
+    elif p.get("cam") == "close":
         d, look, elev = 0.88 - 0.08 * kk, (0.0, 0.0, 0.130), 0.15
     else:
         d, look, elev = 1.55, (0.0, 0.0, 0.130), 0.21
