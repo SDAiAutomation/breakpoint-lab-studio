@@ -21,7 +21,9 @@ def build(cfg):
     desc = as_list(cfg.get("description"))
     if desc:
         parts.append("THE EXPERIMENT\n" + "\n\n".join(p.strip() for p in desc))
-    sources = as_list(cfg.get("source")) + as_list(cfg.get("sources_detail"))
+    # production notes ("On screen: ...": which figure goes where) stay in the config, not in the public text
+    detail = [s for s in as_list(cfg.get("sources_detail")) if not s.strip().lower().startswith("on screen")]
+    sources = as_list(cfg.get("source")) + detail
     if sources:
         parts.append("SOURCES\n" + "\n".join("- " + s.strip() for s in sources))
     text = "\n\n".join(parts) + "\n"
