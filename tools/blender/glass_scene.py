@@ -32,8 +32,7 @@ FOOT = [(0.0, 0.0), (0.036, 0.0), (0.037, 0.0015), (0.034, 0.0035), (0.012, 0.00
 BOWL_OUT = [(0.0, 0.084), (0.0070, 0.0845), (0.0160, 0.0890), (0.0300, 0.1020), (0.0395, 0.1200), (0.0425, 0.1400),
             (0.0410, 0.1600), (0.0380, 0.1780), (0.0360, 0.1900)]
 WALL = 0.0013
-RIM_Z, CUP_Z, BAND_Z = 0.1900, 0.1060, 0.1460     # rim; the lower cup stays on the stem; shards = 2 bands above it
-N_SECT = 8
+RIM_Z = 0.1900
 AMP_MAX = 0.0045                                     # rim bend at amp = 1 (m), exaggerated to be seen
 DEF = {}                                             # rest coordinates of the bowl, for the oval mode
 
@@ -89,6 +88,213 @@ def deform(o, amp, ph):
     me.update()
 
 
+
+# ---------------------------------------------------------------- fracture: irregular curved shards, jagged remnant
+GROUND = -0.004          # top of the lab base
+N_CHIPS = 36
+
+
+def _bm_from_me(me):
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    return bm
+
+
+def _cut(bm, co, no):
+    """split a closed solid in two along a plane, both halves closed again (the crack faces)"""
+    halves = []
+    for keep_inner in (True, False):
+        h = bm.copy()
+        geom = h.verts[:] + h.edges[:] + h.faces[:]
+        res = bmesh.ops.bisect_plane(h, geom=geom, plane_co=co, plane_no=no, dist=1e-7,
+                                     clear_outer=keep_inner, clear_inner=not keep_inner)
+        cut_edges = [e for e in res["geom_cut"] if isinstance(e, bmesh.types.BMEdge)]
+        if cut_edges:
+            bmesh.ops.holes_fill(h, edges=cut_edges, sides=0)
+        if len(h.verts) >= 4 and len(h.faces) >= 4:
+            halves.append(h)
+        else:
+            h.free()
+    return halves
+
+
+def _split_loose(bm):
+    """a plane through a ring can leave two separate arcs on one side: one piece each"""
+    out = []
+    seen = set()
+    for f0 in bm.faces:
+        if f0.index in seen:
+            continue
+        stack, group = [f0], []
+        seen.add(f0.index)
+        while stack:
+            f = stack.pop()
+            group.append(f)
+            for e in f.edges:
+                for g in e.link_faces:
+                    if g.index not in seen:
+                        seen.add(g.index)
+                        stack.append(g)
+        out.append(group)
+    if len(out) == 1:
+        return [bm]
+    parts = []
+    for group in out:
+        keep = set(group)
+        h = bm.copy()
+        h.faces.index_update()                    # same order as bm: same indices
+        idx = {f.index for f in keep}
+        bmesh.ops.delete(h, geom=[f for f in h.faces if f.index not in idx], context='FACES')
+        bmesh.ops.delete(h, geom=[v for v in h.verts if not v.link_faces], context='VERTS')
+        if len(h.verts) >= 4:
+            parts.append(h)
+        else:
+            h.free()
+    bm.free()
+    return parts
+
+
+def _size(bm):
+    xs = [v.co for v in bm.verts]
+    return max(max(c[k] for c in xs) - min(c[k] for c in xs) for k in range(3))
+
+
+def _centroid(bm):
+    n = len(bm.verts)
+    return Vector([sum(v.co[k] for v in bm.verts) / n for k in range(3)])
+
+
+def fracture(prof):
+    """the bowl broken like crystal: straight cracks (planes) in every direction, pieces of all sizes, curved like the
+    wall they came from; the bottom of the bowl stays on the stem with a pointed, jagged top. Fixed seed: every
+    machine of the render builds exactly the same pieces."""
+    import random
+    rnd = random.Random(14)
+    me = solid_sweep("BowlFrac", prof, steps=160)
+    bm = _bm_from_me(me)
+    bpy.data.meshes.remove(me)
+    pieces = [bm]
+    # 1) three tilted cracks low on the bowl: they give the remnant its jagged top
+    for k in range(3):
+        a = 2 * math.pi * k / 3 + rnd.uniform(-0.4, 0.4)
+        tilt = rnd.uniform(0.20, 0.40)
+        no = Vector((math.cos(a) * math.sin(tilt), math.sin(a) * math.sin(tilt), math.cos(tilt)))
+        co = Vector((0, 0, rnd.uniform(0.108, 0.122)))
+        nxt = []
+        for p in pieces:
+            nxt += _cut(p, co, no)
+            p.free()
+        pieces = nxt
+        nxt = []
+        for p in pieces:
+            p.faces.index_update()
+            nxt += _split_loose(p)
+        pieces = nxt
+    low = min(range(len(pieces)), key=lambda i: min(v.co.z for v in pieces[i].verts))
+    remnant = pieces.pop(low)
+    # 2) the rest cracks again and again: random planes through each piece until it is small (sizes vary)
+    done, todo = [], pieces
+    while todo:
+        p = todo.pop()
+        lim = rnd.uniform(0.018, 0.045)
+        if _size(p) < lim or len(done) + len(todo) > 40:
+            done.append(p)
+            continue
+        c = _centroid(p) + Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-1, 1))) * 0.004
+        ang = rnd.uniform(0, 2 * math.pi)
+        el = rnd.uniform(-0.9, 0.9)
+        no = Vector((math.cos(ang) * math.cos(el), math.sin(ang) * math.cos(el), math.sin(el)))
+        halves = _cut(p, c, no)
+        p.free()
+        for h in halves:
+            h.faces.index_update()
+            todo += _split_loose(h)
+    out = []
+    for i, p in enumerate([remnant] + done):
+        bmesh.ops.recalc_face_normals(p, faces=p.faces)
+        m = bpy.data.meshes.new("Cup" if i == 0 else f"ShardMe_{i}")
+        p.to_mesh(m)
+        p.free()
+        for f in m.polygons:
+            f.use_smooth = True
+        try:                                          # curved wall smooth, crack faces sharp
+            m.set_sharpness_by_angle(angle=math.radians(35))
+        except AttributeError:
+            pass
+        out.append(m)
+    return out
+
+
+def _chip_mesh(name, i):
+    """a tiny flat irregular splinter (1.5-4 mm), placed on the bowl wall where it comes from"""
+    import random
+    rnd = random.Random(1400 + i)
+    a = rnd.uniform(0, 2 * math.pi)
+    z = rnd.uniform(0.125, RIM_Z - 0.003)
+    rr = 0.040
+    base = Vector((rr * math.cos(a), rr * math.sin(a), z))
+    t = Vector((-math.sin(a), math.cos(a), 0))
+    up = Vector((0, 0, 1))
+    nrm = Vector((math.cos(a), math.sin(a), 0)) * WALL
+    sz = rnd.uniform(0.0015, 0.004)
+    pts = [base + t * (math.cos(k * 2.1 + rnd.uniform(-.4, .4)) * sz) + up * (math.sin(k * 2.1 + rnd.uniform(-.4, .4)) * sz)
+           for k in range(3)]
+    vs = pts + [p + nrm for p in pts]
+    me = bpy.data.meshes.new(name)
+    me.from_pydata(vs, [], [(0, 1, 2), (5, 4, 3), (0, 3, 4, 1), (1, 4, 5, 2), (2, 5, 3, 0)])
+    me.update()
+    return me
+
+
+def _center_piece(s):
+    """origin at the piece's own centre (it spins on itself); keeps where it was on the glass"""
+    me = s.data
+    n = len(me.vertices)
+    c = [sum(v.co[k] for v in me.vertices) / n for k in range(3)]
+    for v in me.vertices:
+        v.co.x -= c[0]; v.co.y -= c[1]; v.co.z -= c[2]
+    s["c"] = c
+    s["a"] = math.atan2(c[1], c[0])
+    s["sz"] = max(max(v.co[k] for v in me.vertices) - min(v.co[k] for v in me.vertices) for k in range(3))
+    s.rotation_mode = 'QUATERNION'
+
+
+def throw(s, dt):
+    """one piece dt seconds after the break: outward along the oval + up, gravity, lands on the base and stays
+    there in a random attitude (on its back, on its side...), small pieces go further"""
+    import random
+    rnd = random.Random(s.name)
+    c = Vector(s["c"])
+    a = s["a"] + rnd.uniform(-0.35, 0.35)
+    small = 1.0 - min(1.0, s["sz"] / 0.05)
+    v = (0.10 + 0.10 * abs(math.cos(2 * s["a"])) + rnd.uniform(0.0, 0.08)) * (1.0 + 0.8 * small)
+    vz = rnd.uniform(0.12, 0.45)
+    # final attitude: random axis, at least a quarter turn; spin builds up during the flight
+    ax = Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-0.3, 0.3)))
+    if ax.length < 1e-3:
+        ax = Vector((1, 0, 0))
+    ax.normalize()
+    turn = rnd.uniform(0.5, 1.2) * math.pi
+    yaw = rnd.uniform(-math.pi, math.pi)
+    q_end = Quaternion((0, 0, 1), yaw) @ Quaternion(ax, turn)
+    me = s.data
+    rest = GROUND - min((q_end @ v.co).z for v in me.vertices) + 0.0002
+    t_land = (vz + math.sqrt(vz * vz + 2 * 9.81 * max(0.0, c.z - rest))) / 9.81
+    tf = min(dt, t_land)
+    slide = 0.0
+    if dt > t_land:                                   # after landing: a short slide, then still
+        slide = min(dt - t_land, 0.06) * v * 0.5
+    rr = min(v * tf + slide, 0.045 + 0.07 * small + rnd.uniform(0, 0.02))
+    z = c.z + vz * tf - 0.5 * 9.81 * tf * tf if dt < t_land else rest
+    x, y = c.x + math.cos(a) * rr, c.y + math.sin(a) * rr
+    r = math.hypot(x, y)
+    if r > 0.115:                                     # stays on the base (front edge at 0.13)
+        x, y = x * 0.115 / r, y * 0.115 / r
+    s.location = (x, y, max(z, rest))
+    land = min(1.0, tf / t_land)
+    s.rotation_quaternion = Quaternion().slerp(q_end, land)
+
+
 # ---------------------------------------------------------------- build
 def build(res=(1080, 1920)):
     sc = bpy.data.scenes.get(SCENE) or bpy.data.scenes.new(SCENE)
@@ -109,24 +315,15 @@ def build(res=(1080, 1920)):
     obj(sc, "Foot", solid_sweep("Foot", FOOT, steps=128), crystal)
     prof = bowl_profile()
     obj(sc, "Bowl", solid_sweep("Bowl", prof, steps=160), crystal)              # intact, deformed by the voice
-    obj(sc, "Cup", solid_sweep("Cup", clip_profile(prof, -1.0, CUP_Z), steps=160), crystal)   # stays after the break
-    bands = [(CUP_Z, BAND_Z), (BAND_Z, RIM_Z + 0.001)]
-    for b, (z0, z1) in enumerate(bands):
-        poly = clip_profile(prof, z0, z1)
-        for i in range(N_SECT):
-            off = 0.5 * b                                  # staggered cracks between the two bands
-            a0 = 2 * math.pi * (i + off) / N_SECT
-            a1 = a0 + 2 * math.pi / N_SECT * 0.97
-            me = solid_sweep(f"Shard{b}_{i}", poly, a0, a1, steps=10)
-            n = len(me.vertices)
-            c = [sum(v.co[k] for v in me.vertices) / n for k in range(3)]
-            for v in me.vertices:                          # origin at the shard's own centre: it spins on itself
-                v.co.x -= c[0]; v.co.y -= c[1]; v.co.z -= c[2]
-            s = obj(sc, f"Shard{b}_{i}", me, shard)
-            s["a"] = (a0 + a1) / 2
-            s["band"] = b
-            s["c"] = c
-            s.rotation_mode = 'QUATERNION'
+    pieces = fracture(prof)
+    remnant = pieces.pop(0)
+    obj(sc, "Cup", remnant, crystal)                                            # jagged bottom of the bowl, stays on the stem
+    for i, me in enumerate(pieces):
+        s = obj(sc, f"Shard_{i}", me, shard)
+        _center_piece(s)
+    for i in range(N_CHIPS):                                                    # glitter: tiny chips thrown further
+        s = obj(sc, f"Chip_{i}", _chip_mesh(f"Chip_{i}", i), shard)
+        _center_piece(s)
 
     bpy.ops.mesh.primitive_plane_add(size=3, location=(0, 0, -0.064))   # floor under the lab base
     pl = bpy.context.object
@@ -230,32 +427,12 @@ def set_pose(p, sc=None):
     if not broken:
         deform(bowl, amp, ph)
     # shards: thrown out along the oval (fastest where the rim bent most: theta = 0 and pi), then gravity
-    for b in range(2):
-        for i in range(N_SECT):
-            s = ob[f"Shard{b}_{i}"]
-            s.hide_render = s.hide_viewport = not broken
-            if not broken:
-                continue
-            a = s["a"]
-            h = (math.sin((i + 8 * b) * 3.7 + 1.1) * 4375.85) % 1.0
-            c = s["c"]
-            dt = min(tb, 260.0) / 1000.0
-            v = (0.10 + 0.12 * abs(math.cos(2 * a)) + 0.06 * h) * (1.0 + 0.2 * b)   # m/s outward
-            vz = 0.20 + 0.25 * h
-            rest = 0.006 + 0.002 * b                       # centre height once lying on the base (curved piece)
-            t_land = (vz + math.sqrt(vz * vz + 2 * 9.81 * (c[2] - rest))) / 9.81
-            tf = min(dt, t_land)
-            rr = min(v * tf, 0.07 + 0.03 * h)              # they stay on the base, around the foot
-            zc = c[2] + vz * tf - 0.5 * 9.81 * tf * tf
-            if dt >= t_land:
-                zc = rest
-            s.location = (c[0] + math.cos(a) * rr, c[1] + math.sin(a) * rr, zc)
-            # tumble outward about the tangent axis; landed = lying on its outer face, at a small random yaw
-            land = min(1.0, tf / t_land)
-            tilt = land * (math.pi / 2) * (0.85 + 0.3 * h)
-            tang = Vector((-math.sin(a), math.cos(a), 0.0))
-            q = Quaternion(Vector((0, 0, 1)), (h - 0.5) * 1.2 * land) @ Quaternion(tang, -tilt)
-            s.rotation_quaternion = q
+    for s in sc.objects:
+        if "c" not in s:
+            continue
+        s.hide_render = s.hide_viewport = not broken
+        if broken:
+            throw(s, min(tb, 260.0) / 1000.0)
     # cameras (85 mm): wide = whole glass on the base, glass in the lower-middle (text band clear);
     # close = the bowl and the rim, where the oval is seen; k = slow push-in
     kk = float(p.get("k", 0))
