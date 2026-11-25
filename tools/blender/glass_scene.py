@@ -192,23 +192,29 @@ def fracture(prof):
         pieces = nxt
     low = min(range(len(pieces)), key=lambda i: min(v.co.z for v in pieces[i].verts))
     remnant = pieces.pop(low)
-    # 2) the rest cracks again and again: random planes through each piece until it is small (sizes vary)
-    done, todo = [], pieces
-    while todo:
-        p = todo.pop()
-        lim = rnd.uniform(0.018, 0.045)
-        if _size(p) < lim or len(done) + len(todo) > 40:
-            done.append(p)
-            continue
+    # 2) the rest cracks again and again: always the biggest piece first (no big half-bowl left), then a few extra
+    #    cracks at random for small splinters (sizes vary)
+    def crack(p):
         c = _centroid(p) + Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-1, 1))) * 0.004
         ang = rnd.uniform(0, 2 * math.pi)
         el = rnd.uniform(-0.9, 0.9)
         no = Vector((math.cos(ang) * math.cos(el), math.sin(ang) * math.cos(el), math.sin(el)))
         halves = _cut(p, c, no)
         p.free()
+        out = []
         for h in halves:
             h.faces.index_update()
-            todo += _split_loose(h)
+            out += _split_loose(h)
+        return out
+    done = pieces
+    while len(done) < 48:
+        done.sort(key=_size)
+        if _size(done[-1]) < 0.024:
+            break
+        done += crack(done.pop())
+    for _ in range(10):
+        done.sort(key=_size)
+        done += crack(done.pop(rnd.randrange(len(done) // 3, len(done))))
     out = []
     for i, p in enumerate([remnant] + done):
         bmesh.ops.recalc_face_normals(p, faces=p.faces)
