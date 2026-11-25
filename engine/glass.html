@@ -162,7 +162,6 @@ function overlay(cfg,T,t,p){
       ctxt(r.question_sub,W/2,515,fitText(r.question_sub,900,40),COL.ink,a);}   // gone before the key moment: one thing at a time
     if(!stampOn&&!inRp&&t>=R.titleEnd) meter(R,t,fade(R.titleEnd,t)*(1-fade(R.afterEnd,t,0.2)));
     if(inRp){const a=fade(R.replayT0,t,0.15)*(1-fade(R.replayT1-0.15,t,0.15));
-      c.save();c.globalAlpha=a*0.9;c.fillStyle='#000';c.fillRect(0,640,W,16);c.fillRect(0,1424,W,16);c.restore();
       pill((cfg.replay_label||'SLOW-MO'),W/2,700,28,'rgba(224,48,63,0.92)',a);}
     if(stampOn){
       const k=clamp((t-R.stampT)/0.18,0,1),sc2=lerp(2.2,1,k*k)+(k>=1?0.05*Math.exp(-(t-R.stampT-0.18)*10)*Math.sin((t-R.stampT-0.18)*40):0);

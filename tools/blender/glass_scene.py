@@ -19,6 +19,7 @@ import sys
 
 import bmesh
 import bpy
+from mathutils import Quaternion, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from lab_set import add_logo_base   # noqa: E402  (the BREAKPOINT LAB base, same in every scene)
@@ -99,7 +100,7 @@ def build(res=(1080, 1920)):
 
     crystal = principled("BL_Crystal", **{"Base Color": (0.94, 0.97, 1.0, 1), "Transmission Weight": 1.0, "Roughness": 0.0,
                                          "IOR": 1.56})
-    shard = principled("BL_Shard", **{"Base Color": (0.80, 0.86, 0.95, 1), "Transmission Weight": 1.0, "Roughness": 0.08,
+    shard = principled("BL_Shard", **{"Base Color": (0.66, 0.76, 0.90, 1), "Transmission Weight": 1.0, "Roughness": 0.12,
                                      "IOR": 1.56})     # a touch of tint: broken pieces lying on the white base stay visible
     bench = principled("BL_Bench", **{"Base Color": (0.55, 0.57, 0.60, 1), "Roughness": 0.45})
     back = principled("BL_Back", **{"Base Color": (0.20, 0.23, 0.27, 1), "Roughness": 0.8})
@@ -116,9 +117,16 @@ def build(res=(1080, 1920)):
             off = 0.5 * b                                  # staggered cracks between the two bands
             a0 = 2 * math.pi * (i + off) / N_SECT
             a1 = a0 + 2 * math.pi / N_SECT * 0.97
-            s = obj(sc, f"Shard{b}_{i}", solid_sweep(f"Shard{b}_{i}", poly, a0, a1, steps=10), shard)
+            me = solid_sweep(f"Shard{b}_{i}", poly, a0, a1, steps=10)
+            n = len(me.vertices)
+            c = [sum(v.co[k] for v in me.vertices) / n for k in range(3)]
+            for v in me.vertices:                          # origin at the shard's own centre: it spins on itself
+                v.co.x -= c[0]; v.co.y -= c[1]; v.co.z -= c[2]
+            s = obj(sc, f"Shard{b}_{i}", me, shard)
             s["a"] = (a0 + a1) / 2
             s["band"] = b
+            s["c"] = c
+            s.rotation_mode = 'QUATERNION'
 
     bpy.ops.mesh.primitive_plane_add(size=3, location=(0, 0, -0.064))   # floor under the lab base
     pl = bpy.context.object
@@ -230,16 +238,24 @@ def set_pose(p, sc=None):
                 continue
             a = s["a"]
             h = (math.sin((i + 8 * b) * 3.7 + 1.1) * 4375.85) % 1.0
+            c = s["c"]
             dt = min(tb, 260.0) / 1000.0
-            v = (0.12 + 0.18 * abs(math.cos(2 * a)) + 0.08 * h) * (1.0 + 0.25 * b)   # m/s: they stay on the base
-            rr = min(v * dt, 0.11)
-            dx, dy = math.cos(a) * rr, math.sin(a) * rr
-            zc = 0.12 + 0.04 * b
-            dz = (0.25 + 0.3 * h) * dt - 0.5 * 9.81 * dt * dt
-            dz = max(dz, -zc + 0.004)                                                  # lands on the base
-            s.location = (dx, dy, dz)
-            spin = dt * (6 + 10 * h)
-            s.rotation_euler = (spin * math.sin(a), spin * math.cos(a), 0.6 * spin * (h - 0.5))
+            v = (0.10 + 0.12 * abs(math.cos(2 * a)) + 0.06 * h) * (1.0 + 0.2 * b)   # m/s outward
+            vz = 0.20 + 0.25 * h
+            rest = 0.006 + 0.002 * b                       # centre height once lying on the base (curved piece)
+            t_land = (vz + math.sqrt(vz * vz + 2 * 9.81 * (c[2] - rest))) / 9.81
+            tf = min(dt, t_land)
+            rr = min(v * tf, 0.07 + 0.03 * h)              # they stay on the base, around the foot
+            zc = c[2] + vz * tf - 0.5 * 9.81 * tf * tf
+            if dt >= t_land:
+                zc = rest
+            s.location = (c[0] + math.cos(a) * rr, c[1] + math.sin(a) * rr, zc)
+            # tumble outward about the tangent axis; landed = lying on its outer face, at a small random yaw
+            land = min(1.0, tf / t_land)
+            tilt = land * (math.pi / 2) * (0.85 + 0.3 * h)
+            tang = Vector((-math.sin(a), math.cos(a), 0.0))
+            q = Quaternion(Vector((0, 0, 1)), (h - 0.5) * 1.2 * land) @ Quaternion(tang, -tilt)
+            s.rotation_quaternion = q
     # cameras (85 mm): wide = whole glass on the base, glass in the lower-middle (text band clear);
     # close = the bowl and the rim, where the oval is seen; k = slow push-in
     kk = float(p.get("k", 0))

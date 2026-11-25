@@ -304,7 +304,9 @@ jobs:
           retention-days: 14
       - name: YouTube short cut (~40 s, the WHY kept whole)
         if: needs.render.result == 'success'
-        run: python3 tools/shortcut.py work/config.json work/timeline.json work/video.mp4 work/video_short.mp4
+        run: |
+          python3 tools/shortcut.py work/config.json work/timeline.json work/video.mp4 work/video_short.mp4
+          python3 tools/sound/tp_guard.py work/video.mp4 work/video_short.mp4
       - name: Upload to Google Drive
         if: needs.render.result == 'success' && env.RCLONE_CONF != '' && env.DRIVE_FOLDER_ID != ''
         run: |
@@ -452,6 +454,7 @@ jobs:
           EOF
           cat work/sound/report.md >> "$GITHUB_STEP_SUMMARY"
           python3 tools/shortcut.py work/config.json work/timeline.json work/sound/result/film_sfx.mp4 work/video_short.mp4
+          python3 tools/sound/tp_guard.py work/sound/result/film_sfx.mp4 work/video_short.mp4
       - name: Upload to Google Drive
         if: env.RCLONE_CONF != '' && env.DRIVE_FOLDER_ID != ''
         run: |
