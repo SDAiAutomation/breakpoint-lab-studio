@@ -275,14 +275,13 @@ def throw(s, dt):
     small = 1.0 - min(1.0, s["sz"] / 0.05)
     v = (0.10 + 0.10 * abs(math.cos(2 * s["a"])) + rnd.uniform(0.0, 0.08)) * (1.0 + 0.8 * small)
     vz = rnd.uniform(0.12, 0.45)
-    # final attitude: random axis, at least a quarter turn; spin builds up during the flight
-    ax = Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-0.3, 0.3)))
-    if ax.length < 1e-3:
-        ax = Vector((1, 0, 0))
-    ax.normalize()
-    turn = rnd.uniform(0.5, 1.2) * math.pi
+    # final attitude: a curved piece of wall ends up lying flat (on its outer or inner face), a few tilted
+    radial = Vector((math.cos(s["a"]), math.sin(s["a"]), 0.0))
+    down = Vector((0, 0, -1)) if rnd.random() < 0.6 else Vector((0, 0, 1))
+    wob = Quaternion(Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), 0)).normalized() if True else (1, 0, 0),
+                     rnd.uniform(0.0, 0.35) if rnd.random() < 0.8 else rnd.uniform(0.6, 1.2))
     yaw = rnd.uniform(-math.pi, math.pi)
-    q_end = Quaternion((0, 0, 1), yaw) @ Quaternion(ax, turn)
+    q_end = Quaternion((0, 0, 1), yaw) @ wob @ radial.rotation_difference(down)
     me = s.data
     rest = GROUND - min((q_end @ v.co).z for v in me.vertices) + 0.0002
     t_land = (vz + math.sqrt(vz * vz + 2 * 9.81 * max(0.0, c.z - rest))) / 9.81
@@ -290,7 +289,7 @@ def throw(s, dt):
     slide = 0.0
     if dt > t_land:                                   # after landing: a short slide, then still
         slide = min(dt - t_land, 0.06) * v * 0.5
-    rr = min(v * tf + slide, 0.045 + 0.07 * small + rnd.uniform(0, 0.02))
+    rr = min(v * tf + slide, 0.055 + 0.06 * small + rnd.uniform(0, 0.04))   # spread out, not a heap
     z = c.z + vz * tf - 0.5 * 9.81 * tf * tf if dt < t_land else rest
     x, y = c.x + math.cos(a) * rr, c.y + math.sin(a) * rr
     r = math.hypot(x, y)
