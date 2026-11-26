@@ -1,0 +1,29 @@
+name: Drive archive (move old renders aside)
+
+# Moves every file of the Drive render folder whose name starts with `prefix` (e.g. 2026-11-26_physics-016-elevator-en_run32)
+# into archive/ in the same folder. Nothing is deleted; the making-of folder stays where it is.
+on:
+  workflow_dispatch:
+    inputs:
+      prefix:
+        description: "File name prefix to archive"
+        required: true
+
+jobs:
+  archive:
+    runs-on: ubuntu-24.04
+    env:
+      RCLONE_CONF: ${{ secrets.RCLONE_CONF }}
+      DRIVE_FOLDER_ID: ${{ vars.DRIVE_FOLDER_ID }}
+      PREFIX: ${{ inputs.prefix }}
+    steps:
+      - name: Move to archive/
+        run: |
+          sudo apt-get install -y -qq rclone > /dev/null || { sudo apt-get update -qq || true; sudo apt-get install -y -qq rclone > /dev/null; }
+          mkdir -p ~/.config/rclone && printf '%s\n' "$RCLONE_CONF" > ~/.config/rclone/rclone.conf
+          REMOTE=$(rclone listremotes | head -1)
+          rclone lsf "$REMOTE" --files-only --drive-root-folder-id "$DRIVE_FOLDER_ID" | grep -F "$PREFIX" > files.txt || true
+          test -s files.txt || { echo "no file starts with $PREFIX"; exit 1; }
+          while read -r f; do
+            case "$f" in "$PREFIX"*) rclone moveto "${REMOTE}${f}" "${REMOTE}archive/${f}" --drive-root-folder-id "$DRIVE_FOLDER_ID" && echo "archived $f";; esac
+          done < files.txt
