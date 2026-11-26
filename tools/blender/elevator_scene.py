@@ -122,7 +122,7 @@ def build(res=(1080, 1920)):
     sling = principled("BL_Sling", **{"Base Color": (0.55, 0.20, 0.06, 1), "Roughness": 0.55})       # painted steel frame
     panel = principled("BL_CarPanel", **{"Base Color": (0.46, 0.45, 0.42, 1), "Roughness": 0.42})    # laminate walls
     rubber = principled("BL_CarFloor", **{"Base Color": (0.09, 0.09, 0.10, 1), "Roughness": 0.8})
-    yellow = principled("BL_Dummy", **{"Base Color": (0.82, 0.56, 0.07, 1), "Roughness": 0.42})
+    yellow = principled("BL_Dummy", **{"Base Color": (0.78, 0.42, 0.02, 1), "Roughness": 0.42})
     joint = principled("BL_Joint", **{"Base Color": (0.05, 0.05, 0.055, 1), "Roughness": 0.5})
     paint = principled("BL_FloorPaint", **{"Base Color": (0.80, 0.66, 0.20, 1), "Roughness": 0.7})
     lamp = principled("BL_Lamp", **{"Base Color": (1, 0.95, 0.85, 1), "Emission Color": (1, 0.93, 0.80, 1),
@@ -171,7 +171,7 @@ def build(res=(1080, 1920)):
     sc.collection.objects.link(car)
     for o in me_parts:
         o.parent = car
-    cab = box(sc, "Cable", (0.035, 0.035, SHAFT_TOP), (0, 0, 0), dark_steel)   # placed in set_pose
+    cyl(sc, "Cable", 0.028, principled("BL_Cable", **{"Base Color": (0.04, 0.04, 0.045, 1), "Roughness": 0.45}), 12)   # placed in set_pose
 
     # ---- the rider: a crash-test dummy, capsules placed from the joint positions in set_pose
     for side in ("L", "R"):
@@ -284,9 +284,7 @@ def set_pose(p, sc=None):
     top = zc + CAR_H + 0.42
     cut = float(p["cut"])
     lo = top + (0.45 + cut if cut > 0 else 0.0)
-    cab = ob["Cable"]
-    cab.location = (0, 0, (lo + SHAFT_TOP + 8) / 2)
-    cab.scale = (0.035, 0.035, max(0.1, SHAFT_TOP + 8 - lo))
+    place(ob["Cable"], (0, 0.0, lo), (0, 0.0, SHAFT_TOP + 8))
     ob["Stub"].hide_render = ob["Stub"].hide_viewport = cut <= 0
     # buffers: body fixed on the base, rod + pad compress with the car
     blen = min(BUF, zc)                                       # the pads touch the car underside
