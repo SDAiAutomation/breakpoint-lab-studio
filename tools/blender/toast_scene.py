@@ -67,6 +67,10 @@ def toast_mesh(name, thick, inset=0.0, z0=0.0, side_mat=1):
     bm.free()
     for p in me.polygons:
         p.use_smooth = True
+    try:                                                       # flat faces stay flat (no dark smear), bevels smooth
+        me.set_sharpness_by_angle(angle=math.radians(35))
+    except AttributeError:
+        pass
     return me
 
 
@@ -105,7 +109,7 @@ def butter_material():
     m.use_nodes = True
     nt = m.node_tree
     b = nt.nodes["Principled BSDF"]
-    b.inputs["Base Color"].default_value = (0.95, 0.78, 0.16, 1)
+    b.inputs["Base Color"].default_value = (0.98, 0.68, 0.10, 1)   # warm butter (AgX turns pale yellow green)
     b.inputs["Roughness"].default_value = 0.28
     if "Subsurface Weight" in b.inputs:
         b.inputs["Subsurface Weight"].default_value = 0.15
