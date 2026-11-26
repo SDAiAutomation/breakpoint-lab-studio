@@ -24,7 +24,7 @@ from bottle_scene import obj, principled   # noqa: E402  (shared helpers)
 SCENE = "BL_toast"
 A, HT = 0.06, 0.007                    # toast: half length (12 cm), half thickness (14 mm)
 WY = 0.052                             # toast: half width
-PITCH = math.radians(6)                # camera looks slightly down: the floor reads, the logo stays in frame
+PITCH = math.radians(22)               # camera looks down: the top face (butter or toast) reads, the logo stays in frame
 TABLES = (0.75, 3.0)
 
 
@@ -105,7 +105,7 @@ def butter_material():
     m.use_nodes = True
     nt = m.node_tree
     b = nt.nodes["Principled BSDF"]
-    b.inputs["Base Color"].default_value = (0.92, 0.72, 0.22, 1)
+    b.inputs["Base Color"].default_value = (0.95, 0.78, 0.16, 1)
     b.inputs["Roughness"].default_value = 0.28
     if "Subsurface Weight" in b.inputs:
         b.inputs["Subsurface Weight"].default_value = 0.15
@@ -147,7 +147,7 @@ def build(res=(1080, 1920)):
     wood = principled("BL_Wood", **{"Base Color": (0.30, 0.17, 0.08, 1), "Roughness": 0.45})
     leg = principled("BL_Leg", **{"Base Color": (0.24, 0.13, 0.06, 1), "Roughness": 0.5})
     alu = principled("BL_Alu", **{"Base Color": (0.80, 0.81, 0.83, 1), "Metallic": 1.0, "Roughness": 0.32})
-    back = principled("BL_Back", **{"Base Color": (0.20, 0.23, 0.27, 1), "Roughness": 0.8})
+    back = principled("BL_Back", **{"Base Color": (0.50, 0.53, 0.57, 1), "Roughness": 0.9})   # light wall: the brown toast reads
     crust = principled("BL_Crust", **{"Base Color": (0.22, 0.10, 0.03, 1), "Roughness": 0.7})
 
     # the toast: slice (crumb faces + crust sides) with a layer of butter on top, all one object
@@ -155,7 +155,7 @@ def build(res=(1080, 1920)):
     me.materials.append(bread_material())
     me.materials.append(crust)
     t = obj(sc, "Toast", me)
-    bm_me = toast_mesh("Butter", 0.0012, inset=0.010, z0=HT - 0.0002, side_mat=0)
+    bm_me = toast_mesh("Butter", 0.0022, inset=0.006, z0=HT - 0.0002, side_mat=0)
     bm_me.materials.append(butter_material())
     bt = obj(sc, "Butter", bm_me)
     bt.parent = t
@@ -179,7 +179,7 @@ def build(res=(1080, 1920)):
     sc.collection.objects.link(rod)
 
     # floor = the lab base (logo on its front face), wall behind
-    add_logo_base(sc, width=2.6, height=0.16, depth=1.3, top_z=0.0)
+    add_logo_base(sc, width=2.6, height=0.16, depth=0.9, top_z=0.0)
     for o in sc.objects:                                        # centred in the frame (the camera looks at x = 0.25)
         if o.get("bb") in ("LabBase", "Logo"):
             o.location.x += 0.25
@@ -210,7 +210,7 @@ def build(res=(1080, 1920)):
         sc.collection.objects.link(o)
         return o
     area("Key", (-1.6, -2.4, 2.6), (0.2, 0, 0.4), 1.6, 1400)          # soft key from front left, above
-    area("Rim", (1.8, 1.2, 1.4), (0.2, 0, 0.4), 0.4, 500, sy=1.6)       # rim from behind right: the slice edges read
+    area("Fill", (2.2, -2.0, 1.8), (0.2, 0, 0.4), 2.0, 500)            # soft fill from front right (no light on the wall)
     area("KeyHigh", (-1.6, -2.4, 4.6), (0.2, 0, 2.8), 1.6, 1400)       # same key for the top of the 3 m table
 
     cam = bpy.data.cameras.new("Cam")
@@ -233,18 +233,18 @@ def build(res=(1080, 1920)):
     r.fps = 30
     r.engine = 'CYCLES'
     sc.cycles.device = 'CPU'
-    sc.cycles.samples = 128
+    sc.cycles.samples = 64
     sc.cycles.use_adaptive_sampling = True
     sc.cycles.adaptive_threshold = 0.03
     sc.cycles.use_denoising = True
     sc.cycles.denoiser = 'OPENIMAGEDENOISE'
-    sc.cycles.max_bounces = 6
+    sc.cycles.max_bounces = 4
     try:
         sc.view_settings.view_transform = 'AgX'
         sc.view_settings.look = 'AgX - Base Contrast'
     except TypeError:
         pass
-    set_pose({"H": 0.75, "px": -0.16, "tx": -0.10, "tz": 0.757, "ta": 0, "cx": 0.25, "cz": 0.43, "d": 6.0}, sc)
+    set_pose({"H": 0.75, "px": -0.16, "tx": -0.10, "tz": 0.757, "ta": 0, "cx": 0.25, "cz": 0.33, "d": 6.0}, sc)
     return sc
 
 
