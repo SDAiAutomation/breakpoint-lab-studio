@@ -1,0 +1,130 @@
+{
+  "id": "physics-016-elevator-en",
+  "engine": "elevator",
+  "blender_scene": "tools/blender/elevator_scene.py",
+  "series": "PHYSICS · TEST 016",
+  "decimal": ".",
+  "handle": "@BreakpointLabTV",
+  "hook": [
+    "Cable snaps. 15 floors.",
+    "Jump at the last second?"
+  ],
+  "hook_series": false,
+  "hook_round": 2,
+  "replay_label": "SLOW-MO",
+  "rounds": [
+    {
+      "title": "ROUND 1 · 15 FLOORS, NO JUMP",
+      "kind": "stand",
+      "floors": 15,
+      "meter": "15 FLOORS · 165 ft",
+      "question": "Impact speed?",
+      "question_sub": "30, 50 or 70 mph?",
+      "stamp": {
+        "text": "70 mph",
+        "color": "red"
+      },
+      "fact": [
+        "Free fall: v = √(2gh)",
+        "165 ft down: 70 mph"
+      ]
+    },
+    {
+      "title": "ROUND 2 · LAST-SECOND JUMP",
+      "kind": "jump",
+      "floors": 15,
+      "meter": "15 FLOORS · PERFECT JUMP",
+      "question": "Jump at the last second?",
+      "question_sub": "SAVED or NOT? ↓",
+      "stamp": {
+        "text": "STILL 63 mph",
+        "color": "red"
+      },
+      "fact": [
+        "Best human jump: 7 mph",
+        "Baird, WTAMU 2012"
+      ]
+    },
+    {
+      "title": "ROUND 3 · ONLY 3 FLOORS",
+      "kind": "jump",
+      "floors": 3,
+      "meter": "3 FLOORS · PERFECT JUMP",
+      "question": "3 floors + jump: saved?",
+      "question_sub": "SAVED or NOT? ↓",
+      "stamp": {
+        "text": "STILL 24 mph",
+        "color": "red"
+      },
+      "fact": [
+        "31 mph down to 24 mph",
+        "MythBusters 2004: BUSTED"
+      ]
+    }
+  ],
+  "explain": {
+    "title": "WHY?",
+    "lines": [
+      "You fall WITH the elevator",
+      "A jump: only 7 mph up",
+      "70 − 7 = 63 mph"
+    ]
+  },
+  "source": [
+    "MythBusters, 'Elevator of Death' (2004)",
+    "C. S. Baird, WTAMU, 5 Dec 2012",
+    "Simulated: v = √(2gh)"
+  ],
+  "cta": "Subscribe: you pick the next test",
+  "next_test": "Coin off a skyscraper: deadly?",
+  "caption": "Elevator cable snaps 15 floors up: does jumping at the last second save you? 🛗 Saved or not? We drop it, then jump perfectly. Place your bet before the slow-mo 👇 #physics #science #mythbusters",
+  "send_line": "Send this to the friend who'd jump 👀",
+  "keywords": "Falling elevator jump myth: free fall, impact speed, jumping at the last second, MythBusters Elevator of Death. Physics simulation.",
+  "description": [
+    "The cable snaps and the elevator falls: can you save yourself by jumping at the very last second? We test three cases: a 15-floor fall (165 ft) standing still, the same fall with a perfectly timed jump, then a 3-floor fall (33 ft) with the same jump.",
+    "Standing still, the rider hits the bottom at 70 mph. With the best possible jump, he still hits at 63 mph. From 3 floors, the jump takes him from 31 mph to 24 mph: still a hard crash.",
+    "Why: you fall with the elevator, at the same speed. A jump only pushes you up at the speed of a jump, about 7 mph for the best human jump. Free fall from 165 ft gives v = √(2gh) = 70 mph, so the jump leaves 63 mph. It also has to be timed to a fraction of a second, with no way to see the bottom coming. MythBusters tested the myth in 2004 ('Elevator of Death') and busted it.",
+    "In real life this is very unlikely: elevators hang on several cables and have automatic safety brakes that stop a falling car.",
+    "This video is a 3D simulation (Blender): the fall follows v = √(2gh), the jump speed is 7 mph (C. S. Baird, West Texas A&M University, 2012)."
+  ],
+  "sources_detail": [
+    "MythBusters season 2, episode 17 'Elevator of Death' (6 Oct 2004): the myth that jumping at the last moment saves you in a falling elevator is busted (mythresults.com/episode17).",
+    "C. S. Baird, 'If I'm on an elevator that breaks loose and plummets down the shaft, can I avoid harm by jumping at the last second?', Science Questions with Surprising Answers, West Texas A&M University, 5 Dec 2012: maximum human jump velocity 7 mph; 165 ft (about 15 floors) and 33 ft (about 3 floors); 'jumping at the last moment would help, but not much'. Baird rounds to 72 to 65 mph and 31 to 25 mph.",
+    "On screen, computed with free fall v = √(2gh), g = 9.81 m/s², 1 floor = 11 ft: 165 ft = 50.29 m gives 31.41 m/s = 70.3 mph (shown 70); minus 7 mph = 63.3 mph (63). 33 ft = 10.06 m gives 14.05 m/s = 31.4 mph (31); minus 7 = 24.4 mph (24). Air drag neglected (small below about 200 km/h, The Conversation, 'I've always wondered')."
+  ],
+  "short": {},
+  "sound": {
+    "mode": "hybrid",
+    "find": {
+      "impact": {
+        "q": [
+          "metal crash heavy",
+          "elevator crash",
+          "car crash metal impact",
+          "heavy metal impact",
+          "dumpster slam"
+        ],
+        "hear": "a heavy steel elevator car slamming into the bottom of the shaft: one loud metallic crash",
+        "role": "hit",
+        "make": "a heavy metal crash"
+      },
+      "snap": {
+        "q": [
+          "cable snap",
+          "steel cable snap",
+          "rope snap",
+          "metal twang",
+          "wire snap"
+        ],
+        "hear": "a taut steel cable snapping: one sharp metallic snap with a short twang",
+        "role": "click",
+        "make": "a sharp metal snap"
+      }
+    },
+    "events": {
+      "impact": "impact",
+      "snap": "snap"
+    }
+  },
+  "cover_t": 1.9
+}
