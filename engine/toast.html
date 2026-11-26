@@ -1,0 +1,276 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<!-- Toast engine (Breakpoint Lab, episode 015): which side does falling toast land on?
+     The scene is rendered in Blender (Cycles, tools/blender/toast_scene.py); this page simulates the toast, lays out the
+     video (timeline), says which scene pose each frame shows, and draws the texts and the live spin dial on top.
+     Physics (Matthews, Eur. J. Phys. 16, 172, 1995): a slice pushed slowly off a table first pivots on the edge, which
+     sets it spinning slowly; from a ~75 cm table it only has time for about half a turn: butter side down. A table
+     about 3 m high would give it time for a full turn. Pushed off faster than about 1.6 m/s it barely tips: it lands
+     the right way up. The Telegraph, 27 May 2001: 21,000 drops by schoolchildren, 62 % butter side down.
+     The motion is a simulation of this model ("Simulated"). -->
+<style>
+@font-face{font-family:P;src:url("fonts/Poppins-Bold.ttf");font-weight:700}
+@font-face{font-family:DJ;src:url("fonts/DejaVuSans-Bold.ttf");font-weight:700}
+html,body{margin:0;background:#000}canvas{display:block}
+</style></head>
+<body>
+<canvas id="out" width="1080" height="1920"></canvas>
+<script>
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const sm=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);};
+const lerp=(a,b,t)=>a+(b-a)*t;
+const FPS=30;
+const out=document.getElementById('out'),c=out.getContext('2d');const W=1080,H=1920;
+const COL={green:'#1F9D55',red:'#E0303F',ink:'#1d2126',sub:'#5b636c',brand:'#F7C21A',blue:'#2F6FE0',butter:'#F2C94C',crust:'#8A5A2B'};
+
+// ---------------------------------------------------------------- physics (SI units; table edge at x = 0, top at z = Ht)
+const G=9.81, A=0.06, HT=0.007;           // toast: half length (12 cm slice), half thickness
+const SLOW={x0:-0.10,vp:0.045,d0:0.013,thd:0.34,vs:0.30};   // slow push: tips with a small overhang, slips off at ~20 deg
+const FLICK={x0:-0.25,v:1.8,stop:-0.12,dmax:0.015,back:0.09}; // flick faster than 1.6 m/s: leaves before it can tip
+const DT=1/1800;
+function simulate(kind,Ht){
+  // returns {tip (s after push start), land, rest, at(t) -> {tx,tz,ta(deg),px}} ; px = pusher face x
+  const S=[];let tx,tz=Ht+HT,ta=0,px,t=0;
+  if(kind==='slow'){
+    const tP=(SLOW.d0-SLOW.x0)/SLOW.vp;
+    for(;t<tP;t+=DT){tx=SLOW.x0+SLOW.vp*t;S.push([tx,tz,0,tx-A]);}
+    var tip=t;px=tx-A;
+    var th=0,w=0,d=SLOW.d0,v=0,dmax=A,thd=SLOW.thd,vs=SLOW.vs;
+  } else {
+    const t1=(FLICK.stop-(FLICK.x0-A))/FLICK.v, tE=(0-FLICK.x0)/FLICK.v;  // pusher stops, toast CoM reaches the edge
+    for(;t<tE;t+=DT){tx=FLICK.x0+FLICK.v*t;px=Math.min(tx-A,FLICK.stop+0.012*(1-Math.exp(-(t-t1)*40))*(t>t1));S.push([tx,tz,0,px]);}
+    var tip=t,th=0,w=0,d=0,v=FLICK.v,dmax=FLICK.dmax,thd=1,vs=0;
+  }
+  while(th<thd&&d<dmax){const acc=G*d*Math.cos(th)/(A*A/3+d*d);w+=acc*DT;th+=w*DT;d+=v*DT;t+=DT;
+    S.push([d*Math.cos(th)+HT*Math.sin(th),Ht-d*Math.sin(th)+HT*Math.cos(th),th*180/Math.PI,px]);}
+  const s=Math.max(v,vs);
+  let x=d*Math.cos(th)+HT*Math.sin(th),z=Ht-d*Math.sin(th)+HT*Math.cos(th);
+  const vx=s*Math.cos(th)-d*w*Math.sin(th)+HT*w*Math.cos(th),vz=-s*Math.sin(th)-d*w*Math.cos(th)-HT*w*Math.sin(th);
+  let tf=0,a=th;
+  for(;;tf+=DT){a=th+w*tf;const X=x+vx*tf,Z=z+vz*tf-0.5*G*tf*tf;
+    S.push([X,Z,a*180/Math.PI,px]);
+    if(Z-Math.abs(A*Math.sin(a))-Math.abs(HT*Math.cos(a))<=0) break;}
+  const land=t+tf, L=S[S.length-1], flat=Math.round(L[2]/180)*180, down=Math.round(flat/180)%2!==0;
+  const SET=0.22,slide=Math.sign(vx)*Math.min(0.03,Math.abs(vx)*0.03);
+  for(let u=DT;u<=SET;u+=DT){const k=sm(0,SET,u);S.push([L[0]+slide*k,lerp(L[1],HT,k),lerp(L[2],flat,k),px]);}
+  const n0=S.length;
+  return {tip,land,rest:land+SET,down,flatDeg:flat,spin:w,thd:th*180/Math.PI,
+          at(tt){if(tt<=0)return {tx:S[0][0],tz:S[0][1],ta:0,px:S[0][3]};const i=Math.min(n0-1,Math.round(tt/DT)),r=S[i];return {tx:r[0],tz:r[1],ta:r[2],px:r[3]};}};
+}
+
+// ---------------------------------------------------------------- timeline
+const D_={hook:2.4,hookPlay:2.0,title:1.3,setup:0.4,question:1.9,qFirst:1.6,keyGap:0.5,after:0.9,rpGap:0.25,
+          stampGap:0.3,stampHold:0.9,fact:4.0,explainLead:0.8,line:3.2,explainTail:2.6,outro:7.5,wind:1.2};
+const RP_SLOW=0.2, RP_PRE=0.12, RP_POST=0.18;            // slow motion: 5x slower, from just before the tip to just after the landing
+const CAM0={cx:0.32,cz:0.33,d:6.0};                      // same framing every round at the landing (we compare)
+
+function buildTimeline(cfg){
+  const T={rounds:[],events:[]},ev=e=>T.events.push(e);
+  let t=D_.hook;T.hook=[0,D_.hook];
+  cfg.rounds.forEach((r,i)=>{
+    const kind=r.kind||'slow', Ht=r.table_m||0.75;
+    const S=simulate(kind,Ht);
+    const R={cfg:r,i,kind,Ht,S,down:S.down};
+    R.start=t;ev({type:'round',t});
+    R.titleEnd=t+D_.title;R.qStart=R.titleEnd+D_.setup;R.qEnd=R.qStart+(i===0?D_.qFirst:D_.question);
+    ev({type:'question',t0:R.qStart,t1:R.qEnd});
+    R.tipT=R.qEnd+D_.keyGap;                             // the toast tips over the edge
+    R.push0=R.tipT-S.tip;                                // push start (slow: during the question, so it moves)
+    R.landT=R.push0+S.land;R.restT=R.push0+S.rest;
+    if(kind==='slow') ev({type:'approach',t0:R.push0,t1:R.tipT});
+    else ev({type:'strike',t:R.push0,gain:1});
+    ev({type:'land',t:R.landT,gain:1});
+    R.afterEnd=R.restT+D_.after;
+    R.rpA=R.tipT-RP_PRE;R.rpB=R.landT+RP_POST;           // real-time span shown in slow motion
+    R.replayT0=R.afterEnd+D_.rpGap;R.replayT1=R.replayT0+(R.rpB-R.rpA)/RP_SLOW;
+    ev({type:'replay',t0:R.replayT0,t1:R.replayT1});
+    ev({type:'land',t:R.replayT0+(R.landT-R.rpA)/RP_SLOW,gain:0.8,speed:RP_SLOW});
+    R.stampT=R.replayT1+D_.stampGap;ev({type:'stamp',t:R.stampT,color:r.stamp.color});
+    R.factT=R.stampT+D_.stampHold;ev({type:'card',t:R.factT});
+    R.end=R.factT+D_.fact;t=R.end;
+    T.rounds.push(R);
+  });
+  const nl=(cfg.explain.lines||[]).length, ex=D_.explainLead+nl*D_.line+D_.explainTail;
+  T.explain=[t,t+ex];ev({type:'explain',t0:t,t1:t+ex});t+=ex;
+  T.outro=[t,t+D_.outro];ev({type:'card',t});ev({type:'cta',t:t+1.4});t+=D_.outro;
+  T.duration=t;
+  T.events.sort((a,b)=>(a.t??a.t0)-(b.t??b.t0));
+  return T;
+}
+
+// ---------------------------------------------------------------- scene pose (what Blender renders for this frame)
+// H table height (m), px pusher face x, tx tz toast centre, ta toast angle (deg, + = front end down), cz d camera
+const q=(x,s)=>Math.round(x/s)*s;
+function camFor(R,tl,toastZ){                            // tall table: wide shot, then up to the top, then follows the fall
+  if(R.Ht<=1) return CAM0;
+  const top={cx:CAM0.cx,cz:R.Ht-(0.75-CAM0.cz),d:CAM0.d}, wide={cx:CAM0.cx,cz:R.Ht*0.52,d:CAM0.d*R.Ht/1.9};
+  if(tl<R.titleEnd) return wide;
+  if(tl<R.tipT){const k=sm(R.titleEnd,R.qEnd,tl);return {cx:CAM0.cx,cz:lerp(wide.cz,top.cz,k),d:lerp(wide.d,top.d,k)};}
+  // follow the toast down, a little behind it, and settle on the usual framing
+  return {cx:CAM0.cx,cz:clamp(toastZ-(0.75-CAM0.cz)+0.05,CAM0.cz,top.cz),d:CAM0.d};
+}
+function toastAt(R,tl){                                  // tl = video time; before the push the toast waits (flick: pusher winds back)
+  const u=tl-R.push0;
+  if(u>=0) return R.S.at(u);
+  const p=R.S.at(0);
+  if(R.kind==='flick'){                                  // winds back, then strikes at 1.8 m/s into the toast
+    const back=sm(R.start+0.2,R.push0-0.3,tl)*(1-clamp((tl-(R.push0-FLICK.back/FLICK.v))/(FLICK.back/FLICK.v),0,1));
+    return {...p,px:p.px-FLICK.back*back};}
+  const k=sm(R.start,R.push0,tl);return {...p,px:p.px-0.05*(1-k)};   // slow: the pusher comes up to the toast
+}
+function poseAt(T,t){
+  if(t<T.hook[1]){                                        // hook: the round-1 slow motion, from frame 0; frozen mid-air
+    const R=T.rounds[0],u=Math.min(t,D_.hookPlay)*RP_SLOW,tl=R.rpA+u;
+    if(t>=D_.hookPlay) return pose(R,R.rpA+D_.hookPlay*RP_SLOW);
+    return pose(R,tl);}
+  if(t>=T.explain[0]){
+    const R=T.rounds[0];return pose(R,R.end);}          // the toast lying butter down under the WHY / outro
+  let R=T.rounds[0];for(const r of T.rounds) if(t>=r.start) R=r;
+  if(t>=R.replayT0&&t<R.replayT1) return pose(R,R.rpA+(t-R.replayT0)*RP_SLOW);
+  if(t>=R.replayT1) return pose(R,R.end);
+  return pose(R,t);
+}
+function pose(R,tl){
+  const s=toastAt(R,tl);
+  const cam=camFor(R,tl,s.tz);
+  return {H:R.Ht,px:s.px,tx:s.tx,tz:s.tz,ta:s.ta,cx:cam.cx,cz:cam.cz,d:cam.d,
+          live:tl>=R.tipT-0.05&&tl<=R.restT+0.05};
+}
+function poseKey(p){
+  const st=p.live?0.001:0.003;                            // moving fast: 1 mm; slow push: 3 mm steps (fewer images)
+  const f=(x,s,n)=>q(x,s).toFixed(n);
+  return `H${f(p.H,0.01,2)}_p${f(p.px,0.003,3)}_x${f(p.tx,st,3)}_z${f(p.tz,st,3)}_a${f(p.ta,p.live?1:2,0)}_c${f(p.cz,0.01,2)}_d${f(p.d,0.05,2)}`;
+}
+function keyPose(p){                                      // the pose Blender renders = the quantised one
+  const st=p.live?0.001:0.003;
+  return {H:q(p.H,0.01),px:q(p.px,0.003),tx:q(p.tx,st),tz:q(p.tz,st),ta:q(p.ta,p.live?1:2),cx:p.cx,cz:q(p.cz,0.01),d:q(p.d,0.05)};
+}
+
+// ---------------------------------------------------------------- drawing helpers (same look as the other engines)
+let DEC='.';
+const fade=(t0,t,d=0.25)=>clamp((t-t0)/d,0,1);
+const pop=(t0,t)=>{const k=clamp((t-t0)/0.25,0,1);return 1+0.18*Math.sin(k*Math.PI)*(1-k);};
+function rrect(x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+function panel(x,y,w,h,r,fill,a=1){if(a<=0)return;c.save();c.globalAlpha=a;c.fillStyle=fill;rrect(x,y,w,h,r);c.fill();c.restore();}
+function fitText(s,maxW,size){c.font=`700 ${size}px P, DJ`;while(c.measureText(s).width>maxW&&size>18){size-=2;c.font=`700 ${size}px P, DJ`;}return size;}
+function ctxt(s,x,y,size,color,a=1){if(a<=0)return;c.save();c.globalAlpha=a;c.font=`700 ${size}px P, DJ`;c.textAlign='center';c.textBaseline='middle';
+  c.lineJoin='round';c.lineWidth=size*0.16;c.strokeStyle='rgba(255,255,255,0.85)';c.strokeText(s,x,y);
+  c.shadowColor='rgba(0,0,0,0.18)';c.shadowBlur=size*0.12;c.shadowOffsetY=size*0.04;c.fillStyle=color;c.fillText(s,x,y);c.restore();}
+function pill(s,x,y,size,fill,a=1){if(a<=0)return;const fs=size;c.font=`700 ${fs}px P, DJ`;const w=c.measureText(s).width+fs*1.1;
+  panel(x-w/2,y-fs*0.85,w,fs*1.7,fs*0.85,fill,a);c.save();c.globalAlpha=a;c.font=`700 ${fs}px P, DJ`;c.textAlign='center';c.textBaseline='middle';c.fillStyle='#fff';c.fillText(s,x,y+1);c.restore();}
+function drawHandle(cfg){
+  if(!cfg.handle) return;
+  c.save(); c.font='700 24px P, DJ'; c.textBaseline='middle'; c.textAlign='left';
+  const tw=c.measureText(cfg.handle).width, gap=12, dot=7, y=256, x=W/2-(tw+gap+2*dot)/2;
+  c.fillStyle='#f5c400'; c.beginPath(); c.arc(x+dot,y,dot,0,Math.PI*2); c.fill();
+  c.lineWidth=2; c.strokeStyle='rgba(22,24,29,0.85)'; c.stroke();
+  c.globalAlpha=0.8; c.fillStyle='#2a2e36'; c.fillText(cfg.handle,x+2*dot+gap,y+1); c.restore();
+}
+// live instrument: the slice seen from the side, turning as the real one turns (butter = yellow edge), and how far
+// it has turned in half turns (no number: half a turn / full turn are the sourced facts)
+function dial(cx,cy,ta,a){
+  if(a<=0) return;
+  const r=58;
+  c.save();c.globalAlpha=a;
+  panel(cx-r-18,cy-r-18,2*r+36,2*r+36,26,'rgba(255,255,255,0.78)',a);
+  c.translate(cx,cy);
+  c.lineWidth=4;c.strokeStyle='rgba(29,33,38,0.25)';c.beginPath();c.arc(0,0,r,0,Math.PI*2);c.stroke();
+  const turned=clamp(ta/360,0,1.2);                     // arc = how much it has turned
+  c.lineWidth=8;c.lineCap='round';c.strokeStyle=Math.cos(ta*Math.PI/180)<0?COL.red:COL.green;
+  c.beginPath();c.arc(0,0,r,-Math.PI/2,-Math.PI/2+turned*Math.PI*2);c.stroke();
+  c.rotate(ta*Math.PI/180);
+  c.fillStyle=COL.crust;rrect(-44,-9,88,18,7);c.fill();
+  c.fillStyle=COL.butter;rrect(-38,-15,76,8,4);c.fill();
+  c.restore();
+}
+function overlay(cfg,T,t,p){
+  if(t>=T.hook[1]||cfg.hook_series!==false) ctxt(cfg.series,W/2,292,34,COL.sub,0.9);
+  drawHandle(cfg);
+  if(t<T.hook[1]){const a=1-fade(T.hook[1]-0.3,t,0.3),hn=cfg.hook.length;
+    pill(cfg.replay_label||'SLOW-MO',W/2,640,28,'rgba(224,48,63,0.92)',a);
+    cfg.hook.forEach((l,i)=>ctxt(l,W/2,400+i*95,fitText(l,960,84),hn>1&&i===hn-1?COL.red:COL.ink,a));return;}
+  if(t<T.hook[1]+0.18){c.save();c.globalAlpha=1-fade(T.hook[1],t,0.18);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
+  if(t<T.explain[0]){
+    let R=T.rounds[0];for(const r of T.rounds) if(t>=r.start) R=r;const r=R.cfg, stampOn=t>=R.stampT;
+    const inRp=t>=R.replayT0&&t<R.replayT1;
+    if(t<R.titleEnd+0.2){const a=1-fade(R.titleEnd-0.1,t,0.3),pp=pop(R.start,t);c.save();c.translate(W/2,430);c.scale(pp,pp);ctxt(r.title,0,0,fitText(r.title,960,72),COL.ink,a);c.restore();}
+    else if(t<R.qStart) {}
+    else if(t<R.tipT-0.1){const a=fade(R.qStart,t)*(1-fade(R.tipT-0.2,t,0.1)),pp=1+0.05*Math.sin((t-R.qStart)*Math.PI*4);
+      c.save();c.translate(W/2,415);c.scale(pp,pp);ctxt(r.question,0,0,fitText(r.question,960,92),COL.red,a);c.restore();
+      ctxt(r.question_sub,W/2,515,fitText(r.question_sub,900,40),COL.ink,a);}   // gone before the toast tips: one thing at a time
+    const meterA=t>=R.titleEnd&&!stampOn&&!inRp?fade(R.titleEnd,t)*(1-fade(R.afterEnd,t,0.2)):0;
+    if(meterA>0) pill(r.meter,W/2,628,30,r.kind==='flick'?'rgba(47,111,224,0.92)':'rgba(91,99,108,0.92)',meterA);
+    if(!stampOn&&t>=R.tipT-0.3) dial(W-150,760,p.ta,fade(R.tipT-0.3,t,0.25)*(1-fade(R.stampT-0.2,t,0.2)));
+    if(inRp){const a=fade(R.replayT0,t,0.15)*(1-fade(R.replayT1-0.15,t,0.15));
+      pill((cfg.replay_label||'SLOW-MO'),W/2,628,28,'rgba(224,48,63,0.92)',a);}
+    if(stampOn){
+      const k=clamp((t-R.stampT)/0.18,0,1),sc2=lerp(2.2,1,k*k)+(k>=1?0.05*Math.exp(-(t-R.stampT-0.18)*10)*Math.sin((t-R.stampT-0.18)*40):0);
+      const col=r.stamp.color==='green'?COL.green:COL.red;
+      c.save();c.translate(W/2,425);c.rotate(-0.08);c.scale(sc2,sc2);c.globalAlpha=Math.min(1,k*1.5);
+      c.strokeStyle=col;c.lineWidth=10;rrect(-330,-72,660,144,22);c.stroke();c.fillStyle='rgba(255,255,255,0.7)';rrect(-330,-72,660,144,22);c.fill();
+      const fs=fitText(r.stamp.text,600,84);c.font=`700 ${fs}px P, DJ`;c.textAlign='center';c.textBaseline='middle';c.fillStyle=col;c.fillText(r.stamp.text,0,5);c.restore();}
+    if(t>=R.factT){const a=fade(R.factT,t,0.3)*(1-fade(R.end-0.25,t));(r.fact||[]).forEach((l,i)=>ctxt(l,W/2,555+i*50,fitText(l,980,38),COL.ink,a));}
+    if(t<R.start+0.3){c.save();c.globalAlpha=1-fade(R.start,t,0.3);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
+    return;}
+  if(t<T.explain[0]+0.3){c.save();c.globalAlpha=1-fade(T.explain[0],t,0.3);c.fillStyle='#fff';c.fillRect(0,0,W,H);c.restore();}
+  if(t<T.outro[0]){const e=cfg.explain,t0=T.explain[0],n=e.lines.length;
+    ctxt(e.title,W/2,350,fitText(e.title,960,60),COL.ink,fade(t0,t));
+    e.lines.forEach((l,i)=>ctxt(l,W/2,430+i*62,fitText(l,960,46),i===n-1?COL.red:COL.sub,fade(t0+D_.explainLead+i*D_.line,t,0.3)));
+    // the dial replays the half turn under the explanation (the spin the edge gave it)
+    const R=T.rounds[0],u=((t-t0-D_.explainLead)%3.0+3.0)%3.0, tl=R.tipT-0.1+Math.min(u,R.restT-R.tipT+0.1);
+    dial(W/2,690,R.S.at(tl-R.push0).ta,fade(t0+D_.explainLead+D_.line,t,0.4));
+    return;}
+  const t0=T.outro[0];
+  const nx=cfg.next_test, sw=nx?Math.min(2.6,(T.outro[1]-T.outro[0])*0.4):1e9, sa=fade(t0,t)*(1-fade(t0+sw,t,0.25));
+  ctxt('SOURCE',W/2,345,28,COL.sub,sa);
+  cfg.source.forEach((l,i)=>ctxt(l,W/2,395+i*48,fitText(l,980,32),COL.ink,sa));
+  if(nx&&t>=t0+sw){const na=fade(t0+sw+0.1,t,0.25);ctxt(cfg.next_label||'NEXT TEST',W/2,345,30,COL.sub,na);ctxt(nx,W/2,425,fitText(nx,960,62),COL.red,na);}
+  if(t>=t0+1.4){const a=fade(t0+1.4,t,0.25),pp=pop(t0+1.4,t);
+    c.save();c.translate(W/2,560);c.scale(pp,pp);panel(-380,-50,760,100,50,COL.brand,a);
+    c.font=`700 ${fitText(cfg.cta,700,42)}px P, DJ`;c.textAlign='center';c.textBaseline='middle';c.globalAlpha=a;c.fillStyle=COL.ink;c.fillText(cfg.cta,0,2);c.restore();}
+}
+
+// ---------------------------------------------------------------- scene images
+const IMG={};
+function loadImg(src){return new Promise(res=>{const im=new Image();im.onload=()=>res(im);im.onerror=()=>res(null);im.src=src;});}
+async function sceneImage(key){
+  if(!(key in IMG)) IMG[key]=await loadImg((CFG.scene_dir||'../work/bscene')+'/'+key+'.jpg');
+  return IMG[key];
+}
+function placeholder(key,p){                              // before the Blender render: a rough side view, so overlays can be checked
+  const g=c.createLinearGradient(0,0,0,H);g.addColorStop(0,'#c9ced4');g.addColorStop(1,'#8d949c');c.fillStyle=g;c.fillRect(0,0,W,H);
+  const s=1920/(0.425*p.d), X=x=>W/2+(x-p.cx)*s, Y=z=>H/2-(z-p.cz)*s;
+  c.save();c.fillStyle='#d9dbde';c.fillRect(0,Y(0),W,H);c.fillStyle='#7a5a3a';c.fillRect(X(-0.9),Y(p.H),X(0)-X(-0.9),0.03*s);
+  c.fillStyle='#9aa1a8';c.fillRect(X(p.px-0.03),Y(p.H+0.03),0.03*s,0.03*s);
+  c.translate(X(p.tx),Y(p.tz));c.rotate(p.ta*Math.PI/180);c.fillStyle=COL.crust;c.fillRect(-A*s,-HT*s,2*A*s,2*HT*s);c.fillStyle=COL.butter;c.fillRect(-A*s*0.85,-HT*s-4,1.7*A*s,4);
+  c.restore();c.save();c.font='700 22px P, DJ';c.textAlign='center';c.fillStyle='#1d2126';c.fillText(key,W/2,1500);c.restore();
+}
+
+// ---------------------------------------------------------------- API used by render.js
+let CFG=null,TL=null;
+window.setup=function(cfg){CFG=cfg;DEC=cfg.decimal||'.';TL=buildTimeline(cfg);
+  const seen=new Map();const N=Math.round(TL.duration*FPS);
+  for(let i=0;i<N;i++){const p=poseAt(TL,i/FPS),k=poseKey(p);if(!seen.has(k)) seen.set(k,{key:k,...keyPose(p)});}
+  return {duration:TL.duration,events:TL.events,poses:[...seen.values()],
+          rounds:TL.rounds.map(R=>({title:R.cfg.title,down:R.down,flat:R.S.flatDeg,spin:+R.S.spin.toFixed(2),tip:R.tipT,hit:R.landT}))};};
+window.poseKeyAt=t=>poseKey(poseAt(TL,t));
+async function drawFrame(t){
+  const p=poseAt(TL,t),key=poseKey(p),im=await sceneImage(key);
+  let z=1;                                                // slow push-in on held images: the picture never freezes
+  if(t>=TL.explain[0]&&t<TL.outro[0]) z=1+0.10*sm(TL.explain[0],TL.outro[0],t);
+  else for(const R of TL.rounds) if(t>=R.stampT&&t<R.end) z=1+0.05*sm(R.stampT,R.end,t);
+  else if(t>=R.start&&t<R.titleEnd) z=1+0.03*sm(R.start,R.titleEnd,t);
+  if(im){c.imageSmoothingQuality='high';const zw=W*z,zh=H*z;c.drawImage(im,(W-zw)/2,(H-zh)*0.62,zw,zh);} else placeholder(key,p);
+  if(!window.CLEAN) overlay(CFG,TL,t,p);
+}
+window.renderFrame=async function(t,type='image/jpeg'){
+  const L=0.45;
+  if(t>TL.duration-L){
+    await drawFrame(0);const first=document.createElement('canvas');first.width=W;first.height=H;first.getContext('2d').drawImage(out,0,0);
+    await drawFrame(t);c.save();c.globalAlpha=clamp((t-(TL.duration-L))/L,0,1);c.drawImage(first,0,0);c.restore();
+    return out.toDataURL(type,0.93);}
+  await drawFrame(t);return out.toDataURL(type,0.93);
+};
+window.ready=Promise.all([document.fonts.load('700 40px P'),document.fonts.load('700 40px DJ')]).then(()=>true);
+</script>
+</body></html>
