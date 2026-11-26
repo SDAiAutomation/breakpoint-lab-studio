@@ -102,7 +102,7 @@ function pose(R,u,du=1/FPS){                             // u = time since the s
   const S=R.S, zc=S.car(u), rd=S.rider(u);
   const sway=u<0?0.012*Math.sin(u*5.2):0;                // hanging: a slight bounce on the cable
   const snap=u<0?0:Math.min(6,u*u*30+u*4);               // the cut cable whips up and away
-  const mb=u>0&&u<S.tf?G*u*du:0;                         // how far the car falls during one video frame: speed blur on the shaft
+  const mb=u>0&&u<S.tf?G*u*du*(du<1/FPS?0.35:1):0;      // car drop during one video frame (speed blur); slow motion = high-speed camera, short shutter
   const hit=u>=S.tf?Math.min(u-S.tf,HIT_HOLD):-1;        // time since the impact (sparks, debris, dust, cracked glass)
   return {zc:zc+sway,cz:Math.max(zc,BUF-CRUSH)+CAM.off,d:CAM.d,c:rd.c,arm:rd.arm,lean:rd.lean,dz:rd.dz,s:rd.s,nod:rd.nod,
           cut:snap,mb,hit,buf:clamp((zc-(BUF-CRUSH))/CRUSH,0,1),v:S.speed(u),vcar:S.carSpeed(u),jump:S.jump,live:u>=0&&u<S.tf+0.5};

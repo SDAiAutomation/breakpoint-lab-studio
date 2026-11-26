@@ -807,10 +807,10 @@ def set_pose(p, sc=None):
         _show(o, True)
         sx = (-1, 1, -0.4, 0.5)[i]
         grow = 1 - math.exp(-hit * 5.0)
-        o.location = (sx * (0.5 + 0.6 * grow), -0.35 - 0.3 * grow, 0.15 + 0.35 * grow + 0.15 * i)
-        rr = 0.3 + 1.2 * grow
-        o.scale = (rr * 1.2, rr * 0.8, rr * 0.7)
-        o["dens"] = 14.0 * math.exp(-hit * 1.6) * (0.6 + 0.4 * (1 - grow)) / max(0.6, rr)
+        o.location = (sx * (0.55 + 0.7 * grow), -0.55 - 0.25 * grow, 0.05 + 0.15 * grow + 0.05 * i)
+        rr = 0.25 + 0.75 * grow
+        o.scale = (rr * 1.3, rr * 0.7, rr * 0.45)
+        o["dens"] = 7.0 * math.exp(-hit * 2.6) * (0.6 + 0.4 * (1 - grow)) / max(0.6, rr)
 
     # lights follow the car
     for name, off, tgt_z in (("Key", (-5.0, -7.0, 4.5), 1.2), ("Fill", (6.0, -6.0, 1.5), 1.0), ("Top", (0.4, -1.2, 6.5), 1.2)):
@@ -829,7 +829,7 @@ def speed_blur(sc, mb):
     sc.render.use_motion_blur = mb > 0.01
     if mb <= 0.01:
         return
-    sc.render.motion_blur_shutter = 0.5                     # 180 degree shutter
+    sc.render.motion_blur_shutter = 0.3
     movers = [o for o in sc.objects if o.get("mv") and o.parent is None]
     for o in movers:
         for f, dz in ((0, mb), (1, 0.0), (2, -mb)):
