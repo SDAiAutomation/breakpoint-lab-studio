@@ -31,6 +31,7 @@ Chaîne YouTube/TikTok **Breakpoint Lab**, handle **@BreakpointLabTV**. Séries 
   - L'explication doit coller à la manche gardée : si une ligne parle d'une manche coupée, s'arrêter avant elle (`"short": {"round": N, "explain_lines": K}`), ou garder cette manche.
   - Garder toutes les manches qui portent la surprise (ex. Slinky : métal PUIS plastique 4x plus léger, même 0,27 s → `"short": {"rounds": [1, 2]}`). Une manche qui ne fait que confirmer peut partir.
   - Plutôt 45 s claires que 38 s incomplètes.
+  - **Boucle parfaite** (par défaut) : les 0,4 dernières secondes se fondent dans la toute première image, donc le redémarrage du lecteur ne se voit pas et beaucoup revoient la vidéo. `"short": {"loop": false}` pour l'enlever.
 - Qualité visuelle soignée : géométrie propre, pas d'artefacts ; vérifier des images clés (`render.js stills`) avant un rendu complet.
 
 ## Confort du spectateur (il doit se sentir à l'aise, tout est harmonisé)
