@@ -8,7 +8,8 @@ the WHY explanation and the outro (source + call to comment). TikTok keeps the l
 
 Config (optional): "short": {"round": 2, "explain_lines": 3} or {"rounds": [1, 2]}; default round = hook_round,
 "from": "question" (default: each kept round starts at its question, the title card is skipped) or "round",
-all explain lines; "loop": false turns off the seamless loop (default on: the last 0.4 s fade into the very first
+all explain lines; the outro is cut to the source card (1.8 s, "source_s") + the last 2.7 s ("end_s": next test + CTA),
+"full_outro": true keeps it whole; "loop": false turns off the seamless loop (default on: the last 0.4 s fade into the very first
 frame, so when the player restarts the short there is no visible jump and many viewers watch it again). Keep every round the explanation and the surprise rely on, even if the cut goes past 45 s.
 The WHY is never sped up and never dropped. explain_lines stops the explanation just before a line that is about a
 round the short leaves out (each line appears 2.2 s after the previous one, so every kept line stays readable).
@@ -40,7 +41,13 @@ def segments(cfg, tl):
         n_all = len((cfg.get("explain") or {}).get("lines", []))
         end = explain["t1"] if not n or n >= n_all else min(explain["t1"], explain["t0"] + 0.8 + n * 2.2)
         segs.append((explain["t0"], end))
-    segs.append((outro if outro is not None else (explain["t1"] if explain else end_k), dur))
+    o0 = outro if outro is not None else (explain["t1"] if explain else end_k)
+    src_s, end_s = float(short.get("source_s", 1.8)), float(short.get("end_s", 2.7))
+    if short.get("full_outro") or dur - o0 <= src_s + end_s + 0.5:
+        segs.append((o0, dur))
+    else:                                          # short outro: the source card (readable 1.8 s), then the
+        segs.append((o0, o0 + src_s))              # next-test promise + CTA (last 2.7 s, fading into the loop)
+        segs.append((dur - end_s, dur))
     return [(round(a, 3), round(b, 3)) for a, b in segs if b - a > 0.2]
 
 

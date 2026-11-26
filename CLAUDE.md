@@ -26,11 +26,13 @@ Chaîne YouTube/TikTok **Breakpoint Lab**, handle **@BreakpointLabTV**. Séries 
 - Anglais, texte minimal (≤ 6 mots par ligne), textes dans le bandeau du haut (y 260–600 sur 1920) : rien ne couvre la scène. Zone sûre : rien d'important au-dessus de y=250 ni sous y=1440.
 - Chaque config a un champ `description` (liste de paragraphes, langue de la vidéo) : ce qu'on teste, ce qui se passe, pourquoi, avec les mêmes chiffres que la vidéo et la mention « simulation » si c'en est une. Il est écrit dans le .txt envoyé avec la vidéo (`engine/caption.py`) ; le workflow refuse une config sans `description`.
 - Durée ≥ 60 s (rémunération TikTok), rythme serré, mouvement jusqu'à la fin, ralenti sur le moment clé.
-- **Version courte YouTube** (~35-45 s, `tools/shortcut.py`, découpée dans la vidéo longue, pas de nouveau rendu) : accroche + la manche montrée dans l'accroche + l'explication + la fin. TikTok garde la version longue.
+- **Version courte YouTube** (30-38 s, `tools/shortcut.py`, découpée dans la vidéo longue, pas de nouveau rendu) : accroche + la manche montrée dans l'accroche + l'explication + la fin. TikTok garde la version longue.
   - Le « pourquoi » est la valeur de la chaîne : il n'est jamais coupé ni accéléré. On coupe des manches secondaires, jamais l'explication.
   - L'explication doit coller à la manche gardée : si une ligne parle d'une manche coupée, s'arrêter avant elle (`"short": {"round": N, "explain_lines": K}`), ou garder cette manche.
   - Garder toutes les manches qui portent la surprise (ex. Slinky : métal PUIS plastique 4x plus léger, même 0,27 s → `"short": {"rounds": [1, 2]}`). Une manche qui ne fait que confirmer peut partir.
-  - Plutôt 45 s claires que 38 s incomplètes.
+  - Viser **30-38 s** (YouTube Studio, 15 Shorts, nov. 2026 : on regarde 17-36 s quelle que soit la durée, donc plus court = meilleur % regardé ; les vues plafonnent vers 1 100-1 400 sans ce signal). Une seule manche par défaut ; une 2e seulement si l'explication ou la surprise en dépend.
+  - Fin courte : carte source 1,8 s + prochain test et CTA 2,7 s (`shortcut.py`, `"source_s"`, `"end_s"`, `"full_outro": true` pour tout garder).
+  - Pendant le WHY, l'image bouge : le moment clé rejoué au ralenti derrière le texte, pas un plan fixe.
   - **Boucle parfaite** (par défaut) : les 0,4 dernières secondes se fondent dans la toute première image, donc le redémarrage du lecteur ne se voit pas et beaucoup revoient la vidéo. `"short": {"loop": false}` pour l'enlever.
 - Qualité visuelle soignée : géométrie propre, pas d'artefacts ; vérifier des images clés (`render.js stills`) avant un rendu complet.
 
