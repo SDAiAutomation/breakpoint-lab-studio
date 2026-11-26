@@ -102,12 +102,12 @@ def concrete():
     nz.inputs["Detail"].default_value = 12.0
     nt.links.new(tc.outputs["Object"], nz.inputs["Vector"])
     ramp = nt.nodes.new("ShaderNodeValToRGB")
-    ramp.color_ramp.elements[0].color = (0.13, 0.13, 0.13, 1)
-    ramp.color_ramp.elements[1].color = (0.27, 0.265, 0.25, 1)
+    ramp.color_ramp.elements[0].color = (0.085, 0.085, 0.083, 1)
+    ramp.color_ramp.elements[1].color = (0.17, 0.165, 0.155, 1)
     nt.links.new(nz.outputs["Fac"], ramp.inputs["Fac"])
     # vertical stains: noise stretched along z
     mp = nt.nodes.new("ShaderNodeMapping")
-    mp.inputs["Scale"].default_value = (6.0, 6.0, 0.15)
+    mp.inputs["Scale"].default_value = (3.0, 3.0, 0.25)
     nt.links.new(tc.outputs["Object"], mp.inputs["Vector"])
     st = nt.nodes.new("ShaderNodeTexNoise")
     st.inputs["Scale"].default_value = 3.0
@@ -117,7 +117,7 @@ def concrete():
     sr.inputs["From Min"].default_value = 0.55
     sr.inputs["From Max"].default_value = 0.75
     sr.inputs["To Min"].default_value = 1.0
-    sr.inputs["To Max"].default_value = 0.6
+    sr.inputs["To Max"].default_value = 0.82
     nt.links.new(st.outputs["Fac"], sr.inputs["Value"])
     # formwork joints: thin dark lines from a brick texture with big "bricks"
     br = nt.nodes.new("ShaderNodeTexBrick")
@@ -188,42 +188,78 @@ def target_mat():
 
 
 def glass_mat():
-    """laminated glass; shadow rays pass (lets the lights reach the cabin); cracks appear with the object property 'crack'"""
-    m = bpy.data.materials.get("BL_Glass")
+    """thin laminated glass: clear transparency plus a Fresnel reflection; cracks spread from the bottom-left corner
+    (where the frame twists at the hit) with the object property 'crack'"""
+    m = bpy.data.materials.get("BL_Glass2")
     if m:
         return m
-    m = mat("BL_Glass", **{"Base Color": (0.93, 0.97, 0.95, 1), "Roughness": 0.02, "IOR": 1.52,
-                           "Transmission Weight": 1.0, "Transmission": 1.0})
+    m = bpy.data.materials.new("BL_Glass2")
+    m.use_nodes = True
     nt = m.node_tree
-    b = nt.nodes["Principled BSDF"]
-    outn = nt.nodes["Material Output"]
-    lp = nt.nodes.new("ShaderNodeLightPath")
+    for n in list(nt.nodes):
+        if n.type != 'OUTPUT_MATERIAL':
+            nt.nodes.remove(n)
+    outn = [n for n in nt.nodes if n.type == 'OUTPUT_MATERIAL'][0]
     tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+    tr.inputs["Color"].default_value = (0.92, 0.96, 0.94, 1)
+    gl = nt.nodes.new("ShaderNodeBsdfGlossy")
+    gl.inputs["Roughness"].default_value = 0.02
+    fr = nt.nodes.new("ShaderNodeLayerWeight")
+    fr.inputs["Blend"].default_value = 0.12
     mx = nt.nodes.new("ShaderNodeMixShader")
-    nt.links.new(lp.outputs["Is Shadow Ray"], mx.inputs[0])
-    nt.links.new(b.outputs[0], mx.inputs[1])
-    nt.links.new(tr.outputs[0], mx.inputs[2])
-    # cracks: voronoi cell edges (radial-ish web), white and rough, only where crack > 0
+    nt.links.new(fr.outputs["Fresnel"], mx.inputs[0])
+    nt.links.new(tr.outputs[0], mx.inputs[1])
+    nt.links.new(gl.outputs[0], mx.inputs[2])
     tc = nt.nodes.new("ShaderNodeTexCoord")
+    wp = nt.nodes.new("ShaderNodeTexNoise")                       # wobble the cell edges: cracks are not straight
+    wp.inputs["Scale"].default_value = 6.0
+    nt.links.new(tc.outputs["Object"], wp.inputs["Vector"])
+    mv = nt.nodes.new("ShaderNodeVectorMath")
+    mv.operation = 'ADD'
+    nt.links.new(tc.outputs["Object"], mv.inputs[0])
+    sc_ = nt.nodes.new("ShaderNodeVectorMath")
+    sc_.operation = 'SCALE'
+    sc_.inputs["Scale"].default_value = 0.08
+    nt.links.new(wp.outputs["Color"], sc_.inputs[0])
+    nt.links.new(sc_.outputs["Vector"], mv.inputs[1])
     vo = nt.nodes.new("ShaderNodeTexVoronoi")
     vo.feature = 'DISTANCE_TO_EDGE'
-    vo.inputs["Scale"].default_value = 7.0
-    nt.links.new(tc.outputs["Object"], vo.inputs["Vector"])
+    vo.inputs["Scale"].default_value = 9.0
+    nt.links.new(mv.outputs["Vector"], vo.inputs["Vector"])
     lt = nt.nodes.new("ShaderNodeMath")
     lt.operation = 'LESS_THAN'
-    lt.inputs[1].default_value = 0.018
+    lt.inputs[1].default_value = 0.006
     nt.links.new(vo.outputs["Distance"], lt.inputs[0])
+    # mask: only within ~0.7 m of the bottom-left corner (glass object space, metres)
+    ds = nt.nodes.new("ShaderNodeVectorMath")
+    ds.operation = 'DISTANCE'
+    ds.inputs[1].default_value = (-0.70, 0.0, -0.92)
+    nt.links.new(tc.outputs["Object"], ds.inputs[0])
+    mr = nt.nodes.new("ShaderNodeMapRange")
+    mr.inputs["From Min"].default_value = 0.25
+    mr.inputs["From Max"].default_value = 0.75
+    mr.inputs["To Min"].default_value = 1.0
+    mr.inputs["To Max"].default_value = 0.0
+    nt.links.new(ds.outputs["Value"], mr.inputs["Value"])
     at = nt.nodes.new("ShaderNodeAttribute")
     at.attribute_type = 'OBJECT'
     at.attribute_name = "crack"
-    mu = nt.nodes.new("ShaderNodeMath")
-    mu.operation = 'MULTIPLY'
-    nt.links.new(lt.outputs[0], mu.inputs[0])
-    nt.links.new(at.outputs["Fac"], mu.inputs[1])
+    m1 = nt.nodes.new("ShaderNodeMath")
+    m1.operation = 'MULTIPLY'
+    nt.links.new(lt.outputs[0], m1.inputs[0])
+    nt.links.new(mr.outputs["Result"], m1.inputs[1])
+    m2 = nt.nodes.new("ShaderNodeMath")
+    m2.operation = 'MULTIPLY'
+    nt.links.new(m1.outputs[0], m2.inputs[0])
+    nt.links.new(at.outputs["Fac"], m2.inputs[1])
+    m3 = nt.nodes.new("ShaderNodeMath")
+    m3.operation = 'MULTIPLY'
+    m3.inputs[1].default_value = 0.75
+    nt.links.new(m2.outputs[0], m3.inputs[0])
     wh = nt.nodes.new("ShaderNodeBsdfDiffuse")
-    wh.inputs["Color"].default_value = (0.85, 0.88, 0.88, 1)
+    wh.inputs["Color"].default_value = (0.75, 0.78, 0.78, 1)
     mx2 = nt.nodes.new("ShaderNodeMixShader")
-    nt.links.new(mu.outputs[0], mx2.inputs[0])
+    nt.links.new(m3.outputs[0], mx2.inputs[0])
     nt.links.new(mx.outputs[0], mx2.inputs[1])
     nt.links.new(wh.outputs[0], mx2.inputs[2])
     nt.links.new(mx2.outputs[0], outn.inputs["Surface"])
@@ -243,7 +279,7 @@ def dust_mat():
             nt.nodes.remove(n)
     outn = nt.nodes["Material Output"]
     vol = nt.nodes.new("ShaderNodeVolumePrincipled")
-    vol.inputs["Color"].default_value = (0.62, 0.58, 0.52, 1)
+    vol.inputs["Color"].default_value = (0.50, 0.47, 0.42, 1)
     tc = nt.nodes.new("ShaderNodeTexCoord")
     gr = nt.nodes.new("ShaderNodeTexGradient")
     gr.gradient_type = 'SPHERICAL'
@@ -391,13 +427,13 @@ def build(res=(1080, 1920)):
     yellow_paint = _rough_var(mat("BL_YellowPaint", **{"Base Color": (0.80, 0.58, 0.04, 1)}), 0.5, 0.7, 6)
     led = mat("BL_LED", **{"Base Color": (1, 1, 1, 1), "Emission Color": (1.0, 0.97, 0.92, 1), "Emission Strength": 25.0})
     cage_lamp = mat("BL_CageLamp", **{"Base Color": (1, 0.9, 0.7, 1), "Emission Color": (1.0, 0.80, 0.55, 1),
-                                      "Emission Strength": 40.0})
+                                      "Emission Strength": 15.0})
     btn = mat("BL_Button", **{"Base Color": (0.9, 0.9, 0.9, 1), "Emission Color": (0.55, 0.75, 1.0, 1),
                               "Emission Strength": 4.0})
     spark = mat("BL_Spark", **{"Base Color": (1, 0.6, 0.2, 1), "Emission Color": (1.0, 0.55, 0.15, 1),
                                "Emission Strength": 60.0})
     conc = concrete()
-    glass = glass_mat()
+    glass = glass_mat()   # noqa
     tgt = target_mat()
 
     # ---- shaft: back wall, side walls (cast concrete), landings every 11 ft, rails, brackets, conduit, work lights
@@ -424,7 +460,7 @@ def build(res=(1080, 1920)):
             lz = z + 2.4
             box(sc, f"LampBase{k}", (0.05, 0.12, 0.12), (sx * 1.70, 0.62, lz), dark_steel, bevel=0.01)
             ball(sc, f"Lamp{k}", 0.05, cage_lamp, mv=False).location = (sx * 1.64, 0.62, lz)
-            point(sc, f"LampL{k}", 45, (sx * 1.58, 0.62, lz))
+            point(sc, f"LampL{k}", 10, (sx * 1.58, 0.62, lz))
     # pit ladder (left wall)
     for sy in (0.25, 0.65):
         box(sc, f"LadderRail{sy}", (0.035, 0.035, 2.6), (-1.66, sy, 1.3), yellow_paint)
@@ -465,7 +501,6 @@ def build(res=(1080, 1920)):
         P(cone(sc, f"Shackle{i}", 0.022, 0.016, steel, 12, mv=False)).location = (rx, 0, CAR_H + 0.55)
         P(cone(sc, f"Stub{i}", 0.014, 0.014, rope, 10, mv=False)).location = (rx, 0, CAR_H + 0.65)
     P(box(sc, "Plank", (CAR_W + 0.38, 0.22, 0.16), (0, 0, -0.02), frame_paint, bevel=0.01))
-    P(box(sc, "Apron", (CAR_W - 0.1, 0.03, 0.55), (0, -CAR_D / 2 + 0.03, -0.30), dark_steel))   # toe guard
     P(box(sc, "Sill", (CAR_W, 0.10, 0.03), (0, -CAR_D / 2 + 0.05, 0.135), steel))
     P(box(sc, "KickPlate", (CAR_W - 0.12, 0.02, 0.14), (0, -CAR_D / 2 + 0.03, 0.20), brushed))
     P(box(sc, "Transom", (CAR_W - 0.12, 0.04, 0.10), (0, -CAR_D / 2 + 0.03, CAR_H - 0.06), brushed))
@@ -486,7 +521,7 @@ def build(res=(1080, 1920)):
         o.parent = car
         if "mv" in o:
             del o["mv"]
-    il = area(sc, "CabinLight", 0.9, 160, (1.0, 0.96, 0.9), sy=0.6)            # the cabin's own ceiling light
+    il = area(sc, "CabinLight", 0.9, 120, (1.0, 0.96, 0.9), sy=0.6)            # the cabin's own ceiling light
     il.parent = car
     il.location = (0, 0, CAR_H - 0.09)
     il.rotation_euler = (0, 0, 0)
@@ -508,24 +543,24 @@ def build(res=(1080, 1920)):
 
     # ---- the dummy (Hybrid-III-like): yellow vinyl, black joints, quadrant targets; placed from joints in set_pose
     for side in ("L", "R"):
-        cone(sc, f"Thigh{side}", 0.088, 0.062, vinyl)
-        cone(sc, f"Shin{side}", 0.060, 0.044, vinyl)
-        ball(sc, f"Knee{side}", 0.066, vinyl, 1.0, 1.0, 0.95)
+        cone(sc, f"Thigh{side}", 0.098, 0.068, vinyl)
+        cone(sc, f"Shin{side}", 0.066, 0.050, vinyl)
+        ball(sc, f"Knee{side}", 0.072, vinyl, 1.0, 1.0, 0.95)
         ball(sc, f"Ankle{side}", 0.045, rubber)
         box(sc, f"Shoe{side}", (0.27, 0.105, 0.09), (0, 0, 0), rubber, bevel=0.035, mv=True, seg=4)
-        cone(sc, f"UArm{side}", 0.052, 0.043, vinyl)
-        cone(sc, f"FArm{side}", 0.043, 0.034, vinyl)
-        ball(sc, f"Shoulder{side}", 0.062, rubber)
-        ball(sc, f"Elbow{side}", 0.046, rubber)
-        ball(sc, f"Hand{side}", 0.05, vinyl, 0.75, 0.95, 1.5)
-    ball(sc, "Pelvis", 0.12, vinyl, 1.0, 1.55, 1.0)
+        cone(sc, f"UArm{side}", 0.060, 0.050, vinyl)
+        cone(sc, f"FArm{side}", 0.050, 0.040, vinyl)
+        ball(sc, f"Shoulder{side}", 0.072, rubber)
+        ball(sc, f"Elbow{side}", 0.052, rubber)
+        ball(sc, f"Hand{side}", 0.056, vinyl, 0.75, 0.95, 1.45)
+    ball(sc, "Pelvis", 0.13, vinyl, 1.0, 1.5, 1.0)
     cone(sc, "Lumbar", 0.075, 0.075, rubber)
-    ball(sc, "Chest", 0.20, vinyl, 0.68, 0.95, 1.2)
+    ball(sc, "Chest", 0.21, vinyl, 0.72, 1.0, 1.18)
     ball(sc, "Bib", 0.12, rubber, 0.35, 1.25, 1.0)              # the black chest-jacket front plate
     cone(sc, "NeckCore", 0.017, 0.017, steel, 12)
     for i in range(3):
-        cone(sc, f"NeckDisc{i}", 0.05, 0.05, rubber)
-    ball(sc, "Head", 0.115, vinyl, 0.92, 0.75, 1.03)
+        cone(sc, f"NeckDisc{i}", 0.056, 0.056, rubber)
+    ball(sc, "Head", 0.128, vinyl, 0.92, 0.78, 1.0)
     ball(sc, "Nose", 0.022, vinyl, 1.0, 0.8, 1.3)
     ball(sc, "Chin", 0.055, vinyl, 1.0, 1.1, 0.8)
     for nm in ("THead", "TSho", "THip", "TKnee"):
@@ -551,10 +586,10 @@ def build(res=(1080, 1920)):
         o["dens"] = 0.0
 
     # ---- lights: key from front left and a rim from above follow the car; the pit is lit for the logo
-    area(sc, "Key", 3.0, 1500, (1.0, 0.97, 0.93), mv=True)
-    area(sc, "Fill", 4.0, 350, (0.85, 0.9, 1.0), mv=True)
-    area(sc, "Top", 2.0, 500, (1.0, 0.95, 0.88), mv=True)
-    pit = area(sc, "PitLight", 4.0, 900)
+    area(sc, "Key", 2.0, 420, (1.0, 0.97, 0.93), mv=True)
+    area(sc, "Fill", 4.0, 90, (0.85, 0.9, 1.0), mv=True)
+    area(sc, "Top", 2.0, 260, (1.0, 0.95, 0.88), mv=True)
+    pit = area(sc, "PitLight", 4.0, 520)
     pit.location = (1.5, -7.0, 2.0)
     aim(pit, (0, 0, 0.0))
 
@@ -570,7 +605,7 @@ def build(res=(1080, 1920)):
     wd = bpy.data.worlds.get("BL_World") or bpy.data.worlds.new("BL_World")
     wd.use_nodes = True
     wd.node_tree.nodes["Background"].inputs[0].default_value = (0.55, 0.60, 0.68, 1)
-    wd.node_tree.nodes["Background"].inputs[1].default_value = 0.08
+    wd.node_tree.nodes["Background"].inputs[1].default_value = 0.03
     sc.world = wd
 
     r = sc.render
@@ -581,11 +616,11 @@ def build(res=(1080, 1920)):
     sc.cycles.device = 'CPU'
     sc.cycles.samples = 64
     sc.cycles.use_adaptive_sampling = True
-    sc.cycles.adaptive_threshold = 0.03
+    sc.cycles.adaptive_threshold = 0.04
     sc.cycles.use_denoising = True
     sc.cycles.denoiser = 'OPENIMAGEDENOISE'
-    sc.cycles.max_bounces = 6
-    sc.cycles.transmission_bounces = 4
+    sc.cycles.max_bounces = 4
+    sc.cycles.transmission_bounces = 2
     sc.cycles.volume_bounces = 0
     try:
         sc.view_settings.view_transform = 'AgX'
@@ -661,12 +696,6 @@ def set_pose(p, sc=None):
         place(ob[f"BufBody{sx}"], (x, 0, 0), (x, 0, 0.16))
         place(ob[f"BufRod{sx}"], (x, 0, 0.16), (x, 0, max(0.17, blen - 0.04)))
         place(ob[f"BufPad{sx}"], (x, 0, max(0.17, blen - 0.04)), (x, 0, blen))
-    # toe guard crumples against the pit at the hit
-    crush = 0.0 if hit < 0 else min(1.0, hit / 0.06)
-    ap = ob["Apron"]
-    ap.scale = (1.0, 1.0, 1.0 - 0.45 * crush)
-    ap.location = (0, -CAR_D / 2 + 0.03 - 0.05 * crush, -0.30 + 0.12 * crush)
-    ap.rotation_euler = (math.radians(-14) * crush, 0, 0)
     ob["Glass"]["crack"] = 1.0 if hit >= 0.02 else 0.0
 
     # ---- dummy: side-on (faces +x), turned towards the camera, centred in the car
@@ -709,22 +738,22 @@ def set_pose(p, sc=None):
     hn = tb + math.radians(float(p.get("nod", 0)))
     hup = Vector((math.sin(hn), 0, math.cos(hn)))
     hfw = Vector((math.cos(hn), 0, -math.sin(hn)))
-    n1 = n0 + 0.12 * (up + hup).normalized()
+    n1 = n0 + 0.075 * (up + hup).normalized()
     place(ob["NeckCore"], Wp(n0), Wp(n1))
     for i in range(3):
         a = n0 + (n1 - n0) * (0.12 + 0.3 * i)
         place(ob[f"NeckDisc{i}"], Wp(a), Wp(a + (n1 - n0) * 0.18))
-    hc = n1 + 0.11 * hup + 0.015 * hfw
+    hc = n1 + 0.115 * hup + 0.015 * hfw
     ob["Head"].location = Wp(hc)
     ob["Head"].rotation_euler = (0, hn, FACE)
-    ob["Nose"].location = Wp(hc + 0.098 * hfw + 0.005 * hup)
+    ob["Nose"].location = Wp(hc + 0.112 * hfw + 0.005 * hup)
     ob["Nose"].rotation_euler = (0, hn, FACE)
-    ob["Chin"].location = Wp(hc + 0.055 * hfw - 0.075 * hup)
+    ob["Chin"].location = Wp(hc + 0.06 * hfw - 0.085 * hup)
     ob["Chin"].rotation_euler = (0, hn, FACE)
     # targets on the side facing the camera (local -y)
     tg = (math.pi / 2, 0, FACE)
-    for nm, v in (("THead", hc + Vector((0, -0.088, 0.01))), ("TSho", J["sh"] + Vector((0, -SHO_Y - 0.063, 0))),
-                  ("THip", J["hip"] + Vector((0, -0.19, 0))), ("TKnee", J["knee"] + Vector((0.02, -LEG_Y - 0.066, 0)))):
+    for nm, v in (("THead", hc + Vector((0, -0.101, 0.01))), ("TSho", J["sh"] + Vector((0, -SHO_Y - 0.073, 0))),
+                  ("THip", J["hip"] + Vector((0, -0.196, 0))), ("TKnee", J["knee"] + Vector((0.02, -LEG_Y - 0.072, 0)))):
         ob[nm].location = Wp(v)
         ob[nm].rotation_euler = tg
 
@@ -779,9 +808,9 @@ def set_pose(p, sc=None):
         sx = (-1, 1, -0.4, 0.5)[i]
         grow = 1 - math.exp(-hit * 5.0)
         o.location = (sx * (0.5 + 0.6 * grow), -0.35 - 0.3 * grow, 0.15 + 0.35 * grow + 0.15 * i)
-        rr = 0.25 + 1.0 * grow
+        rr = 0.3 + 1.2 * grow
         o.scale = (rr * 1.2, rr * 0.8, rr * 0.7)
-        o["dens"] = 4.0 * math.exp(-hit * 1.6) * (0.6 + 0.4 * (1 - grow)) / max(0.6, rr)
+        o["dens"] = 14.0 * math.exp(-hit * 1.6) * (0.6 + 0.4 * (1 - grow)) / max(0.6, rr)
 
     # lights follow the car
     for name, off, tgt_z in (("Key", (-5.0, -7.0, 4.5), 1.2), ("Fill", (6.0, -6.0, 1.5), 1.0), ("Top", (0.4, -1.2, 6.5), 1.2)):
