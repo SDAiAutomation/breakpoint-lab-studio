@@ -184,9 +184,9 @@ def build(res=(1080, 1920)):
 
     # floor = the lab base (logo on its front face), wall behind
     add_logo_base(sc, width=2.6, height=0.16, depth=0.9, top_z=0.0)
-    for o in sc.objects:                                        # centred in the frame (the camera looks at x = 0.25)
+    for o in sc.objects:                                        # centred in the frame (the camera looks at x = 0.32)
         if o.get("bb") in ("LabBase", "Logo"):
-            o.location.x += 0.25
+            o.location.x += 0.32
     bpy.ops.mesh.primitive_plane_add(size=30, location=(0, 0, -0.16))
     pl = bpy.context.object
     pl.name = "Ground"
@@ -248,7 +248,7 @@ def build(res=(1080, 1920)):
         sc.view_settings.look = 'AgX - Base Contrast'
     except TypeError:
         pass
-    set_pose({"H": 0.75, "px": -0.16, "tx": -0.10, "tz": 0.757, "ta": 0, "cx": 0.25, "cz": 0.33, "d": 6.0}, sc)
+    set_pose({"H": 0.75, "px": -0.16, "tx": -0.10, "tz": 0.757, "ta": 0, "cx": 0.32, "cz": 0.33, "d": 6.0}, sc)
     return sc
 
 

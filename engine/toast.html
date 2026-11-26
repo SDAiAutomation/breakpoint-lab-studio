@@ -62,7 +62,7 @@ function simulate(kind,Ht){
 const D_={hook:2.4,hookPlay:2.0,title:1.3,setup:0.4,question:1.9,qFirst:1.6,keyGap:0.5,after:0.9,rpGap:0.25,
           stampGap:0.3,stampHold:0.9,fact:4.0,explainLead:0.8,line:3.2,explainTail:2.6,outro:7.5,wind:1.2};
 const RP_SLOW=0.2, RP_PRE=0.12, RP_POST=0.18;            // slow motion: 5x slower, from just before the tip to just after the landing
-const CAM0={cx:0.25,cz:0.33,d:6.0};                      // same framing every round at the landing (we compare)
+const CAM0={cx:0.32,cz:0.33,d:6.0};                      // same framing every round at the landing (we compare)
 
 function buildTimeline(cfg){
   const T={rounds:[],events:[]},ev=e=>T.events.push(e);
