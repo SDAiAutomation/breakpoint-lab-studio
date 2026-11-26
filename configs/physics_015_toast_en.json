@@ -1,0 +1,130 @@
+{
+  "id": "physics-015-toast-en",
+  "engine": "toast",
+  "blender_scene": "tools/blender/toast_scene.py",
+  "series": "PHYSICS · TEST 015",
+  "decimal": ".",
+  "handle": "@BreakpointLabTV",
+  "hook": [
+    "Murphy's law, or physics?",
+    "Which side lands?"
+  ],
+  "hook_series": false,
+  "replay_label": "SLOW-MO",
+  "rounds": [
+    {
+      "title": "ROUND 1 · KITCHEN TABLE",
+      "kind": "slow",
+      "table_m": 0.75,
+      "meter": "TABLE 75 cm",
+      "question": "Which side lands?",
+      "question_sub": "BUTTER UP or DOWN ↓",
+      "stamp": {
+        "text": "BUTTER DOWN",
+        "color": "red"
+      },
+      "fact": [
+        "Half a turn: butter down",
+        "21,000 real drops: 62% down"
+      ]
+    },
+    {
+      "title": "ROUND 2 · FLICKED OFF FAST",
+      "kind": "flick",
+      "table_m": 0.75,
+      "meter": "FLICK  > 1.6 m/s",
+      "question": "Flicked fast: which side?",
+      "question_sub": "BUTTER UP or DOWN ↓",
+      "stamp": {
+        "text": "BUTTER UP",
+        "color": "green"
+      },
+      "fact": [
+        "Too fast to tip over",
+        "It barely spins"
+      ]
+    },
+    {
+      "title": "ROUND 3 · A 3 m TABLE",
+      "kind": "slow",
+      "table_m": 3.0,
+      "meter": "TABLE 3 m",
+      "question": "A 3 m table: now?",
+      "question_sub": "BUTTER UP or DOWN ↓",
+      "stamp": {
+        "text": "BUTTER UP",
+        "color": "green"
+      },
+      "fact": [
+        "Time for a full turn",
+        "Matthews, Eur. J. Phys. 1995"
+      ]
+    }
+  ],
+  "explain": {
+    "title": "WHY?",
+    "lines": [
+      "It tips on the edge first",
+      "That starts a slow spin",
+      "75 cm: only half a turn"
+    ]
+  },
+  "source": [
+    "Matthews, Eur. J. Phys. 16 (1995)",
+    "The Telegraph, 27 May 2001",
+    "Simulated: motion"
+  ],
+  "cta": "Subscribe: you pick the next test",
+  "next_test": "Jump at the last second?",
+  "caption": "Does toast really land butter side down? 🍞 Up or down? A kitchen table, a fast flick, then a 3 m table. Place your bet before the slow-mo 👇 #physics #science #murphyslaw",
+  "send_line": "Send this to the friend who blames bad luck 👀",
+  "keywords": "Why toast lands butter side down: Murphy's law, the table edge, rotation, Robert Matthews toast experiment. Physics simulation.",
+  "description": [
+    "Does toast really land butter side down, or is it just Murphy's law? We test three cases on the same slice: pushed slowly off a kitchen table (75 cm), flicked off fast, then pushed slowly off a 3 m table.",
+    "From the kitchen table the toast lands butter side down. Flicked off fast, it barely spins and lands butter side up. From a 3 m table it has time for a full turn and lands butter side up.",
+    "Why: a slice pushed slowly off a table first tips over the edge, pivoting on it. That pivot sets it spinning, but slowly. From an ordinary table it only has time for about half a turn before it hits the floor, so the butter ends up underneath. Physicist Robert Matthews showed in 1995 that a table would have to be about 3 metres high to give the toast time to come back butter side up; pushed off faster than about 1.6 m/s, it leaves the edge before it can tip.",
+    "It is not just theory: in 2001, more than 1,000 schoolchildren dropped toast over 21,000 times, and it landed butter side down 62% of the time (The Telegraph, 27 May 2001).",
+    "This video is a 3D simulation (Blender) of Matthews' model; the motion is simulated."
+  ],
+  "sources_detail": [
+    "R. A. J. Matthews, 'Tumbling toast, Murphy's Law and the fundamental constants', European Journal of Physics 16, 172 (1995), doi:10.1088/0143-0807/16/4/005: toast has an inherent tendency to land butter side down for a wide range of conditions; for conventional tables (h about 75 cm) it lacks the rotation to land butter up; a table about 3 m high would be needed; tumbling is negligible for horizontal speeds above about 1.6 m/s.",
+    "The Telegraph (Robert Matthews), 27 May 2001: nationwide experiment, more than 1,000 schoolchildren, toast tumbling off plates more than 21,000 times, butter side down 62 per cent of the time. Also BBC Science Focus: 'over 1,000 schoolchildren and 21,000 drops', butter side down almost two thirds of the time.",
+    "On screen: 75 cm, 3 m and 1.6 m/s from Matthews 1995; 21,000 drops and 62% from the 2001 experiment. Simulated: the slice (12 cm), the push, the pivot and the fall follow Matthews' model (pivot on the edge, then constant spin); the spin dial shows the simulated angle, no number."
+  ],
+  "short": {
+    "rounds": [1, 3]
+  },
+  "sound": {
+    "mode": "hybrid",
+    "find": {
+      "land": {
+        "q": [
+          "bread drop floor",
+          "toast drop",
+          "soft object drop floor",
+          "small thud floor",
+          "book drop soft"
+        ],
+        "hear": "a slice of toast dropping flat onto a hard floor: one short soft slap",
+        "role": "hit",
+        "make": "a slice of toast slapping onto a floor"
+      },
+      "strike": {
+        "q": [
+          "wood tap",
+          "plastic knock",
+          "ruler hit table",
+          "small hit"
+        ],
+        "hear": "a quick plastic paddle tapping a slice of bread: one short knock",
+        "role": "click",
+        "make": "a quick small knock"
+      }
+    },
+    "events": {
+      "land": "land",
+      "strike": "strike"
+    }
+  },
+  "cover_t": 4.0
+}
