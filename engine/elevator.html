@@ -57,7 +57,7 @@ function simulate(r){
 const D_={hook:2.4,hookPlay:2.1,title:1.3,setup:0.4,question:1.9,qFirst:1.6,keyGap:0.35,after:1.0,rpGap:0.25,
           stampGap:0.3,stampHold:0.9,fact:4.0,explainLead:0.8,line:3.2,explainTail:2.6,outro:7.5};
 const RP_SLOW=0.2, RP_POST=0.3, HOOK_SKIP=21;   // hook = the same slow motion, frozen 0.02 s before the hit (rider in the air)
-const CAM={off:1.30,d:18.0};                            // camera tracks the car: same framing all the time
+const CAM={off:1.30,d:20.0};                            // camera tracks the car: same framing all the time
 
 function buildTimeline(cfg){
   const T={rounds:[],events:[]},ev=e=>T.events.push(e);
@@ -174,7 +174,7 @@ function overlay(cfg,T,t,p){
       ctxt(r.question_sub,W/2,515,fitText(r.question_sub,900,40),COL.ink,a);}   // gone before the cable snaps: one thing at a time
     const meterA=t>=R.titleEnd&&!stampOn&&!inRp?fade(R.titleEnd,t)*(1-fade(R.afterEnd,t,0.2)):0;
     if(meterA>0) pill(r.meter,W/2,628,30,R.S.jump?'rgba(47,111,224,0.92)':'rgba(91,99,108,0.92)',meterA);
-    if(!stampOn&&t>=R.snapT-0.3) speedo(190,770,p,fade(R.snapT-0.3,t,0.25)*(1-fade(R.stampT-0.2,t,0.2)));
+    if(!stampOn&&t>=R.snapT-0.3) speedo(175,770,p,fade(R.snapT-0.3,t,0.25)*(1-fade(R.stampT-0.2,t,0.2)));
     if(inRp){const a=fade(R.replayT0,t,0.15)*(1-fade(R.replayT1-0.15,t,0.15));
       pill((cfg.replay_label||'SLOW-MO'),W/2,628,28,'rgba(224,48,63,0.92)',a);}
     if(stampOn){
@@ -190,7 +190,7 @@ function overlay(cfg,T,t,p){
   if(t<T.outro[0]){const e=cfg.explain,t0=T.explain[0],n=e.lines.length;
     ctxt(e.title,W/2,350,fitText(e.title,960,60),COL.ink,fade(t0,t));
     e.lines.forEach((l,i)=>ctxt(l,W/2,430+i*62,fitText(l,960,46),i===n-1?COL.red:COL.sub,fade(t0+D_.explainLead+i*D_.line,t,0.3)));
-    speedo(190,770,p,fade(t0+D_.explainLead,t,0.4));   // the speeds replay with the slow motion under the explanation
+    speedo(175,770,p,fade(t0+D_.explainLead,t,0.4));   // the speeds replay with the slow motion under the explanation
     return;}
   const t0=T.outro[0];
   const nx=cfg.next_test, sw=nx?Math.min(2.6,(T.outro[1]-T.outro[0])*0.4):1e9, sa=fade(t0,t)*(1-fade(t0+sw,t,0.25));

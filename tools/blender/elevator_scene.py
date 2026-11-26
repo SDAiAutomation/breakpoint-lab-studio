@@ -94,8 +94,8 @@ def concrete():
         noise.inputs["Scale"].default_value = 3.0
         noise.inputs["Detail"].default_value = 10.0
         ramp = nt.nodes.new("ShaderNodeValToRGB")
-        ramp.color_ramp.elements[0].color = (0.20, 0.205, 0.21, 1)
-        ramp.color_ramp.elements[1].color = (0.36, 0.36, 0.355, 1)
+        ramp.color_ramp.elements[0].color = (0.10, 0.105, 0.11, 1)
+        ramp.color_ramp.elements[1].color = (0.20, 0.20, 0.195, 1)
         nt.links.new(noise.outputs["Fac"], ramp.inputs["Fac"])
         nt.links.new(ramp.outputs["Color"], b.inputs["Base Color"])
         rr = nt.nodes.new("ShaderNodeMapRange")
@@ -120,7 +120,7 @@ def build(res=(1080, 1920)):
     steel = principled("BL_Steel", **{"Base Color": (0.55, 0.56, 0.58, 1), "Metallic": 1.0, "Roughness": 0.38})
     dark_steel = principled("BL_DarkSteel", **{"Base Color": (0.16, 0.16, 0.17, 1), "Metallic": 1.0, "Roughness": 0.5})
     sling = principled("BL_Sling", **{"Base Color": (0.55, 0.20, 0.06, 1), "Roughness": 0.55})       # painted steel frame
-    panel = principled("BL_CarPanel", **{"Base Color": (0.62, 0.60, 0.56, 1), "Roughness": 0.42})    # light laminate walls
+    panel = principled("BL_CarPanel", **{"Base Color": (0.46, 0.45, 0.42, 1), "Roughness": 0.42})    # laminate walls
     rubber = principled("BL_CarFloor", **{"Base Color": (0.09, 0.09, 0.10, 1), "Roughness": 0.8})
     yellow = principled("BL_Dummy", **{"Base Color": (0.82, 0.56, 0.07, 1), "Roughness": 0.42})
     joint = principled("BL_Joint", **{"Base Color": (0.05, 0.05, 0.055, 1), "Roughness": 0.5})
@@ -198,10 +198,10 @@ def build(res=(1080, 1920)):
         o["bb"] = name
         sc.collection.objects.link(o)
         return o
-    area("Key", 3.0, 9000)
-    area("Fill", 4.0, 3500)
-    area("Top", 2.5, 1500)                                      # from above: a rim on the car and the rider
-    pit = area("PitLight", 4.0, 3000)                           # the base and its logo at the bottom
+    area("Key", 3.0, 2400)
+    area("Fill", 4.0, 900)
+    area("Top", 2.5, 700)                                      # from above: a rim on the car and the rider
+    pit = area("PitLight", 4.0, 1100)                           # the base and its logo at the bottom
     pit.location = (1.5, -7.0, 2.0)
     aim(pit, (0, 0, 0.0))
 
@@ -216,7 +216,7 @@ def build(res=(1080, 1920)):
     wd = bpy.data.worlds.get("BL_World") or bpy.data.worlds.new("BL_World")
     wd.use_nodes = True
     wd.node_tree.nodes["Background"].inputs[0].default_value = (0.70, 0.73, 0.78, 1)
-    wd.node_tree.nodes["Background"].inputs[1].default_value = 0.35
+    wd.node_tree.nodes["Background"].inputs[1].default_value = 0.15
     sc.world = wd
 
     r = sc.render
@@ -237,7 +237,7 @@ def build(res=(1080, 1920)):
     except TypeError:
         pass
     set_pose({"zc": BUF + 15 * FLOOR, "cut": 0, "c": 0, "arm": 0, "lean": 0, "dz": 0, "buf": 1,
-              "cz": BUF + 15 * FLOOR + 1.3, "d": 18.0}, sc)
+              "cz": BUF + 15 * FLOOR + 1.3, "d": 20.0}, sc)
     return sc
 
 
