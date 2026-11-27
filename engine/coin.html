@@ -24,7 +24,7 @@ const COL={green:'#1F9D55',red:'#E0303F',ink:'#1d2126',sub:'#5b636c',brand:'#F7C
 
 // ---------------------------------------------------------------- physics (SI, z up; the coin's centre touches the forehead at Z_HIT)
 const G=9.81, MPH=1/0.44704;
-const Z_HIT=1.667;                                     // forehead top of the dummy head (tools/blender/coin_scene.py)
+const Z_HIT=1.597;                                     // forehead top of the headform (tools/blender/headform.py, coin_scene.py)
 const V_VAC=208*0.44704, H_DROP=V_VAC*V_VAC/(2*G);     // 208 mph at the street (Bloomfield) -> drop height 440.7 m
 const VT=25*0.44704;                                   // terminal speed of a tumbling penny: 25 mph (Bloomfield)
 function simulate(r){
@@ -101,7 +101,7 @@ function pose(R,u,du=1/FPS){                           // u = time since the dro
   const mb=live?Math.min(3.0,S.vel(u)*du*(du<1/FPS?0.35:1)):0;   // coin drop during one video frame (speed blur); capped
   const hit=u>=S.tf?Math.min(u-S.tf,HIT_HOLD):-1;
   const cz=u<S.tf?Math.max(k.z,Z_HIT):Z_HIT;           // the camera rides with the coin, then waits at the forehead
-  return {zc:k.z,cx:k.x,tilt:k.tilt,yaw:k.yaw,cz,d:1.05,wide:0,mb,hit,v:S.vel(u),live,air:S.air};
+  return {zc:k.z,cx:k.x,tilt:k.tilt,yaw:k.yaw,cz,d:0.6,wide:0,mb,hit,v:S.vel(u),live,air:S.air};
 }
 function wideP(R){const k=R.S.coin(0);return {zc:k.z,cx:0,tilt:k.tilt,yaw:0,cz:WIDE.cz,d:WIDE.d,wide:1,mb:0,hit:-1,v:0,live:false,air:R.S.air};}
 const slowU=(R,k)=>{const st=R.rp.slow/FPS;return R.rpA+Math.min(Math.max(0,Math.round(k)),Math.round((R.rpB-R.rpA)/st))*st;};

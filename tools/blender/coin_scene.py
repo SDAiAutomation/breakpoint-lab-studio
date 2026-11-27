@@ -6,10 +6,12 @@ frame shows; this script renders one image per different pose.
 
   blender -b -P tools/blender/coin_scene.py -- --poses work/timeline.json --out work/bscene --range 0-17
 
-Set: a glass-and-aluminium curtain wall rising behind a street-level BREAKPOINT LAB base; on the base, the bust of a
-Hybrid-III-like crash-test dummy (yellow vinyl, black neck discs, quadrant targets) looking up at the tower; a US penny
-(19.05 mm, copper). While the coin falls the camera rides with it (85 mm, 1.05 m away): the tower streaks past
-(motion blur), the head rises into the frame at the end. Wide street shot for the titles and the question.
+Set: a city block seen from the top of a tower: the tower's glass-and-aluminium curtain wall, the street far below
+(sidewalk, road, cars, the neighbouring buildings), and at the foot of the tower a BREAKPOINT LAB base carrying a
+Hybrid-III-like crash-test headform (yellow vinyl, sculpted face, black neck discs, quadrant targets) looking up.
+A US penny (19.05 mm, copper). While the coin falls the camera rides with it, 0.6 m above it, looking almost straight
+down (50 mm): the curtain wall streaks past at the top of the frame, the street and the head grow below; at the end the
+face fills the frame and the coin lands on the forehead. Wide street shot (35 mm, from below) for the titles.
 
 pose = {zc coin centre height (m), cx coin sideways offset (m), tilt (deg, 0 = flat), yaw (deg),
         cz camera height (m), d camera distance (m), wide 1 = street shot, hit time since the contact (s, <0 before),
@@ -23,16 +25,19 @@ import bpy
 from mathutils import Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import random                                    # noqa: E402
+
 from lab_set import add_logo_base, BASE_COL   # noqa: E402  (the BREAKPOINT LAB base, same in every scene)
+import headform                                  # noqa: E402  (the face, shared with the contact computation)
 
 SCENE = "BL_coin"
-Z_HIT = 1.667                       # coin centre at the contact (engine/coin.html)
-HEAD_C = (0.0, -0.03, 1.55)         # head centre; tilted back 40 deg, the coin line x = y = 0 meets the upper forehead
-HEAD_TILT = math.radians(-40)
+Z_HIT = 1.597                       # coin centre at the contact (engine/coin.html); headform.top_along_vertical
+HEAD_C = (0.0, -0.05, 1.50)         # head centre; tilted back 60 deg, the coin line x = y = 0 meets the upper forehead
+HEAD_TILT = math.radians(-60)
 BASE_TOP = 1.10
-WALL_Y = 1.75                       # tower facade plane (front face)
+WALL_Y = 4.0                        # tower facade plane (front face): the coin falls 4 m in front of it
 TOWER_TOP = 470.0
-PHI = math.radians(12)              # camera a little to the right of the face: three-quarter view
+EL, AZ = math.radians(78), math.radians(10)   # riding camera: 78 deg down, a little to the right
 R_COIN, T_COIN = 0.009525, 0.00152  # US cent: 19.05 mm x 1.52 mm
 
 
@@ -110,9 +115,33 @@ def facade_mat():
     tc = nd.new("ShaderNodeTexCoord")
     sp = nd.new("ShaderNodeSeparateXYZ")
     ln.new(tc.outputs["Object"], sp.inputs[0])
+    nsp = nd.new("ShaderNodeSeparateXYZ")               # box mapping: x on the faces looking along y, y on the others
+    ln.new(tc.outputs["Normal"], nsp.inputs[0])
+    ax = nd.new("ShaderNodeMath")
+    ax.operation = 'ABSOLUTE'
+    ln.new(nsp.outputs["Y"], ax.inputs[0])
+    ay = nd.new("ShaderNodeMath")
+    ay.operation = 'ABSOLUTE'
+    ln.new(nsp.outputs["X"], ay.inputs[0])
+    ux = nd.new("ShaderNodeMath")
+    ux.operation = 'MULTIPLY'
+    ln.new(sp.outputs["X"], ux.inputs[0])
+    ln.new(ax.outputs[0], ux.inputs[1])
+    uy = nd.new("ShaderNodeMath")
+    uy.operation = 'MULTIPLY'
+    ln.new(sp.outputs["Y"], uy.inputs[0])
+    ln.new(ay.outputs[0], uy.inputs[1])
+    uu = nd.new("ShaderNodeMath")
+    uu.operation = 'ADD'
+    ln.new(ux.outputs[0], uu.inputs[0])
+    ln.new(uy.outputs[0], uu.inputs[1])
     cb = nd.new("ShaderNodeCombineXYZ")
-    ln.new(sp.outputs["X"], cb.inputs["X"])
+    ln.new(uu.outputs[0], cb.inputs["X"])
     ln.new(sp.outputs["Z"], cb.inputs["Y"])
+    roof = nd.new("ShaderNodeMath")                     # roofs: gravel and plant, grey
+    roof.operation = 'GREATER_THAN'
+    roof.inputs[1].default_value = 0.5
+    ln.new(nsp.outputs["Z"], roof.inputs[0])
     br = nd.new("ShaderNodeTexBrick")                   # mortar = mullions and transoms, brick colour = pane tint
     br.offset = 0.0
     br.squash = 1.0
@@ -146,7 +175,8 @@ def facade_mat():
     c1 = mixc(nt, br.outputs["Fac"], glass_col, (0.50, 0.51, 0.52, 1))      # glass / mullion
     c2 = mixc(nt, lt.outputs[0], c1, (0.42, 0.41, 0.39, 1))                   # + spandrel stone
     c3 = mixc(nt, lobby.outputs[0], c2, (0.05, 0.05, 0.055, 1))               # + lobby granite
-    ln.new(c3, b.inputs["Base Color"])
+    c4 = mixc(nt, roof.outputs[0], c3, (0.30, 0.30, 0.29, 1))                 # + roof
+    ln.new(c4, b.inputs["Base Color"])
     # metallic: mullions 1, glass 0 (dielectric, glossy), stone 0
     met = nd.new("ShaderNodeMath")
     met.operation = 'MULTIPLY'
@@ -154,7 +184,11 @@ def facade_mat():
     inv = nd.new("ShaderNodeMath")
     inv.operation = 'SUBTRACT'
     inv.inputs[0].default_value = 1.0
-    ln.new(lt.outputs[0], inv.inputs[1])
+    lr = nd.new("ShaderNodeMath")
+    lr.operation = 'MAXIMUM'
+    ln.new(lt.outputs[0], lr.inputs[0])
+    ln.new(roof.outputs[0], lr.inputs[1])
+    ln.new(lr.outputs[0], inv.inputs[1])
     ln.new(inv.outputs[0], met.inputs[1])
     ln.new(met.outputs[0], b.inputs["Metallic"])
     # roughness: glass 0.03-0.08 (panes never perfectly flat), metal 0.35, stone 0.8
@@ -172,7 +206,7 @@ def facade_mat():
     _sock(r1.inputs, "B", 'VALUE').default_value = 0.35
     r2 = nd.new("ShaderNodeMix")
     r2.data_type = 'FLOAT'
-    ln.new(lt.outputs[0], r2.inputs["Factor"])
+    ln.new(lr.outputs[0], r2.inputs["Factor"])
     ln.new(_sock(r1.outputs, "Result", 'VALUE'), _sock(r2.inputs, "A", 'VALUE'))
     _sock(r2.inputs, "B", 'VALUE').default_value = 0.8
     ln.new(_sock(r2.outputs, "Result", 'VALUE'), b.inputs["Roughness"])
@@ -323,6 +357,18 @@ def place(o, a, b):
     o.scale = (1.0, 1.0, max(v.length, 1e-4))
 
 
+def headform_mesh(sc, name, m):
+    """UV sphere pushed out to the headform surface (tools/blender/headform.py): one smooth sculpted head"""
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=128, ring_count=96, radius=1.0)
+    o = bpy.context.object
+    for v in o.data.vertices:
+        v.co = Vector(headform.surface(tuple(v.co)))
+    o.data.materials.append(m)
+    for p in o.data.polygons:
+        p.use_smooth = True
+    return _link(sc, o, name)
+
+
 def head_point(local):
     """a point given in the head's own frame (x right, -y face, z up) -> world"""
     v = Vector(local)
@@ -349,35 +395,59 @@ def build(res=(1080, 1920)):
     asphalt = _rough_var(mat("BL_Asphalt", **{"Base Color": (0.05, 0.05, 0.055, 1)}), 0.75, 0.95, 40, 0.2)
     tgt = target_mat()
 
-    # ---- the tower: curtain wall from the street to the top (one box, textured in metres)
-    box(sc, "Facade", (40.0, 0.3, TOWER_TOP), (0, WALL_Y + 0.15, TOWER_TOP / 2), facade_mat())
-    # ---- the street: sidewalk, curb, road (towards the camera)
-    box(sc, "Sidewalk", (40.0, 9.0, 0.15), (0, WALL_Y - 4.5, -0.075), pavement_mat())
-    box(sc, "Curb", (40.0, 0.25, 0.17), (0, WALL_Y - 9.0, -0.065), curb, bevel=0.01)
-    box(sc, "Road", (40.0, 30.0, 0.1), (0, WALL_Y - 24.1, -0.2), asphalt)
-
-    # ---- the BREAKPOINT LAB base on a stand, the bust on top
-    box(sc, "Stand", (0.66, 0.48, BASE_TOP - 0.16), (0, 0.02, (BASE_TOP - 0.16) / 2), stand, bevel=0.004)
-    add_logo_base(sc, width=0.80, height=0.16, depth=0.60, top_z=BASE_TOP)
-    ball(sc, "Chest", 0.21, vinyl, 1.05, 0.62, 0.62).location = (0, 0.02, BASE_TOP + 0.03)
-    ball(sc, "Bib", 0.12, rubber, 1.1, 0.3, 0.55).location = (0, -0.11, BASE_TOP + 0.06)
+    # ---- the tower (front face y = WALL_Y), the street in front of it, the neighbouring blocks
+    fac = facade_mat()
+    box(sc, "Tower", (60.0, 50.0, TOWER_TOP), (0, WALL_Y + 25.0, TOWER_TOP / 2), fac)
+    box(sc, "Sidewalk", (400.0, 9.0, 0.15), (0, WALL_Y - 4.5, -0.075), pavement_mat())
+    box(sc, "Curb", (400.0, 0.25, 0.17), (0, WALL_Y - 9.0, -0.065), curb, bevel=0.01)
+    box(sc, "Road", (400.0, 18.0, 0.1), (0, WALL_Y - 18.1, -0.2), asphalt)
+    box(sc, "SidewalkFar", (400.0, 6.0, 0.15), (0, WALL_Y - 30.0, -0.075), pavement_mat())
+    box(sc, "Ground", (2000.0, 2000.0, 0.1), (0, 0, -0.35), asphalt)
+    rnd = random.Random(17)
+    # across the street: a row of buildings (roofs seen from above), and towers on both sides of ours
+    x = -230.0
+    while x < 230.0:
+        w = rnd.uniform(18, 40)
+        hgt = rnd.uniform(25, 140)
+        box(sc, f"Across{int(x)}", (w - 2.0, 40.0, hgt), (x + w / 2, WALL_Y - 33.0 - 20.0, hgt / 2), fac)
+        x += w
     for sx in (-1, 1):
-        ball(sc, f"Shoulder{sx}", 0.075, rubber).location = (sx * 0.19, 0.03, BASE_TOP + 0.10)
-    n0 = Vector((0, 0.02, BASE_TOP + 0.13))
-    n1 = head_point((0, 0.0, -0.11))
+        x = 32.0
+        while x < 260.0:
+            w = rnd.uniform(22, 45)
+            hgt = rnd.uniform(60, 330)
+            dy = rnd.uniform(0, 12)
+            box(sc, f"Side{sx}_{int(x)}", (w - 3.0, 45.0, hgt), (sx * (x + w / 2), WALL_Y + dy + 22.5, hgt / 2), fac)
+            x += w
+    paints = [(0.6, 0.6, 0.62, 1), (0.05, 0.05, 0.06, 1), (0.75, 0.10, 0.08, 1), (0.9, 0.9, 0.88, 1),
+              (0.10, 0.18, 0.40, 1), (0.85, 0.65, 0.05, 1)]
+    for i in range(46):                                  # traffic: cars and a few yellow cabs, both lanes
+        lane = rnd.choice((-1, 1))
+        cx = rnd.uniform(-180, 180)
+        if abs(cx) < 4:
+            continue
+        pm = _rough_var(mat(f"BL_Car{i % len(paints)}", **{"Base Color": paints[i % len(paints)], "Metallic": 0.6,
+                                                             "Coat Weight": 0.8}), 0.2, 0.35, 3)
+        box(sc, f"Car{i}", (4.5, 1.85, 1.0), (cx, WALL_Y - 18.1 + lane * 4.0, 0.55), pm, bevel=0.25, seg=3)
+        box(sc, f"Cab{i}", (2.4, 1.7, 0.5), (cx - 0.2, WALL_Y - 18.1 + lane * 4.0, 1.25),
+            mat("BL_CarGlass", **{"Base Color": (0.02, 0.025, 0.03, 1), "Roughness": 0.05}), bevel=0.18, seg=3)
+
+    # ---- the BREAKPOINT LAB base on a stand, the headform on its neck
+    box(sc, "Stand", (0.66, 0.48, BASE_TOP - 0.16), (0, 0.0, (BASE_TOP - 0.16) / 2), stand, bevel=0.004)
+    add_logo_base(sc, width=0.80, height=0.16, depth=0.60, top_z=BASE_TOP)
+    box(sc, "Bracket", (0.16, 0.16, 0.03), (0, -0.05, BASE_TOP + 0.015), steel, bevel=0.004)
+    n0 = Vector((0, -0.05, BASE_TOP + 0.03))
+    n1 = head_point(headform.surface((0, 0.15, -1)))
     place(cone(sc, "NeckCore", 0.017, 0.017, steel, 12), n0, n1)
-    for i in range(3):
-        a = n0 + (n1 - n0) * (0.1 + 0.3 * i)
-        place(cone(sc, f"NeckDisc{i}", 0.056, 0.056, rubber), a, a + (n1 - n0) * 0.18)
-    rot = (HEAD_TILT, 0.0, 0.0)
-    for nm, r, s, loc in (("Head", 0.128, (0.92, 0.78, 1.0), (0, 0, 0)), ("Nose", 0.022, (1.0, 0.8, 1.3), (0, -0.098, 0.0)),
-                          ("Chin", 0.055, (1.0, 1.1, 0.8), (0, -0.052, -0.085)), ("Brow", 0.10, (1.05, 0.5, 0.35), (0, -0.055, 0.045))):
-        o = ball(sc, nm, r, vinyl, *s)
-        o.location = head_point(loc)
-        o.rotation_euler = rot
+    for i in range(4):
+        a = n0 + (n1 - n0) * (0.08 + 0.23 * i)
+        place(cone(sc, f"NeckDisc{i}", 0.05, 0.05, rubber), a, a + (n1 - n0) * 0.14)
+    hd = headform_mesh(sc, "Head", vinyl)
+    hd.location = HEAD_C
+    hd.rotation_euler = (HEAD_TILT, 0.0, 0.0)
     for sx in (-1, 1):                                   # quadrant targets on both temples
-        o = disk(sc, f"THead{sx}", 0.032, 0.004, tgt)
-        o.location = head_point((sx * 0.106, 0.0, 0.01))
+        o = disk(sc, f"THead{sx}", 0.028, 0.003, tgt)
+        o.location = head_point(headform.surface((sx, 0.05, 0.12)))
         o.rotation_euler = (HEAD_TILT, math.pi / 2, 0.0)
 
     # ---- the penny: disc + raised rim, copper
@@ -403,7 +473,7 @@ def build(res=(1080, 1920)):
 
     # ---- light: a low afternoon sun from the front left (rim on the coin and the head), sky fill
     sun = bpy.data.lights.new("Sun", 'SUN')
-    sun.energy = 4.2
+    sun.energy = 5.0
     sun.angle = math.radians(1.2)
     sun.color = (1.0, 0.93, 0.84)
     so = bpy.data.objects.new("Sun", sun)
@@ -420,11 +490,10 @@ def build(res=(1080, 1920)):
     fo["bb"] = "Bounce"
 
     cam = bpy.data.cameras.new("Cam")
-    cam.lens = 85
+    cam.lens = 50
     cam.clip_start = 0.02
-    cam.clip_end = 600
-    cam.dof.use_dof = True
-    cam.dof.aperture_fstop = 11
+    cam.clip_end = 3000
+    cam.dof.use_dof = False
     co = bpy.data.objects.new("Cam", cam)
     co["bb"] = "Cam"
     co["mv"] = 1
@@ -473,7 +542,7 @@ def build(res=(1080, 1920)):
         bpy.context.preferences.edit.keyframe_new_interpolation_type = 'LINEAR'
     except Exception:
         pass
-    set_pose({"zc": Z_HIT + 3, "cx": 0, "tilt": 14, "yaw": 0, "cz": Z_HIT + 3, "d": 1.05, "wide": 0, "hit": -1, "mb": 0}, sc)
+    set_pose({"zc": Z_HIT + 3, "cx": 0, "tilt": 14, "yaw": 0, "cz": Z_HIT + 3, "d": 0.6, "wide": 0, "hit": -1, "mb": 0}, sc)
     return sc
 
 
@@ -491,12 +560,15 @@ def set_pose(p, sc=None):
     wide = int(p.get("wide", 0))
     cz, d = float(p["cz"]), float(p["d"])
     cam = ob["Cam"]
-    phi = PHI * (0.6 if wide else 1.0)
-    cam.location = (d * math.sin(phi), -d * math.cos(phi), cz)
-    look = Vector((0.0, 0.0, cz))
+    if wide:                                             # street shot from below: base, headform, the tower rising into the sky
+        cam.location = (0.55, -3.3, 0.75)
+        look = Vector((0.0, 0.0, 1.70))
+        cam.data.lens = 35
+    else:                                                # rides with the coin, looking almost straight down
+        look = Vector((0.0, 0.0, cz))
+        cam.location = look + d * Vector((math.sin(AZ) * math.cos(EL), -math.cos(AZ) * math.cos(EL), math.sin(EL)))
+        cam.data.lens = 50
     cam.rotation_euler = (look - cam.location).to_track_quat('-Z', 'Y').to_euler()
-    cam.data.dof.use_dof = not wide
-    cam.data.dof.focus_distance = d
     speed_blur(sc, float(p.get("mb", 0)))
 
 
