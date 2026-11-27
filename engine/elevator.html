@@ -36,16 +36,22 @@ function simulate(r){
       if(u<=0) return BUF+h;
       if(u<tf) return BUF+h-0.5*G*u*u;
       return BUF-CRUSH*sm(tf,tf+0.05,u);},
-    rider(u){                                          // c crouch 0-1, arm (0 down, 1 up, <0 back), lean 0-1, dz lift above the floor
-      let c0=0,arm=0,lean=0,dz=0;
+    rider(u){                                          // c crouch 0-1, arm (0 down, 1 up, <0 back), lean 0-1, dz lift above the floor,
+      let c0=0,arm=0,lean=0,dz=0,s=0,nod=0;            // s slump (0 standing/crouched, 1 sitting collapsed), nod head flexion (deg)
+      const fl=u>0&&u<tf?sm(0,0.9,u):0;                // free fall: weightless, relaxed arms drift up, head tips back a little
+      arm=0.3*fl;nod=-6*fl;
       if(jump&&u>tj-PREP-PUSH&&u<tf){
-        if(u<tj-PUSH){const k=sm(tj-PREP-PUSH,tj-PUSH,u);c0=0.75*k;arm=-0.35*k;}
+        if(u<tj-PUSH){const k=sm(tj-PREP-PUSH,tj-PUSH,u);c0=0.75*k;arm=lerp(0.3*fl,-0.35,k);}
         else if(u<tj){const k=sm(tj-PUSH,tj,u);c0=0.75*(1-k);arm=lerp(-0.35,0.6,k);}
         else {c0=0;arm=0.6;dz=VJ*(u-tj);}}
       const tc=jump?tf+VJ*LEAD/vImp:tf;                // rider meets the floor (jump: 17 ms after the car stops)
       if(u>=tf&&jump&&u<tc){c0=0;arm=0.6;dz=VJ*LEAD*(1-(u-tf)/(tc-tf));}
-      if(u>=tc){const k=sm(tc,tc+0.28,u);c0=lerp(jump?0:0,1,k);lean=k;arm=lerp(jump?0.6:0,0.15,k);dz=0;}
-      return {c:c0,arm,lean,dz};},
+      if(u>=tc){                                        // the legs give way at once, the body folds down to the floor, the head whips
+        const v=u-tc,k=sm(0,0.12,v);s=sm(0.04,0.45,v);
+        const a0=jump?0.6:0.3;
+        c0=k;lean=k;arm=lerp(a0,0.12,sm(0,0.3,v));dz=0;
+        nod=lerp(-6,38,s)+34*Math.exp(-v*7)*Math.sin(v*26);}
+      return {c:c0,arm,lean,dz,s,nod};},
     speed(u){                                          // rider speed (m/s) shown live; held at the impact value
       if(u<=0) return 0;
       if(u>=tf) return vImp;
@@ -91,35 +97,40 @@ const hookRound=(T,cfg)=>T.rounds[clamp((cfg.hook_round||1)-1,0,T.rounds.length-
 
 // ---------------------------------------------------------------- scene pose (what Blender renders for this frame)
 const q=(x,s)=>Math.round(x/s)*s;
-function pose(R,u){                                      // u = time since the snap (negative: hanging)
+const HIT_HOLD=0.8;                                      // the impact (sparks, debris, dust) runs 0.8 s, then that image is held
+function pose(R,u,du=1/FPS){                             // u = time since the snap (negative: hanging); du = scene time per video frame
   const S=R.S, zc=S.car(u), rd=S.rider(u);
   const sway=u<0?0.012*Math.sin(u*5.2):0;                // hanging: a slight bounce on the cable
   const snap=u<0?0:Math.min(6,u*u*30+u*4);               // the cut cable whips up and away
-  return {zc:zc+sway,cz:Math.max(zc,BUF-CRUSH)+CAM.off,d:CAM.d,c:rd.c,arm:rd.arm,lean:rd.lean,dz:rd.dz,
-          cut:snap,buf:clamp((zc-(BUF-CRUSH))/CRUSH,0,1),v:S.speed(u),vcar:S.carSpeed(u),jump:S.jump,live:u>=0&&u<S.tf+0.5};
+  const mb=u>0&&u<S.tf?G*u*du*(du<1/FPS?0.35:1):0;      // car drop during one video frame (speed blur); slow motion = high-speed camera, short shutter
+  const hit=u>=S.tf?Math.min(u-S.tf,HIT_HOLD):-1;        // time since the impact (sparks, debris, dust, cracked glass)
+  return {zc:zc+sway,cz:Math.max(zc,BUF-CRUSH)+CAM.off,d:CAM.d,c:rd.c,arm:rd.arm,lean:rd.lean,dz:rd.dz,s:rd.s,nod:rd.nod,
+          cut:snap,mb,hit,buf:clamp((zc-(BUF-CRUSH))/CRUSH,0,1),v:S.speed(u),vcar:S.carSpeed(u),jump:S.jump,live:u>=0&&u<S.tf+0.5};
 }
 // every slow motion (hook, replay, WHY loop) uses the same time grid: the same Blender images serve all three
 const STEP=RP_SLOW/FPS, slowU=(R,k)=>R.rpA+Math.min(Math.max(0,Math.round(k)),Math.round((R.rpB-R.rpA)/STEP))*STEP;
 function poseAt(T,t){
   const HR=hookRound(T,CFG);
   if(t<T.hook[1]){                                        // hook: the slow motion of the jump, from frame 0; frozen in the air before the hit
-    return pose(HR,slowU(HR,HOOK_SKIP+Math.min(t,D_.hookPlay)*FPS));}
+    return pose(HR,slowU(HR,HOOK_SKIP+Math.min(t,D_.hookPlay)*FPS),STEP);}
   if(t>=T.explain[0]){                                    // WHY: the jump replays in slow motion behind the text (loops)
     if(t>=T.outro[0]) return pose(HR,HR.S.tf+1.0);
     const n=Math.round((HR.rpB-HR.rpA)/STEP), k=Math.round((t-T.explain[0])*FPS)%(n+60);
-    return pose(HR,slowU(HR,k));}
+    return pose(HR,slowU(HR,k),STEP);}
   let R=T.rounds[0];for(const r of T.rounds) if(t>=r.start) R=r;
-  if(t>=R.replayT0&&t<R.replayT1) return pose(R,slowU(R,(t-R.replayT0)*FPS));
+  if(t>=R.replayT0&&t<R.replayT1) return pose(R,slowU(R,(t-R.replayT0)*FPS),STEP);
   if(t>=R.replayT1) return pose(R,R.S.tf+1.0);
   return pose(R,t-R.snapT);
 }
 function poseKey(p){
   const f=(x,s,n)=>q(x,s).toFixed(n), st=p.live?0.01:0.005;
-  return `z${f(p.zc,st,3)}_s${f(p.cut,0.05,2)}_c${f(p.c,0.02,2)}_a${f(p.arm,0.02,2)}_l${f(p.lean,0.02,2)}_h${f(p.dz,0.01,2)}_k${f(p.cz,0.01,2)}`;
+  return `z${f(p.zc,st,3)}_s${f(p.cut,0.05,2)}_c${f(p.c,0.02,2)}_a${f(p.arm,0.02,2)}_l${f(p.lean,0.02,2)}_h${f(p.dz,0.01,2)}`+
+         `_k${f(p.cz,0.01,2)}_u${f(p.s,0.02,2)}_n${f(p.nod,2,0)}_i${f(p.hit,0.005,3)}_m${f(p.mb,0.02,2)}`;
 }
 function keyPose(p){
   const st=p.live?0.01:0.005;
   return {zc:q(p.zc,st),cut:q(p.cut,0.05),c:q(p.c,0.02),arm:q(p.arm,0.02),lean:q(p.lean,0.02),dz:q(p.dz,0.01),
+          s:q(p.s,0.02),nod:q(p.nod,2),hit:q(p.hit,0.005),mb:q(p.mb,0.02),
           buf:clamp((q(p.zc,st)-(BUF-CRUSH))/CRUSH,0,1),cz:q(p.cz,0.01),d:p.d};
 }
 
