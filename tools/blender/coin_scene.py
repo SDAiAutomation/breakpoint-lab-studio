@@ -22,7 +22,7 @@ import os
 import sys
 
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import random                                    # noqa: E402
@@ -35,9 +35,9 @@ Z_HIT = 1.597                       # coin centre at the contact (engine/coin.ht
 HEAD_C = (0.0, -0.05, 1.50)         # head centre; tilted back 60 deg, the coin line x = y = 0 meets the upper forehead
 HEAD_TILT = math.radians(-60)
 BASE_TOP = 1.10
-WALL_Y = 4.0                        # tower facade plane (front face): the coin falls 4 m in front of it
+WALL_Y = 8.0                        # tower facade plane (front face): the coin falls 4 m in front of it
 TOWER_TOP = 470.0
-EL, AZ = math.radians(78), math.radians(10)   # riding camera: 78 deg down, a little to the right
+EL, AZ = math.radians(84), math.radians(10)   # riding camera: 78 deg down, a little to the right
 R_COIN, T_COIN = 0.009525, 0.00152  # US cent: 19.05 mm x 1.52 mm
 
 
@@ -150,8 +150,8 @@ def facade_mat():
     br.inputs["Mortar Smooth"].default_value = 0.2
     br.inputs["Brick Width"].default_value = 1.5
     br.inputs["Row Height"].default_value = 3.8 / 2
-    br.inputs["Color1"].default_value = (0.020, 0.030, 0.045, 1)
-    br.inputs["Color2"].default_value = (0.035, 0.050, 0.065, 1)
+    br.inputs["Color1"].default_value = (0.22, 0.29, 0.36, 1)       # coated glass: tinted mirror of the sky
+    br.inputs["Color2"].default_value = (0.28, 0.34, 0.40, 1)
     br.inputs["Mortar"].default_value = (0.0, 0.0, 0.0, 1)
     ln.new(cb.outputs[0], br.inputs["Vector"])
     # spandrel: the lower 22 % of every floor
@@ -178,9 +178,14 @@ def facade_mat():
     c4 = mixc(nt, roof.outputs[0], c3, (0.30, 0.30, 0.29, 1))                 # + roof
     ln.new(c4, b.inputs["Base Color"])
     # metallic: mullions 1, glass 0 (dielectric, glossy), stone 0
+    gm = nd.new("ShaderNodeMath")                       # glass 0.85 (reflective coating), mullion 1
+    gm.operation = 'MULTIPLY_ADD'
+    ln.new(br.outputs["Fac"], gm.inputs[0])
+    gm.inputs[1].default_value = 0.15
+    gm.inputs[2].default_value = 0.85
     met = nd.new("ShaderNodeMath")
     met.operation = 'MULTIPLY'
-    ln.new(br.outputs["Fac"], met.inputs[0])
+    ln.new(gm.outputs[0], met.inputs[0])
     inv = nd.new("ShaderNodeMath")
     inv.operation = 'SUBTRACT'
     inv.inputs[0].default_value = 1.0
@@ -388,8 +393,9 @@ def build(res=(1080, 1920)):
 
     rubber = _rough_var(mat("BL_Rubber", **{"Base Color": (0.025, 0.025, 0.027, 1)}), 0.55, 0.75, 20)
     steel = _rough_var(mat("BL_Steel", **{"Base Color": (0.62, 0.62, 0.63, 1), "Metallic": 1.0}), 0.28, 0.42, 14)
-    vinyl = _rough_var(mat("BL_Vinyl", **{"Base Color": (0.85, 0.60, 0.05, 1), "Coat Weight": 0.25, "Coat Roughness": 0.2}),
-                       0.30, 0.45, 12, 0.02, ((0.80, 0.55, 0.045, 1), (0.88, 0.63, 0.06, 1)))
+    vinyl = _rough_var(mat("BL_Vinyl", **{"Base Color": (0.92, 0.62, 0.06, 1), "Coat Weight": 0.3, "Coat Roughness": 0.15,
+                                          "Subsurface Weight": 0.05}),
+                       0.28, 0.42, 12, 0.02, ((0.90, 0.58, 0.05, 1), (0.95, 0.68, 0.08, 1)))
     stand = _rough_var(mat("BL_Stand", **{"Base Color": BASE_COL}), 0.75, 0.9, 6)
     curb = _rough_var(mat("BL_Curb", **{"Base Color": (0.30, 0.30, 0.29, 1)}), 0.7, 0.9, 5, 0.1)
     asphalt = _rough_var(mat("BL_Asphalt", **{"Base Color": (0.05, 0.05, 0.055, 1)}), 0.75, 0.95, 40, 0.2)
@@ -433,7 +439,7 @@ def build(res=(1080, 1920)):
             mat("BL_CarGlass", **{"Base Color": (0.02, 0.025, 0.03, 1), "Roughness": 0.05}), bevel=0.18, seg=3)
 
     # ---- the BREAKPOINT LAB base on a stand, the headform on its neck
-    box(sc, "Stand", (0.66, 0.48, BASE_TOP - 0.16), (0, 0.0, (BASE_TOP - 0.16) / 2), stand, bevel=0.004)
+    box(sc, "Stand", (0.76, 0.56, BASE_TOP - 0.16), (0, 0.0, (BASE_TOP - 0.16) / 2), stand, bevel=0.004)
     add_logo_base(sc, width=0.80, height=0.16, depth=0.60, top_z=BASE_TOP)
     box(sc, "Bracket", (0.16, 0.16, 0.03), (0, -0.05, BASE_TOP + 0.015), steel, bevel=0.004)
     n0 = Vector((0, -0.05, BASE_TOP + 0.03))
@@ -448,7 +454,7 @@ def build(res=(1080, 1920)):
     for sx in (-1, 1):                                   # quadrant targets on both temples
         o = disk(sc, f"THead{sx}", 0.028, 0.003, tgt)
         o.location = head_point(headform.surface((sx, 0.05, 0.12)))
-        o.rotation_euler = (HEAD_TILT, math.pi / 2, 0.0)
+        o.rotation_euler = (Matrix.Rotation(HEAD_TILT, 4, 'X') @ Matrix.Rotation(math.pi / 2, 4, 'Y')).to_euler()
 
     # ---- the penny: disc + raised rim, copper
     cu = copper_mat()
@@ -473,7 +479,7 @@ def build(res=(1080, 1920)):
 
     # ---- light: a low afternoon sun from the front left (rim on the coin and the head), sky fill
     sun = bpy.data.lights.new("Sun", 'SUN')
-    sun.energy = 5.0
+    sun.energy = 6.5
     sun.angle = math.radians(1.2)
     sun.color = (1.0, 0.93, 0.84)
     so = bpy.data.objects.new("Sun", sun)
@@ -512,9 +518,9 @@ def build(res=(1080, 1920)):
     nt.links.new(spz.outputs["Z"], mp.inputs["Value"])
     rp = nt.nodes.new("ShaderNodeValToRGB")              # clear sky: pale at the horizon, deeper blue up high
     rp.color_ramp.elements[0].position = 0.5
-    rp.color_ramp.elements[0].color = (0.62, 0.70, 0.80, 1)
+    rp.color_ramp.elements[0].color = (0.70, 0.76, 0.84, 1)
     rp.color_ramp.elements[1].position = 0.85
-    rp.color_ramp.elements[1].color = (0.20, 0.38, 0.72, 1)
+    rp.color_ramp.elements[1].color = (0.26, 0.45, 0.80, 1)
     nt.links.new(mp.outputs["Result"], rp.inputs["Fac"])
     nt.links.new(rp.outputs["Color"], bg.inputs["Color"])
     bg.inputs["Strength"].default_value = 1.2
@@ -538,6 +544,7 @@ def build(res=(1080, 1920)):
         sc.view_settings.look = 'AgX - Base Contrast'
     except TypeError:
         pass
+    sc.view_settings.exposure = 0.8                      # bright afternoon street
     try:
         bpy.context.preferences.edit.keyframe_new_interpolation_type = 'LINEAR'
     except Exception:

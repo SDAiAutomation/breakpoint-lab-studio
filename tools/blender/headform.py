@@ -44,9 +44,9 @@ def radius(d):
         r *= 1.0 - 0.18 * k * (0.6 + 0.4 * max(0.0, y))
     r += 0.011 * _g(d, CHIN, 0.22)
     # nose ridge and tip, brow ridge, eye sockets, cheekbones, ears
-    r += 0.010 * _g(d, NOSE, 0.10) + 0.012 * _g(d, NOSE_TIP, 0.075)
-    r += 0.005 * (_g(d, BROW_L, 0.16) + _g(d, BROW_R, 0.16))
-    r -= 0.008 * (_g(d, EYE_L, 0.10) + _g(d, EYE_R, 0.10))
+    r += 0.013 * _g(d, NOSE, 0.10) + 0.016 * _g(d, NOSE_TIP, 0.075)
+    r += 0.007 * (_g(d, BROW_L, 0.15) + _g(d, BROW_R, 0.15))
+    r -= 0.013 * (_g(d, EYE_L, 0.11) + _g(d, EYE_R, 0.11))
     r += 0.004 * (_g(d, CHEEK_L, 0.18) + _g(d, CHEEK_R, 0.18))
     r += 0.006 * (_g(d, EAR_L, 0.14) + _g(d, EAR_R, 0.14))
     return r
