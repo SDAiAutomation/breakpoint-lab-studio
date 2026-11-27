@@ -1,0 +1,38 @@
+{
+  "id": "compilation-001-guess-all-6-en",
+  "handle": "@BreakpointLabTV",
+  "format": "16:9",
+  "title": "6 lab tests: can you guess all 6?",
+  "intro": ["CAN YOU GUESS", "ALL 6?"],
+  "intro_s": 3.5,
+  "end": {
+    "lines": ["How many did you get?", "Comment your score /6"],
+    "cta": "Subscribe: you pick the next test",
+    "seconds": 10
+  },
+  "description": [
+    "Six tests from the lab, back to back: make your bet before each slow motion, then count your score.",
+    "Every number on screen comes from a published test or a physics law; the source is shown at the end of each test. The scenes are 3D simulations built on those numbers."
+  ],
+  "_cut": "each episode is kept from 0 to its call to action (explain end + 1.4 s): hook, rounds, slow motion, WHY and source card stay, the next-test promise and the CTA go. end_s was computed from the episode's timeline rebuilt at its render commit (render_run).",
+  "segments": [
+    {"label": ["Diamond", "vs hammer"], "chapter": "Diamond vs hammer", "episode": 7,
+     "drive_id": "16foFUX2Ltsy1jRFN1E6lUN-oAQb0Btte", "render_run": 43953087116, "duration": 69.79, "end_s": 64.69,
+     "config": "configs/tests_007_diamond_vs_hammer_en.json"},
+    {"label": ["Newton's cradle:", "lift 2 balls"], "chapter": "Newton's cradle: lift 2 balls", "episode": 10,
+     "drive_id": "1WRV11xGod0NeUIGAGFw0atarB3jGiTUr", "render_run": 44698231488, "duration": 81.94, "end_s": 76.84,
+     "config": "configs/physics_010_newtons_cradle_en.json"},
+    {"label": ["Empty soda can", "vs a person"], "chapter": "Empty soda can vs a person", "episode": 9,
+     "drive_id": "1Fb7XQy3NjUAaW0lj6A5VTgtERMc3s4Pv", "render_run": 44595529504, "duration": 65.10, "end_s": 62.0,
+     "config": "configs/tests_009_soda_can_en.json"},
+    {"label": ["One Lego brick", "vs the press"], "chapter": "One Lego brick vs the press", "episode": 12,
+     "drive_id": "1vNiZUYZCagZkXXqQR2SznyTvZu5F0uZb", "render_run": 44948374792, "duration": 62.0, "end_s": 58.9,
+     "config": "configs/tests_012_lego_brick_en.json"},
+    {"label": ["A voice vs", "a wine glass"], "chapter": "A voice vs a wine glass", "episode": 14,
+     "drive_id": "1Ha1b_cznz8b7srPutz_5WbBb-Z0-RXDa", "render_run": 45635388925, "duration": 62.35, "end_s": 56.25,
+     "config": "configs/physics_014_voice_glass_en.json"},
+    {"label": ["Hit the top", "of a bottle"], "chapter": "Hit the top of a bottle", "episode": 13,
+     "drive_id": "1SItomlyaCgNJFKQLC3SrT4DPx3-bMwE0", "render_run": 45242600380, "duration": 60.3, "end_s": 55.2,
+     "config": "configs/tests_013_bottle_bottom_en.json"}
+  ]
+}
