@@ -6,7 +6,7 @@ Chaîne YouTube/TikTok **Breakpoint Lab**, handle **@BreakpointLabTV**. Séries 
 - Ce dépôt n'a RIEN à voir avec SliceLoop / `asmr-slicing-studio` (vidéos de découpe ASMR, compte @sliceloop). Ne jamais mettre @sliceloop ici, ni @BreakpointLabTV là-bas.
 - Le handle va dans chaque config : `"handle": "@BreakpointLabTV"`.
 - Exception voulue : sur TikTok, les vidéos Breakpoint Lab sont publiées sur le compte SliceLoop (audience existante). Le filigrane reste @BreakpointLabTV ; ne pas le signaler comme une erreur.
-- Stats : W = vues YouTube, AB = vues TikTok.
+- Stats (Sheet) : W vues YouTube, X likes, Y abonnés gagnés, Z partages, AB vues TikTok (AA = numéro d'épisode).
 - Numéro à l'écran (`series`, ex. « PHYSICS · TEST 008 ») = numéro d'épisode (colonne AA de la Sheet), jamais le numéro de ligne (colonne A). Il ne fait que monter : dernier numéro publié + 1, même si l'on change de série. On ne réutilise jamais un numéro déjà en ligne.
 
 ## Ligne éditoriale (ce qui fait des vues)
@@ -23,7 +23,7 @@ Chaîne YouTube/TikTok **Breakpoint Lab**, handle **@BreakpointLabTV**. Séries 
 
 ## Règles de contenu
 - Tout chiffre à l'écran est vrai : source publiée (norme, étude, loi physique) dans `source` (affiché) et `sources_detail` (calcul). Pas de source fiable → pas d'épisode. Une simulation se dit « Simulated … ».
-- Anglais, texte minimal (≤ 6 mots par ligne), textes dans le bandeau du haut (y 260–600 sur 1920) : rien ne couvre la scène. Zone sûre : rien d'important au-dessus de y=250 ni sous y=1440.
+- Anglais, texte minimal (≤ 6 mots par ligne), textes dans le bandeau du haut (y 260–600 sur 1920) : rien ne couvre la scène. Zone sûre : rien d'important au-dessus de y=250 ni sous y=1440 ; à droite, entre y≈900 et 1440 (boutons de l'appli), ni objet testé ni compteur (les textes centrés du bandeau du haut peuvent dépasser x=864).
 - Chaque config a un champ `description` (liste de paragraphes, langue de la vidéo) : ce qu'on teste, ce qui se passe, pourquoi, avec les mêmes chiffres que la vidéo et la mention « simulation » si c'en est une. Il est écrit dans le .txt envoyé avec la vidéo (`engine/caption.py`) ; le workflow refuse une config sans `description`.
 - Durée ≥ 60 s (rémunération TikTok), rythme serré, mouvement jusqu'à la fin, ralenti sur le moment clé.
 - **Version courte YouTube** (30-38 s, `tools/shortcut.py`, découpée dans la vidéo longue, pas de nouveau rendu) : accroche + la manche montrée dans l'accroche + l'explication + la fin. TikTok garde la version longue.
@@ -65,28 +65,25 @@ Chaîne YouTube/TikTok **Breakpoint Lab**, handle **@BreakpointLabTV**. Séries 
 - Objectif long terme : montrer comment on fait ces vidéos. Chaque rendu archive son **making-of** sur Drive (`making-of/<nom>/` : config, timeline, images clés, planche, rapport son). Ne pas le supprimer.
 
 ## Rendu
-- Son : mode **hybride** par défaut (choix de l'utilisateur, 21/11/2026). Chaque config a un bloc `"sound": {"mode": "hybrid", ...}` : les sons graphiques du moteur (bips, compte à rebours, tampon, whooshes) gardent le rythme ; les sons physiques (chocs, spires, clacs, impacts) sont de vrais enregistrements CC0 trouvés sur Openverse, choisis et vérifiés par earshot, placés à l'image près par real-sfx (`tools/sound/realsound.py`, exemple : `configs/physics_011_slinky_drop_en.json`). Limiteur −1 dBTP sur chaque MP4. Refaire seulement le son d'un rendu fini : `render.yml` avec `sound_from_run`.
+- Son : mode **hybride** par défaut (choix de l'utilisateur, 21/11/2026). Chaque config a un bloc `"sound": {"mode": "hybrid", ...}` : les sons graphiques du moteur (bips, compte à rebours, tampon, whooshes) gardent le rythme ; les sons physiques (chocs, spires, clacs, impacts) sont de vrais enregistrements CC0 trouvés sur Openverse, choisis et vérifiés par earshot, placés à l'image près par real-sfx (`tools/sound/realsound.py`, exemple : `configs/physics_011_slinky_drop_en.json`). Limiteur −1 dBTP sur chaque MP4.
+  - Pas de silence > 3 s : rôles tenus dans `sound.find` (`tools/sound/realsound.py`) : `"bed": true` = fond d'ambiance sous tout le film (`"level_dbfs"`, ≈ −46), `"span": {"from": [EV, ...], "to": EV}` = son tenu d'un événement au suivant (ex. 016 : grondement de la cabine de `snap`/`replay` à `impact`, ralenti et plus grave sur l'impact ralenti). Exemple : `configs/physics_016_elevator_en.json`.
+  - Refaire seulement le son d'un rendu fini : `render.yml` avec `sound_from_run` (+ `config_path`). Si les fichiers intermédiaires du run ont été effacés, la timeline est refaite depuis la config et la vidéo sans vrais sons (`*_synth-sound.mp4`) est reprise sur Drive.
 - **Image** (règles tirées des skills Blender `blender-rendering`, `blender-lighting-lookdev`, `blender-pbr-materials`, `scenario-blender-lighting-rendering`) :
   - Le sujet se détache du fond par la valeur (clair sur sombre ou l'inverse), jamais noyé dans l'ombre d'une pièce de la machine.
   - Liseré de lumière côté clé sur les objets (silhouette lisible), reflets jamais brûlés en blanc plat (épaule Khronos PBR Neutral dans le shader).
   - Brillance jamais constante sur une surface (légère variation), métal = 0 ou 1, pas de noir ni de blanc purs en couleur de base.
   - Objectif long pour un objet seul (`"lens": 1.4` dans la config, moteur presse) : lignes droites, aspect produit.
   - Plans Blender (objets « vedettes ») : Cycles sur CPU (EEVEE demande une carte graphique), 85 mm, AgX, débruitage OIDN, rendu image par image puis assemblage (`tools/blender/`).
-  - Moteur `bottle` (épisode 013) : toute la scène est rendue par Blender (`tools/blender/bottle_scene.py`), le moteur (`engine/bottle.html`) ne dessine que les textes et dit quelle « pose » chaque image montre ; les moments immobiles gardent la même image (≈ 360 images Blender pour 60 s). `render.yml` lance alors un job `blender` (18 poses par machine, ~5 min par image) avant les images. Vérifier d'abord avec `blender_stills.yml` (quelques images + textes + planche poussées sur la branche `previews/<run>`).
+  - Moteurs Blender complets (`bottle` épisode 013, `elevator` épisode 016, config `"blender_scene"`) : toute la scène est rendue par Blender (`tools/blender/<moteur>_scene.py`), le moteur (`engine/<moteur>.html`) ne dessine que les textes et dit quelle « pose » chaque image montre ; les moments immobiles gardent la même image (≈ 360 images Blender pour 60 s ; ≈ 680 pour le 016, ~3 h de rendu). `render.yml` lance alors un job `blender` (18 poses par machine, ~5 min par image) avant les images. Vérifier d'abord avec `blender_stills.yml` (quelques images + textes + planche poussées sur la branche `previews/<run>`).
 - `.github/workflows/render.yml` (workflow_dispatch, `config_path` ou `config_json`) : rendu parallèle sur ~20 machines, son, MP4, Google Drive si le secret `RCLONE_CONF` et la variable `DRIVE_FOLDER_ID` existent, sinon la vidéo est un artefact du run.
 - Une PR séparée par modification.
+- **Drive** : ne jamais supprimer une vidéo. Une version remplacée va dans `archive/` (`drive_archive.yml`, `prefix` = début du nom des fichiers, ex. `2026-11-26_physics-016-elevator-en_run32`), et la colonne R de la Sheet pointe vers la nouvelle.
+- **Compilation longue 16:9** (`compile.yml`, `tools/compile.py`, spec dans `configs/compilations/`) : épisodes publiés repris sur Drive (par id), coupés avant l'annonce du prochain test (`end_s` = fin du WHY + 1,4 s, calculé sur la timeline refaite au commit du rendu), vidéo verticale au centre sur une copie floutée et assombrie, panneaux TEST n / 6 à gauche et logo à droite, carte de fin 10 s, chapitres et sources dans la description. Aucun nouveau rendu. Planche poussée sur `previews/<run>`.
 
 ## Procédure « fais une vidéo »
-Liste des sujets : Google Sheet « Breakpoint Lab – 100 Experiments » (id `1hl-jYG9e2N5L2_xycGPkE_SprXOnQWE8BR-vbNOqrkk`), onglet `Experiments`, lignes 2–101. Colonnes : D réponse, K série, L moteur, M source, N statut, O Pick, P note, Q lien source, R lien vidéo, S « Familiar » /5, T « Busts a belief » /5, U Preuve (`Experiment` ou `Formula`), V Score v2 = 2×S + T + (5 si Experiment, 3 si Formula) + G, W–Z stats (vues, likes, abonnés gagnés, partages). AA « Episode # (on screen) ».
+Liste des sujets : Google Sheet « Breakpoint Lab – 100 Experiments » (id `1hl-jYG9e2N5L2_xycGPkE_SprXOnQWE8BR-vbNOqrkk`), onglet `Experiments`, lignes 2–101. Colonnes : D réponse, K série, L moteur, M source, N statut, O Pick, P note, Q lien source, R lien vidéo, S « Familiar » /5, T « Busts a belief » /5, U Preuve (`Experiment` ou `Formula`), V Score v2 = 2×S + T + (5 si Experiment, 3 si Formula) + G, W–Z stats YouTube (vues, likes, abonnés gagnés, partages), AA « Episode # (on screen) », AB vues TikTok.
 
 1. **Choisir** : lire `Experiments!A1:R101` (et les lignes ajoutées après 101). Écarter les statuts `Done`, `In progress`, `Needs test data`, `Suggested`. Parmi `Verified` et `Corrected`, prendre d'abord les lignes Pick = TRUE, puis le score V (Score v2) le plus haut ; à score égal, le plus petit numéro (colonne A, ordre croissant). Si l'utilisateur nomme un sujet, prendre celui-là.
-
-### Sujet proposé par un abonné (commentaire)
-Le commentaire épinglé promet : « Most liked comment = next experiment ». Quand l'utilisateur transmet une proposition :
-1. Chercher dans la Sheet si le sujet existe déjà (même question, même sous un autre nom). Si oui, mettre O = TRUE sur cette ligne et noter dans P « Viewer pick: <auteur>, <date> ».
-2. Sinon, ajouter une ligne à la fin : A = numéro suivant, B sujet, C question à l'écran, K série, L moteur (`Tests (ready)`, `Physics (ready)`, `(extend)` ou `New engine`), N = `Suggested`, P = « Viewer suggestion: <auteur>, <date> ».
-3. Chercher une source fiable (norme, étude, loi physique). Trouvée → remplir D, M, Q, les notes E–I et J, passer N à `Verified` et O à TRUE. Pas de source → N = `Needs test data`, cause dans P, et le dire à l'utilisateur (on ne fait pas d'épisode sans source).
-4. Une fois `Verified`, la suite est la procédure « fais une vidéo » normale. Dans la `description` de la vidéo, remercier l'auteur de l'idée (« Suggested by <auteur> »).
 2. **Réserver** : passer N à `In progress` avant tout travail.
 3. **Construire** :
    - L = `Tests (ready)` ou `Physics (ready)` : écrire `configs/<serie>_<num>_<slug>_en.json` à partir d'une config existante.
@@ -96,5 +93,12 @@ Le commentaire épinglé promet : « Most liked comment = next experiment ». Qu
    - Écran de fin : choisir le sujet suivant avec la règle de l'étape 1, mettre sa question (colonne C, ≤ 6 mots) dans `next_test`, le réserver dans la Sheet (O = TRUE, P « Announced in episode N »).
 4. **Rendre** : lancer `render.yml` (`config_path` ou `config_json`), suivre le run jusqu'à la fin.
 5. **Clore** : N = `Done`, R = lien du run + lien Drive de la vidéo, AA = numéro d'épisode affiché (fixé dès l'étape 3 : plus grand AA existant + 1).
-7. **Mesurer** : l'utilisateur donne les stats à J+3 → W–Z. Toutes les 5 vidéos publiées, comparer les stats aux notes S, T, U, G et proposer d'ajuster les poids du score V.
-6. **Échec** : remettre N à son statut d'avant, noter la cause dans P, prévenir l'utilisateur.
+6. **Mesurer** : l'utilisateur donne les stats à J+3 → W–Z (YouTube) et AB (TikTok). Toutes les 5 vidéos publiées, comparer les stats aux notes S, T, U, G et proposer d'ajuster les poids du score V.
+7. **Échec** : remettre N à son statut d'avant, noter la cause dans P, prévenir l'utilisateur.
+
+### Sujet proposé par un abonné (commentaire)
+Le commentaire épinglé promet : « Most liked comment = next experiment ». Quand l'utilisateur transmet une proposition :
+1. Chercher dans la Sheet si le sujet existe déjà (même question, même sous un autre nom). Si oui, mettre O = TRUE sur cette ligne et noter dans P « Viewer pick: <auteur>, <date> ».
+2. Sinon, ajouter une ligne à la fin : A = numéro suivant, B sujet, C question à l'écran, K série, L moteur (`Tests (ready)`, `Physics (ready)`, `(extend)` ou `New engine`), N = `Suggested`, P = « Viewer suggestion: <auteur>, <date> ».
+3. Chercher une source fiable (norme, étude, loi physique). Trouvée → remplir D, M, Q, les notes E–I et J, passer N à `Verified` et O à TRUE. Pas de source → N = `Needs test data`, cause dans P, et le dire à l'utilisateur (on ne fait pas d'épisode sans source).
+4. Une fois `Verified`, la suite est la procédure « fais une vidéo » normale. Dans la `description` de la vidéo, remercier l'auteur de l'idée (« Suggested by <auteur> »).
