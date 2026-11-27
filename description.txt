@@ -1,0 +1,24 @@
+6 lab tests: can you guess all 6?
+
+Six tests from the lab, back to back: make your bet before each slow motion, then count your score.
+Every number on screen comes from a published test or a physics law; the source is shown at the end of each test. The scenes are 3D simulations built on those numbers.
+
+Chapters:
+0:00 Diamond vs hammer
+1:04 Newton's cradle: lift 2 balls
+2:21 Empty soda can vs a person
+3:23 One Lego brick vs the press
+4:22 A voice vs a wine glass
+5:18 Hit the top of a bottle
+6:14 Your score
+
+Sources (one card at the end of each test):
+- Diamond vs hammer (test 007): Field & Freeman, Phil. Mag. A (1981) · Mohs scale · Britannica · Intl. Gem Society · Simulated: break along cleavage planes
+- Newton's cradle: lift 2 balls (test 010): Hutzler et al., Am. J. Phys. 72, 1508 (2004) · Simulated: momentum + energy laws
+- Empty soda can vs a person (test 009): Abramian et al. (2020) · Virot et al. (2017), PRL · Simulated with the lab values
+- One Lego brick vs the press (test 012): Open University test for BBC (2012) · Simulated with the lab value
+- A voice vs a wine glass (test 014): MythBusters ep. 31 (2005) · Scientific American · Simulated: motion exaggerated
+- Hit the top of a bottle (test 013): Pan, Kiyama et al., PNAS 114 (2017) · Simulated with their cavitation number
+
+Subscribe: you pick the next test.
+#physics #science #experiment
