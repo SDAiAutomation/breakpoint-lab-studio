@@ -430,13 +430,34 @@ jobs:
         with:
           path: ~/.earshot
           key: earshot-models-v1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
       - name: Get the render
         run: |
-          gh run download ${{ inputs.sound_from_run }} -n qc-work -D work
-          NAME=$(gh api repos/${{ github.repository }}/actions/runs/${{ inputs.sound_from_run }}/artifacts --jq '.artifacts[].name' | grep -- '-video$' | head -1)
-          gh run download ${{ inputs.sound_from_run }} -n "$NAME" -D work/v
-          cp work/v/video.mp4 work/video_synth.mp4
-          if [ -n "${{ inputs.config_path }}" ]; then cp "${{ inputs.config_path }}" work/config.json; fi
+          RID=${{ inputs.sound_from_run }}
+          if gh run download $RID -n qc-work -D work; then
+            NAME=$(gh api repos/${{ github.repository }}/actions/runs/$RID/artifacts --jq '.artifacts[].name' | grep -- '-video$' | head -1)
+            gh run download $RID -n "$NAME" -D work/v
+            cp work/v/video.mp4 work/video_synth.mp4
+            if [ -n "${{ inputs.config_path }}" ]; then cp "${{ inputs.config_path }}" work/config.json; fi
+          else
+            # the run's intermediate artifacts were deleted once its video reached Drive: the timeline is rebuilt
+            # from the config (same engine), the synth-sound video comes back from Drive
+            test -n "${{ inputs.config_path }}" || { echo "qc-work is gone: give config_path"; exit 1; }
+            mkdir -p work && cp "${{ inputs.config_path }}" work/config.json
+            npm install --no-save --no-audit --no-fund playwright@${PLAYWRIGHT_VERSION}
+            npx playwright install --with-deps chromium
+            node engine/render.js timeline work/config.json work/timeline.json
+            mkdir -p ~/.config/rclone && printf '%s\n' "$RCLONE_CONF" > ~/.config/rclone/rclone.conf
+            REMOTE=$(rclone listremotes | head -1)
+            N=$(gh api repos/${{ github.repository }}/actions/runs/$RID --jq .run_number)
+            ID=$(python3 -c "import json;print(json.load(open('work/config.json'))['id'])")
+            F=$(rclone lsf "$REMOTE" --drive-root-folder-id "$DRIVE_FOLDER_ID" --files-only --include "*_${ID}_run${N}_synth-sound.mp4" | tail -1)
+            test -n "$F" || { echo "no *_${ID}_run${N}_synth-sound.mp4 on Drive"; exit 1; }
+            rclone copyto "${REMOTE}${F}" work/video_synth.mp4 --drive-root-folder-id "$DRIVE_FOLDER_ID"
+            python3 -c "import json,subprocess as s;d=float(s.check_output(['ffprobe','-v','error','-show_entries','format=duration','-of','csv=p=0','work/video_synth.mp4']));t=json.load(open('work/timeline.json'))['duration'];print('video',d,'timeline',t);assert abs(d-t)<0.2"
+          fi
           echo "TAG=$(python3 -c "import json;print(json.load(open('work/config.json'))['id'])")" >> "$GITHUB_ENV"
       - name: Real sound (Openverse finds, earshot listens, real-sfx places)
         run: |

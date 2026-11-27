@@ -199,7 +199,7 @@ def choose(api, name, spec, cands, out_dir, takes=3):
     if not cands or api is None:
         return []
     if spec.get("sustain"):
-        return choose_sustain(api, name, spec, cands, out_dir)
+        return choose_sustain(api, name, spec, cands, out_dir, length=float(spec.get("length", 12.0)))
     hear = spec["hear"]
     try:
         ranked = api.rank([c["file"] for c in cands], hear)["results"]
@@ -318,6 +318,38 @@ def build_sheet(tl, cfg, bank, video, roles_cfg):
                 c["anchor"] = spec["anchor"]
             if spec.get("max_dur"):
                 c["max_dur"] = spec["max_dur"]
+            cues.append(c)
+    # held sounds that are not timeline events: a bed under the whole film ("bed": true) and a sound that lasts from
+    # one event to the next ("span": {"from": [EVENT, ...], "to": EVENT}, e.g. the rattle of a falling car from the
+    # snap, or from the start of the slow replay, to the impact); a slow "to" event slows the held sound down too
+    dur = float(tl.get("duration", 0) or 0)
+    for name, spec in roles_cfg.items():
+        takes = bank.get(name) or []
+        if not takes or not (spec.get("bed") or spec.get("span")):
+            continue
+        spans = []
+        if spec.get("bed"):
+            spans.append((0.0, dur, 1.0))
+        if spec.get("span"):
+            frm = spec["span"].get("from", [])
+            frm = [frm] if isinstance(frm, str) else frm
+            starts = sorted((e.get("t", e.get("t0")), e) for e in tl["events"] if e["type"] in frm)
+            for b in (e for e in tl["events"] if e["type"] == spec["span"].get("to")):
+                prev = [t for t, _ in starts if t < b["t"]]
+                if prev:
+                    spans.append((prev[-1], b["t"], float(b.get("speed", 1) or 1)))
+        for k, (t0, t1, speed) in enumerate(spans):
+            c = {"_role": name, "t": round(t0, 4), "label": name + (" slow" if speed < 1 else ""),
+                 "file": takes[k % len(takes)]["take"], "role": spec.get("role", "sustain"),
+                 "gain_db": float(spec.get("gain_db", 0)), "max_dur": round(t1 - t0, 3)}
+            if speed < 1:
+                c["pitch"] = -12 if speed <= 0.25 else round(12 * math.log2(speed), 1)
+                c["lowpass"] = 6000
+            if spec.get("bed") and t0 == 0.0:                 # real-sfx levels a bed against the loudest moment
+                c.update(bed=True, level_dbfs=float(spec.get("level_dbfs", -48)), fade_curve="qsin")
+            for key in ("fade_in", "fade_out"):
+                if key in spec:
+                    c[key] = spec[key]
             cues.append(c)
     cues.sort(key=lambda c: c["t"])
     # a run of one role faster than max_rate per second (a slinky's coils closing) is thinned: keep the loudest

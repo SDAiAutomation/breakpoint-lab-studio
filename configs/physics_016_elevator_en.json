@@ -119,6 +119,44 @@
         "hear": "a taut steel cable snapping: one sharp metallic snap with a short twang",
         "role": "click",
         "make": "a sharp metal snap"
+      },
+      "fall": {
+        "q": [
+          "elevator rattle",
+          "freight train rumble",
+          "metal rattling",
+          "train passing rumble",
+          "rattling machine"
+        ],
+        "hear": "a heavy metal box rattling and rumbling at speed down a shaft: steady loud rumble with rattles, no voices",
+        "role": "vehicle",
+        "sustain": true,
+        "length": 12,
+        "span": {
+          "from": [
+            "snap",
+            "replay"
+          ],
+          "to": "impact"
+        },
+        "gain_db": 2,
+        "fade_in": 0.15,
+        "fade_out": 0.05
+      },
+      "shaft": {
+        "q": [
+          "elevator shaft ambience",
+          "industrial room tone",
+          "machine room hum",
+          "factory ambience low",
+          "ventilation hum"
+        ],
+        "hear": "the low steady hum of an empty concrete elevator shaft and its machine room, no voices, no music",
+        "role": "ambience",
+        "sustain": true,
+        "length": 80,
+        "bed": true,
+        "level_dbfs": -46
       }
     },
     "events": {
