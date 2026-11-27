@@ -22,7 +22,7 @@ FONT = str(REPO / "engine" / "fonts" / "Poppins-Bold.ttf")
 W, H, FPS = 1920, 1080, 30
 FW = 608                       # the 9:16 episode scaled to the full height
 PANEL = (W - FW) // 2          # 656 px on each side
-WHITE, GOLD, GREY = "0xF2F2F2", "0xF7C21A", "0xB8BEC6"
+WHITE, GOLD, GREY = "0xF2F2F2", "0xF7C21A", "0xD4D8DD"
 
 
 def sh(cmd):
@@ -54,7 +54,7 @@ def dt(work, name, s, size, color, x, y, enable=None):
 def frame_chain(src_label, extra):
     """blurred cover background + the vertical episode centred, then the panel texts"""
     return (f"[{src_label}]split=2[a][b];"
-            f"[a]scale={W}:-2,crop={W}:{H},gblur=sigma=40,eq=brightness=-0.22:saturation=0.8[bg];"
+            f"[a]scale={W}:-2,crop={W}:{H},gblur=sigma=40,eq=brightness=-0.42:saturation=0.6[bg];"
             f"[b]scale={FW}:{H}[fg];"
             f"[bg][fg]overlay=x={PANEL}:y=0,format=yuv420p" + ("," + ",".join(extra) if extra else "") + "[v]")
 
@@ -126,7 +126,7 @@ def main():
     ss = max(0.0, float(last["end_s"]) - es - 2.0)
     endc = [dt(work, "e0", e["lines"][0], 60, WHITE, "C", 360), dt(work, "e1", e["lines"][1], 60, GOLD, "C", 440),
             dt(work, "e2", e["cta"], 40, WHITE, "C", 600)]
-    chain = (f"[0:v]scale={W}:-2,crop={W}:{H},gblur=sigma=40,eq=brightness=-0.30:saturation=0.7,format=yuv420p,"
+    chain = (f"[0:v]scale={W}:-2,crop={W}:{H},gblur=sigma=40,eq=brightness=-0.45:saturation=0.6,format=yuv420p,"
              + ",".join(endc) + f",fade=t=out:st={es - 0.6:.2f}:d=0.6[v]")
     out = work / "part_end.mp4"
     encode(work, work / f"src_{n - 1}.mp4", ss, es, chain, out,
