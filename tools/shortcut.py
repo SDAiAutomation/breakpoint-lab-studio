@@ -9,7 +9,9 @@ the WHY explanation and the outro (source + call to comment). TikTok keeps the l
 Config (optional): "short": {"round": 2, "explain_lines": 3} or {"rounds": [1, 2]}; default round = hook_round,
 "from": "question" (default: each kept round starts at its question, the title card is skipped) or "round",
 all explain lines; the outro is cut to the source card (1.8 s, "source_s") + the last 2.7 s ("end_s": next test + CTA),
-"full_outro": true keeps it whole; "loop": false turns off the seamless loop (default on: the last 0.4 s fade into the very first
+"full_outro": true keeps it whole; "end": "no_cta" (A/B test of the end, nov. 2026) keeps only the source card
+after the WHY and loops straight back, without the next-test + CTA screen (python tools/shortcut.py ... --end cta forces
+the usual end, e.g. for the Instagram copy); "loop": false turns off the seamless loop (default on: the last 0.4 s fade into the very first
 frame, so when the player restarts the short there is no visible jump and many viewers watch it again). Keep every round the explanation and the surprise rely on, even if the cut goes past 45 s.
 The WHY is never sped up and never dropped. explain_lines stops the explanation just before a line that is about a
 round the short leaves out (each line appears 2.2 s after the previous one, so every kept line stays readable).
@@ -19,7 +21,7 @@ import subprocess
 import sys
 
 
-def segments(cfg, tl):
+def segments(cfg, tl, end_mode=None):
     ev = tl["events"]
     rounds = sorted(e["t"] for e in ev if e["type"] == "round")
     explain = next((e for e in ev if e["type"] == "explain"), None)
@@ -43,7 +45,9 @@ def segments(cfg, tl):
         segs.append((explain["t0"], end))
     o0 = outro if outro is not None else (explain["t1"] if explain else end_k)
     src_s, end_s = float(short.get("source_s", 1.8)), float(short.get("end_s", 2.7))
-    if short.get("full_outro") or dur - o0 <= src_s + end_s + 0.5:
+    if (end_mode or short.get("end", "cta")) == "no_cta":   # variant B: source card, then straight into the loop
+        segs.append((o0, min(dur, o0 + src_s)))
+    elif short.get("full_outro") or dur - o0 <= src_s + end_s + 0.5:
         segs.append((o0, dur))
     else:                                          # short outro: the source card (readable 1.8 s), then the
         segs.append((o0, o0 + src_s))              # next-test promise + CTA (last 2.7 s, fading into the loop)
@@ -52,10 +56,16 @@ def segments(cfg, tl):
 
 
 def main():
-    cfg_p, tl_p, src, dst = sys.argv[1:5]
+    args = sys.argv[1:]
+    end = None
+    if "--end" in args:
+        i = args.index("--end")
+        end = args[i + 1]
+        del args[i:i + 2]
+    cfg_p, tl_p, src, dst = args[:4]
     cfg = json.load(open(cfg_p, encoding="utf-8"))
     tl = json.load(open(tl_p, encoding="utf-8"))
-    segs = segments(cfg, tl)
+    segs = segments(cfg, tl, end)
     f, parts = [], []
     for i, (a, b) in enumerate(segs):
         d = b - a
