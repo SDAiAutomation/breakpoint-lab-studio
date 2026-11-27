@@ -307,6 +307,11 @@ jobs:
         run: |
           python3 tools/shortcut.py work/config.json work/timeline.json work/video.mp4 work/video_short.mp4
           python3 tools/sound/tp_guard.py work/video.mp4 work/video_short.mp4
+          # A/B test of the end (variant B on YouTube): Instagram keeps the usual end
+          if python3 -c "import json,sys;sys.exit(0 if (json.load(open('work/config.json')).get('short') or {}).get('end')=='no_cta' else 1)"; then
+            python3 tools/shortcut.py work/config.json work/timeline.json work/video.mp4 work/video_reels.mp4 --end cta
+            python3 tools/sound/tp_guard.py work/video_reels.mp4
+          fi
       - name: Upload to Google Drive
         if: needs.render.result == 'success' && env.RCLONE_CONF != '' && env.DRIVE_FOLDER_ID != ''
         run: |
@@ -318,6 +323,7 @@ jobs:
           rclone copyto work/caption.txt "${REMOTE}${NAME}_caption.txt" --drive-root-folder-id "$DRIVE_FOLDER_ID"
           if [ -f work/cover.jpg ]; then rclone copyto work/cover.jpg "${REMOTE}${NAME}_cover.jpg" --drive-root-folder-id "$DRIVE_FOLDER_ID"; fi
           if [ -f work/video_short.mp4 ]; then rclone copyto work/video_short.mp4 "${REMOTE}${NAME}_youtube-short.mp4" --drive-root-folder-id "$DRIVE_FOLDER_ID"; fi
+          if [ -f work/video_reels.mp4 ]; then rclone copyto work/video_reels.mp4 "${REMOTE}${NAME}_reels.mp4" --drive-root-folder-id "$DRIVE_FOLDER_ID"; fi
           if [ -f work/video_synth.mp4 ]; then rclone copyto work/video_synth.mp4 "${REMOTE}${NAME}_synth-sound.mp4" --drive-root-folder-id "$DRIVE_FOLDER_ID"; fi
           echo "DRIVE_OK=1" >> "$GITHUB_ENV"
           # making-of : de quoi montrer plus tard « comment on l'a fait » (config, images clés, planche, son)
@@ -476,6 +482,10 @@ jobs:
           cat work/sound/report.md >> "$GITHUB_STEP_SUMMARY"
           python3 tools/shortcut.py work/config.json work/timeline.json work/sound/result/film_sfx.mp4 work/video_short.mp4
           python3 tools/sound/tp_guard.py work/sound/result/film_sfx.mp4 work/video_short.mp4
+          if python3 -c "import json,sys;sys.exit(0 if (json.load(open('work/config.json')).get('short') or {}).get('end')=='no_cta' else 1)"; then
+            python3 tools/shortcut.py work/config.json work/timeline.json work/sound/result/film_sfx.mp4 work/video_reels.mp4 --end cta
+            python3 tools/sound/tp_guard.py work/video_reels.mp4
+          fi
       - name: Upload to Google Drive
         if: env.RCLONE_CONF != '' && env.DRIVE_FOLDER_ID != ''
         run: |
@@ -485,6 +495,7 @@ jobs:
           MODE=$(python3 -c "import json;print(json.load(open('work/config.json')).get('sound',{}).get('mode','real'))")
           rclone copyto work/sound/result/film_sfx.mp4 "${REMOTE}${NAME}_${MODE}-sound.mp4" --drive-root-folder-id "$DRIVE_FOLDER_ID"
           rclone copyto work/video_short.mp4 "${REMOTE}${NAME}_youtube-short.mp4" --drive-root-folder-id "$DRIVE_FOLDER_ID"
+          if [ -f work/video_reels.mp4 ]; then rclone copyto work/video_reels.mp4 "${REMOTE}${NAME}_reels.mp4" --drive-root-folder-id "$DRIVE_FOLDER_ID"; fi
           rclone copyto work/video_synth.mp4 "${REMOTE}${NAME}_synth-sound.mp4" --drive-root-folder-id "$DRIVE_FOLDER_ID"
           rclone copyto work/caption.txt "${REMOTE}${NAME}_caption.txt" --drive-root-folder-id "$DRIVE_FOLDER_ID"
           if [ -f work/cover.jpg ]; then rclone copyto work/cover.jpg "${REMOTE}${NAME}_cover.jpg" --drive-root-folder-id "$DRIVE_FOLDER_ID"; fi
