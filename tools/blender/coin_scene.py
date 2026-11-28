@@ -494,28 +494,21 @@ def build(res=(1080, 1920)):
     for sx in (-1, 1):
         box(sc, f"Rail{sx}", (0.045, 0.045, TOWER_TOP), (sx * 0.17, 0.12, TUBE_BOT + TOWER_TOP / 2 + 0.05), hz, bevel=0.003)
     box(sc, "RailFoot", (0.42, 0.06, 0.04), (0, 0.12, TUBE_BOT + 0.05), steel, bevel=0.004)
-    bpy.ops.mesh.primitive_cylinder_add(vertices=64, radius=TUBE_R, depth=TOWER_TOP, location=(0, 0, TUBE_BOT + TOWER_TOP / 2))
-    tube = bpy.context.object
-    sl = tube.modifiers.new("Solid", 'SOLIDIFY')
-    sl.thickness = 0.003
-    tube.data.materials.append(tube_mat())
-    for p in tube.data.polygons:
-        p.use_smooth = True
-    _link(sc, tube, "Tube")
-    bpy.ops.mesh.primitive_torus_add(major_radius=TUBE_R + 0.002, minor_radius=0.006, location=(0, 0, TUBE_BOT))
-    _link(sc, bpy.context.object, "TubeLip").data.materials.append(steel)
-    box(sc, "TubeArm", (0.06, 0.12, 0.03), (0, 0.07, TUBE_BOT + 0.03), steel, bevel=0.004)
+    box(sc, "Release", (0.10, 0.10, 0.06), (0, 0.07, TUBE_BOT + 0.10), steel, bevel=0.006)   # release gate, above the head
 
     # ---- the BREAKPOINT LAB base on a stand, the headform on its neck
     box(sc, "Stand", (0.76, 0.56, BASE_TOP - 0.16), (0, 0.0, (BASE_TOP - 0.16) / 2), stand, bevel=0.004)
     add_logo_base(sc, width=0.80, height=0.16, depth=0.60, top_z=BASE_TOP)
     box(sc, "Bracket", (0.16, 0.16, 0.03), (0, 0.02, BASE_TOP + 0.015), steel, bevel=0.004)
-    n0 = Vector((0, 0.02, BASE_TOP + 0.03))
     n1 = head_point(headform.surface((0, 0.15, -1)))
-    place(cone(sc, "NeckCore", 0.017, 0.017, steel, 12), n0, n1)
+    n0 = Vector((0, 0.02, BASE_TOP + 0.03))
+    nm = n1 + (n0 - n1).normalized() * 0.12               # Hybrid III neck: about 12 cm of rubber discs and plates
+    place(cone(sc, "Post", 0.03, 0.03, steel, 24), n0, nm)
+    place(cone(sc, "NeckCore", 0.017, 0.017, steel, 12), nm, n1)
     for i in range(4):
-        a = n0 + (n1 - n0) * (0.08 + 0.23 * i)
-        place(cone(sc, f"NeckDisc{i}", 0.05, 0.05, rubber), a, a + (n1 - n0) * 0.14)
+        a = nm + (n1 - nm) * (0.02 + 0.245 * i)
+        place(cone(sc, f"NeckDisc{i}", 0.052, 0.052, rubber), a, a + (n1 - nm) * 0.17)
+        place(cone(sc, f"NeckPlate{i}", 0.056, 0.056, steel, 32), a + (n1 - nm) * 0.17, a + (n1 - nm) * 0.2)
     hd = headform_mesh(sc, "Head", vinyl)
     hd.location = HEAD_C
     hd.rotation_euler = (HEAD_TILT, 0.0, 0.0)
@@ -546,7 +539,7 @@ def build(res=(1080, 1920)):
         rim.parent = coin
 
     # ---- light: studio softboxes that ride with the camera (key front left, rim back right, top), the set lit for the logo
-    for nm, e, size, off, col in (("Key", 120, 1.2, (-1.4, -1.6, 0.9), (1.0, 0.97, 0.93)),
+    for nm, e, size, off, col in (("Key", 80, 1.2, (-1.4, -1.6, 0.9), (1.0, 0.97, 0.93)),
                                   ("Rim", 90, 0.8, (1.3, 1.6, 0.6), (0.92, 0.95, 1.0)),
                                   ("Top", 70, 1.0, (0.0, -0.2, 1.8), (1.0, 0.98, 0.95))):
         lt = bpy.data.lights.new(nm, 'AREA')
