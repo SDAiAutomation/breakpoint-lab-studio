@@ -1,4 +1,4 @@
-"""Explainer series ("Physics in 10 s") — style test: the forces on a crate on an incline, played by characters.
+"""Explainer series (Instagram, Breakpoint Lab · Explainers): the forces on a crate on an incline, played by characters.
 
 Each force is a toy-like capsule character with a fixed colour (the same in every episode):
   yellow = applied force F (pulls the rope up the slope), red = friction f (pulls down the slope),
@@ -14,12 +14,12 @@ import os
 import sys
 
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 TH = math.radians(30)                         # slope angle
 U = Vector((math.cos(TH), 0, math.sin(TH)))   # up the slope
 N = Vector((-math.sin(TH), 0, math.cos(TH)))  # out of the slope
-PLANK_T = 0.16
+PLANK_T = 0.28
 CRATE = 0.78
 BLUE_T = 0.32                                  # the squeezed blue character between plank and crate
 
@@ -207,7 +207,20 @@ def character(col, feet, lean, hands, mood, mats, height=0.36, r=0.17, flat=1.0,
 FONT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "engine", "fonts", "Poppins-Bold.ttf")
 
 
-def label(text, loc, m, size=0.38, vec=False):
+def _group(objs, loc):
+    """an upright empty that carries a label and its vector mark: moved as one, never tilted"""
+    e = bpy.data.objects.new("grp", None)
+    e.location = loc
+    bpy.context.scene.collection.objects.link(e)
+    bpy.context.view_layer.update()
+    for o in objs:
+        o.parent = e
+        o.matrix_parent_inverse = e.matrix_world.inverted()
+    return e
+
+
+def label(text, loc, m, size=0.38, vec=False, font=None):
+    """a name facing the camera (+ the vector arrow over it); returns the upright group"""
     cu = bpy.data.curves.new(text, type='FONT')
     cu.body = text
     cu.size = size
@@ -215,7 +228,7 @@ def label(text, loc, m, size=0.38, vec=False):
     cu.align_x = 'CENTER'
     cu.align_y = 'CENTER'
     try:
-        cu.font = bpy.data.fonts.load(FONT, check_existing=True)
+        cu.font = bpy.data.fonts.load(font or FONT, check_existing=True)
     except RuntimeError:
         pass
     o = bpy.data.objects.new(text, cu)
@@ -225,31 +238,60 @@ def label(text, loc, m, size=0.38, vec=False):
     o.location = loc
     o.rotation_euler = (math.pi / 2, 0, 0)     # faces the camera (-y)
     bpy.context.scene.collection.objects.link(o)
+    parts = [o]
     if vec:                                     # the vector arrow over the letter
-        a = Vector(loc) + Vector((-size * 0.26, -0.02, size * 0.50))
-        b = a + Vector((size * 0.42, 0, 0))
-        seg(a, b, size * 0.035, lm)
+        a = Vector(loc) + Vector((-size * 0.22, -0.02, size * 0.46))
+        b = a + Vector((size * 0.40, 0, 0))
+        parts.append(seg(a, b, size * 0.035, lm, caps=False))
         bpy.ops.mesh.primitive_cone_add(vertices=24, radius1=size * 0.09, radius2=0, depth=size * 0.2,
                                         location=b + Vector((size * 0.08, 0, 0)), rotation=(0, math.pi / 2, 0))
-        _fin(bpy.context.object, lm)
-    return o
+        parts.append(_fin(bpy.context.object, lm))
+    return _group(parts, loc)
 
 
-def arrow(start, d, length, m, name, off):
-    """force arrow: shaft + head, its name just past the tip"""
+def arrow(start, d, length, m, r=0.035):
+    """force arrow: shaft + head; returns its objects and its tip"""
     d = Vector(d).normalized()
     tip = start + d * length
-    seg(start, tip - d * 0.20, 0.035, m)
+    objs = [seg(start, tip - d * 0.20, r, m, caps=False)]
     bpy.ops.mesh.primitive_cone_add(vertices=32, radius1=0.10, radius2=0.0, depth=0.24, location=tip - d * 0.12)
     o = bpy.context.object
     o.rotation_euler = d.to_track_quat('Z', 'Y').to_euler()
-    _fin(o, m)
-    label(name, tip + d * 0.16 + off, m, vec=True)
+    objs.append(_fin(o, m))
+    return objs, tip
+
+
+def logo_on_plank(s_mid, size, front_y):
+    """BREAKPOINT (dark) LAB (gold) on the plank's front face, along the slope: the channel's logo in every shot"""
+    cu = bpy.data.curves.new("logo", type='FONT')
+    cu.body = "BREAKPOINT LAB"
+    cu.size = size
+    cu.extrude = 0.004
+    cu.align_x = 'CENTER'
+    cu.align_y = 'CENTER'
+    try:
+        cu.font = bpy.data.fonts.load(FONT, check_existing=True)
+    except RuntimeError:
+        pass
+    dark = mat("LogoDark", **{"Base Color": (0.02, 0.02, 0.025, 1), "Roughness": 0.6})
+    gold = mat("LogoGold", **{"Base Color": (0.80, 0.52, 0.02, 1), "Roughness": 0.5})
+    o = bpy.data.objects.new("logo", cu)
+    o.data.materials.append(dark)
+    o.data.materials.append(gold)
+    for k in range(len("BREAKPOINT "), len("BREAKPOINT LAB")):
+        cu.body_format[k].material_index = 1
+    o.location = U * s_mid + Vector((0, front_y, 0))
+    o.rotation_euler = (Matrix.Rotation(-TH, 4, 'Y') @ Matrix.Rotation(math.pi / 2, 4, 'X')).to_euler()
+    bpy.context.scene.collection.objects.link(o)
+    return o
 
 
 # ---------------------------------------------------------------- scene
 def on_plank(s, h=0.0):
     return U * s + N * (PLANK_T / 2 + h)
+
+
+S = {}          # what set_pose needs: pivot, crate centre, labels to keep upright, materials, dynamic objects
 
 
 def build(res=(1080, 1920)):
@@ -259,18 +301,21 @@ def build(res=(1080, 1920)):
     mats["eye"] = mat("Eye", **{"Base Color": (0.92, 0.92, 0.90, 1), "Roughness": 0.15, "Coat Weight": 0.5})
     mats["pupil"] = mat("Pupil", **{"Base Color": (0.02, 0.02, 0.025, 1), "Roughness": 0.1})
     mats["mouth"] = mat("Mouth", **{"Base Color": (0.10, 0.02, 0.02, 1), "Roughness": 0.4})
-    grey = mat("Plank", **{"Base Color": (0.30, 0.31, 0.33, 1), "Roughness": 0.55})
+    mats["ink"] = mat("Ink", **{"Base Color": (0.06, 0.07, 0.09, 1), "Roughness": 0.5})
+    grey = mat("Plank", **{"Base Color": (0.62, 0.63, 0.65, 1), "Roughness": 0.55})
     studio = mat("Studio", **{"Base Color": (0.55, 0.56, 0.58, 1), "Roughness": 0.8})
     rope = mat("Rope", **{"Base Color": (0.55, 0.42, 0.25, 1), "Roughness": 0.85})
     wood = wood_mat()
+    cc = on_plank(0.0, BLUE_T + CRATE / 2)
 
-    # floor + curved backdrop
-    box((0, 3, -2.10), (40, 40, 0.1), studio)
+    # floor + backdrop (fixed)
+    box((0, 3, -2.50), (40, 40, 0.1), studio)
     box((0, 4.5, 6), (40, 0.1, 16), studio)
-    # the incline plank, resting on the floor at its low end
-    box((0, 0, 0), (7.0, 1.1, PLANK_T), grey, rot=(0, -TH, 0), bevel=0.02)
 
-    # blue: the normal force, lying in the plank under the crate, pushing it straight off the slope
+    before = set(bpy.data.objects)
+    # ---- everything tied to the ramp (turns with it, around the crate's centre)
+    box((0, 0, 0), (6.0, 1.1, PLANK_T), grey, rot=(0, -TH, 0), bevel=0.02)
+    logo_on_plank(1.05, 0.15, -0.553)
     bc = on_plank(0.0, BLUE_T / 2)
     capsule(bc, U, 0.50, BLUE_T / 2, mats["blue"])
     for s in (-0.30, 0.30):
@@ -278,11 +323,7 @@ def build(res=(1080, 1920)):
         seg(bc + U * s * 0.8 + Vector((0, -0.08, 0)), hand, 0.04, mats["blue"])
         ball(hand, 0.06, mats["blue"], scale=(1.3, 1.3, 0.6))
     face(bc, N, Vector((0, -1, 0)), U, BLUE_T / 2, "tired", mats, lid=mats["blue"])
-
-    # the crate, sitting on the blue character
-    cc = on_plank(0.0, BLUE_T + CRATE / 2)
     box(cc, (CRATE, CRATE, CRATE), wood, rot=(0, -TH, 0), bevel=0.015)
-    # front frame + X brace (front face is -y)
     fy = -CRATE / 2 - 0.02
     for a, b in (((-1, -1), (1, -1)), ((-1, 1), (1, 1)), ((-1, -1), (-1, 1)), ((1, -1), (1, 1)), ((-1, -1), (1, 1)), ((-1, 1), (1, -1))):
         pa = cc + U * a[0] * CRATE * 0.44 + N * a[1] * CRATE * 0.44 + Vector((0, fy, 0))
@@ -290,40 +331,51 @@ def build(res=(1080, 1920)):
         v = pb - pa
         o = box((pa + pb) / 2, (0.075, 0.03, v.length), wood)
         o.rotation_euler = v.to_track_quat('Z', 'Y').to_euler()
-
-    # yellow: applied force F, pulling the rope up the slope
     fy1, fy2 = on_plank(1.30), on_plank(1.50)
     lean_y = (U * 0.55 + Vector((0, 0, 1))).normalized()
     hy = (on_plank(1.17, 0.60), on_plank(1.21, 0.63))
     character("yellow", (fy1 + Vector((0, -0.12, 0)), fy2 + Vector((0, 0.12, 0))), lean_y,
               (hy[0] + Vector((0, -0.07, 0)), hy[1] + Vector((0, 0.07, 0))), "angry", mats, gaze=-1.0)
     seg(cc + U * CRATE / 2, (hy[0] + hy[1]) / 2 + U * 0.25, 0.018, rope, caps=False)
-
-    # red: friction f, pulling down the slope
     fr1, fr2 = on_plank(-1.40), on_plank(-1.24)
     lean_r = (-U * 0.55 + Vector((0, 0, 1))).normalized()
     base = cc - U * (CRATE / 2 + 0.03) - N * (CRATE / 2 - 0.12)
     character("red", (fr1 + Vector((0, -0.12, 0)), fr2 + Vector((0, 0.12, 0))), lean_r,
               (base + Vector((0, -0.16, 0)), base + Vector((0, 0.10, 0)) + N * 0.06), "strain", mats, gaze=1.0)
+    ay = Vector((0, -0.62, 0))
+    _, tF = arrow(cc + ay, U, 1.05, mats["yellow"])
+    _, tf = arrow(cc + ay, -U, 0.62, mats["red"])
+    tilted = set(bpy.data.objects) - before
 
-    # green: weight mg, hanging straight down from the crate's centre, below the plank
+    pivot = bpy.data.objects.new("pivot", None)
+    pivot.location = cc
+    sc.collection.objects.link(pivot)
+    bpy.context.view_layer.update()
+    for o in tilted:
+        if o.parent is None:
+            o.parent = pivot
+            o.matrix_parent_inverse = pivot.matrix_world.inverted()
+
+    # names of F and f: upright, follow their arrow tips
+    lF = label("F", tF + U * 0.16 + N * 0.16, mats["yellow"], vec=True)
+    lf = label("f", tf - U * 0.16 + N * 0.22, mats["red"], vec=True)
+    S["follow"] = [(lF, lF.location - cc), (lf, lf.location - cc)]
+
+    # ---- fixed: gravity does not turn. Green hangs from the weight arrow, well below the plank at any angle
     top = Vector((cc.x, -0.62, cc.z))
-    bot = Vector((cc.x, -0.62, cc.z - 2.30))
+    bot = Vector((cc.x, -0.62, cc.z - 2.60))
     seg(top, bot, 0.04, mats["green"], caps=False)
     bpy.ops.mesh.primitive_cone_add(vertices=32, radius1=0.11, radius2=0.0, depth=0.26, location=bot - Vector((0, 0, 0.13)),
                                     rotation=(math.pi, 0, 0))
     _fin(bpy.context.object, mats["green"])
-    gh = Vector((cc.x, -0.62, cc.z - 1.15))
+    gh = Vector((cc.x, -0.62, cc.z - 1.45))
     gc = gh - Vector((0, 0, 0.55))
     character("green", (gc + Vector((-0.10, 0, -0.45)), gc + Vector((0.12, 0, -0.43))), (0, 0, 1),
               (gh + Vector((-0.04, -0.03, 0.06)), gh + Vector((0.04, -0.03, -0.04))), "worried", mats)
-
-    # the four forces as arrows (in front of the crate) with their names at the tips
-    ay = Vector((0, -0.62, 0))
-    arrow(cc + ay, U, 1.05, mats["yellow"], "F", N * 0.16)
-    arrow(cc + ay, -U, 0.62, mats["red"], "f", N * 0.22)
-    arrow(cc + ay, N, 1.00, mats["blue"], "N", Vector((0, 0, 0)))
     label("mg", bot + Vector((0.34, -0.05, -0.10)), mats["green"])
+    S["lN"] = label("N", cc, mats["blue"], vec=True)
+    S["lth"] = label("θ", cc, mats["ink"], size=0.30, font=FONT.replace("Poppins-Bold", "DejaVuSans-Bold"))
+    S.update(pivot=pivot, cc=cc, mats=mats, dyn=[])
 
     # lights
     for nm, loc, e, size in (("Key", (-3.0, -5.0, 5.0), 700, 2.0), ("Fill", (5.0, -4.0, 2.0), 150, 4.0),
@@ -343,10 +395,10 @@ def build(res=(1080, 1920)):
     sc.world = wd
 
     cam = bpy.data.cameras.new("Cam")
-    cam.lens = 50
     co = bpy.data.objects.new("Cam", cam)
     sc.collection.objects.link(co)
     sc.camera = co
+    shot(sc, "wide")
 
     r = sc.render
     r.resolution_x, r.resolution_y = res
@@ -365,33 +417,93 @@ def build(res=(1080, 1920)):
     sc.view_settings.exposure = -0.3
     r.image_settings.file_format = 'JPEG'
     r.image_settings.quality = 92
-    return sc, cc
+    set_pose({"th": 30})
+    return sc
+
+
+def _drop_dyn():
+    for o in S["dyn"]:
+        bpy.data.objects.remove(o, do_unlink=True)
+    S["dyn"] = []
+
+
+def set_pose(p):
+    """p["th"] = ramp angle (deg). The ramp and everything on it turn around the crate's centre; the weight stays vertical;
+    N stays perpendicular to the ramp and its length is mg cos(theta) (1.2 m for mg); the angle between mg and the
+    dashed -N line is theta (the same angle as the ramp)."""
+    th = math.radians(float(p["th"]))
+    cc, mats = S["cc"], S["mats"]
+    R = Matrix.Rotation(-(th - TH), 3, 'Y')
+    S["pivot"].rotation_euler = (0, -(th - TH), 0)
+    for g, rel in S["follow"]:
+        g.location = cc + R @ rel
+    _drop_dyn()
+    ay = Vector((0, -0.62, 0))
+    n = Vector((-math.sin(th), 0, math.cos(th)))
+    objs, tN = arrow(cc + ay, n, 1.2 * math.cos(th), mats["blue"])
+    S["dyn"] += objs
+    S["lN"].location = tN + n * 0.20 + Vector((-0.06, 0, 0.04))
+    # dashed -N (the line the weight makes the angle with) and the theta arc between it and mg
+    for k in range(5):
+        a = cc + ay + Vector((0, -0.005, 0)) - n * (0.12 + 0.17 * k)
+        S["dyn"].append(seg(a, a - n * 0.10, 0.014, mats["ink"], caps=False))
+    pts = []
+    for k in range(25):
+        ang = -math.pi / 2 + th * k / 24                      # from straight down towards -N
+        pts.append(cc + ay + Vector((0.55 * math.cos(ang), -0.01, 0.55 * math.sin(ang))))
+    for a, b in zip(pts, pts[1:]):
+        S["dyn"].append(seg(a, b, 0.016, mats["ink"], caps=False))
+    mid = -math.pi / 2 + th / 2
+    S["lth"].location = cc + ay + Vector((0.80 * math.cos(mid), -0.02, 0.80 * math.sin(mid)))
 
 
 SHOTS = {                       # camera position, look-at target, lens
-    "wide": (lambda cc: (Vector((cc.x + 0.55, -9.0, cc.z + 1.2)), Vector((cc.x + 0.55, 0, cc.z - 0.25)), 48)),
+    "wide": (lambda cc: (Vector((cc.x + 0.50, -9.0, cc.z + 1.0)), Vector((cc.x + 0.50, 0, cc.z - 0.55)), 45)),
     "crate": (lambda cc: (Vector((cc.x - 0.6, -5.5, cc.z + 0.8)), Vector((cc.x, 0, cc.z - 0.2)), 50)),
     "faces": (lambda cc: (Vector((cc.x - 0.4, -4.6, cc.z + 0.7)), Vector((cc.x - 0.4, 0, cc.z + 0.05)), 50)),
 }
 
 
+def shot(sc, name):
+    pos, look, lens = SHOTS[name](S["cc"])
+    sc.camera.location = pos
+    sc.camera.rotation_euler = (look - pos).to_track_quat('-Z', 'Y').to_euler()
+    sc.camera.data.lens = lens
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="work/stills")
-    ap.add_argument("--shots", default="wide,crate,faces")
+    ap.add_argument("--shots", default="wide")
+    ap.add_argument("--angles", default="30")
+    ap.add_argument("--poses", default="")
+    ap.add_argument("--range", default="")
     ap.add_argument("--samples", type=int, default=96)
+    ap.add_argument("--pct", type=int, default=100)
     a = ap.parse_args(sys.argv[sys.argv.index("--") + 1:])
-    sc, cc = build()
+    sc = build()
     sc.cycles.samples = a.samples
-    os.makedirs(a.out, exist_ok=True)
-    for name in a.shots.split(","):
-        pos, look, lens = SHOTS[name](cc)
-        sc.camera.location = pos
-        sc.camera.rotation_euler = (look - pos).to_track_quat('-Z', 'Y').to_euler()
-        sc.camera.data.lens = lens
-        sc.render.filepath = os.path.join(os.path.abspath(a.out), f"{name}.jpg")
-        bpy.ops.render.render(write_still=True)
-        print("rendered", name)
+    sc.render.resolution_percentage = a.pct
+    out = os.path.abspath(a.out)
+    os.makedirs(out, exist_ok=True)
+    if a.poses:                                   # render.yml: one image per pose of the timeline, named by its key
+        import json
+        P = json.load(open(a.poses))
+        P = P["poses"] if isinstance(P, dict) else P
+        lo, hi = (int(x) for x in a.range.split("-")) if a.range else (0, len(P) - 1)
+        for p in P[lo:hi + 1]:
+            set_pose(p)
+            sc.render.filepath = os.path.join(out, p["key"] + ".jpg")
+            bpy.ops.render.render(write_still=True)
+            print("rendered", p["key"], flush=True)
+        return
+    for th in a.angles.split(","):               # style checks: a few angles and shots
+        set_pose({"th": float(th)})
+        for name in a.shots.split(","):
+            shot(sc, name)
+            sc.render.filepath = os.path.join(out, f"{name}_{th}.jpg")
+            bpy.ops.render.render(write_still=True)
+            print("rendered", name, th, flush=True)
 
 
 if __name__ == "__main__" and "--" in sys.argv:
