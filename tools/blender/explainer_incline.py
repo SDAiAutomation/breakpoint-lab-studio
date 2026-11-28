@@ -219,7 +219,7 @@ def _group(objs, loc):
     return e
 
 
-def label(text, loc, m, size=0.38, vec=False, font=None):
+def label(text, loc, m, size=0.44, vec=False, font=None):
     """a name facing the camera (+ the vector arrow over it); returns the upright group"""
     cu = bpy.data.curves.new(text, type='FONT')
     cu.body = text
@@ -233,7 +233,8 @@ def label(text, loc, m, size=0.38, vec=False, font=None):
         pass
     o = bpy.data.objects.new(text, cu)
     col = m.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value[:]
-    lm = mat("L_" + m.name, **{"Base Color": col, "Emission Color": col, "Emission Strength": 0.9, "Roughness": 0.5})
+    dk = tuple(x * 0.6 for x in col[:3]) + (1,) if m.name != "Ink" else col
+    lm = mat("L_" + m.name, **{"Base Color": dk, "Emission Color": dk, "Emission Strength": 0.4 if m.name != "Ink" else 1.2, "Roughness": 0.5})
     o.data.materials.append(lm)
     o.location = loc
     o.rotation_euler = (math.pi / 2, 0, 0)     # faces the camera (-y)
@@ -458,7 +459,7 @@ def set_pose(p):
 
 
 SHOTS = {                       # camera position, look-at target, lens
-    "wide": (lambda cc: (Vector((cc.x + 0.50, -9.0, cc.z + 1.4)), Vector((cc.x + 0.50, 0, cc.z + 0.05)), 40)),
+    "wide": (lambda cc: (Vector((cc.x + 0.50, -9.0, cc.z + 1.25)), Vector((cc.x + 0.50, 0, cc.z - 0.11)), 32)),
     "crate": (lambda cc: (Vector((cc.x - 0.6, -5.5, cc.z + 0.8)), Vector((cc.x, 0, cc.z - 0.2)), 50)),
     "faces": (lambda cc: (Vector((cc.x - 0.4, -4.6, cc.z + 0.7)), Vector((cc.x - 0.4, 0, cc.z + 0.05)), 50)),
 }
