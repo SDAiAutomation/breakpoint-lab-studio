@@ -1,0 +1,148 @@
+{
+  "id": "physics-017-coin-en",
+  "engine": "coin",
+  "blender_scene": "tools/blender/coin_scene.py",
+  "series": "PHYSICS · TEST 017",
+  "decimal": ".",
+  "handle": "@BreakpointLabTV",
+  "hook": [
+    "Coin off the Empire State.",
+    "Deadly?"
+  ],
+  "hook_series": false,
+  "hook_round": 2,
+  "replay_label": "SLOW-MO",
+  "rounds": [
+    {
+      "title": "ROUND 1 · NO AIR",
+      "kind": "vacuum",
+      "meter": "VACUUM · NO AIR",
+      "question": "No air: impact speed?",
+      "question_sub": "25, 100 or 200+ mph?",
+      "stamp": {
+        "text": "208 mph",
+        "color": "red"
+      },
+      "fact": [
+        "No air: v = √(2gh)",
+        "208 mph at the street"
+      ]
+    },
+    {
+      "title": "ROUND 2 · REAL AIR",
+      "kind": "air",
+      "meter": "REAL AIR",
+      "question": "Real air: deadly?",
+      "question_sub": "DEADLY, HURTS or A FLICK?",
+      "stamp": {
+        "text": "A FLICK",
+        "color": "green"
+      },
+      "fact": [
+        "Air caps it at 25 mph",
+        "Like a flick on the head"
+      ]
+    }
+  ],
+  "explain": {
+    "title": "WHY?",
+    "lines": [
+      "A coin is flat and light",
+      "Air stops it at 25 mph",
+      "MythBusters: can't break skin"
+    ]
+  },
+  "source": [
+    "L. Bloomfield, Univ. of Virginia (wind tunnel)",
+    "MythBusters, 'Penny Drop' (2003)",
+    "Simulated: v = √(2gh) + air drag"
+  ],
+  "cta": "Subscribe: you pick the next test",
+  "next_test": "Femur or concrete: which is stronger?",
+  "caption": "A coin dropped from the top of the Empire State Building: deadly or not? 🪙 Deadly, hurts or just a flick? We drop it twice: once with no air, once with real air. Place your bet before the slow-mo 👇 #physics #science #mythbusters",
+  "send_line": "Send this to the friend who still believes the penny myth 👀",
+  "keywords": "Penny dropped from the Empire State Building myth: terminal velocity, air drag, free fall, MythBusters Penny Drop. Physics simulation.",
+  "description": [
+    "Can a coin dropped from the top of the Empire State Building kill someone on the street? We drop the same penny twice: once with no air at all, once in real air.",
+    "With no air, nothing slows it down: it would hit at 208 mph. In real air, the penny tumbles and stops speeding up at about 25 mph after roughly 50 ft of fall, so it reaches the street at 25 mph, about like a flick on the head.",
+    "Why: a penny is flat and very light, so air drag on it quickly grows as large as its weight; from then on it can't go any faster. Physicist Louis Bloomfield (University of Virginia) measured this in wind tunnels, and MythBusters busted the myth in 2003 ('Penny Drop'): a penny can't even break the skin.",
+    "This video is a 3D simulation (Blender): the no-air fall follows v = √(2gh); the real-air fall uses a terminal speed of 25 mph. The long fall is shown fast-forwarded; the speed readout is the true speed."
+  ],
+  "sources_detail": [
+    "Louis Bloomfield, physicist, University of Virginia, quoted by Live Science / NBC News ('Could a penny dropped off a skyscraper actually kill you?'): he used wind tunnels and helium balloons; a penny reaches its terminal velocity of about 25 mph (40 km/h) after about 50 ft (15 m) of fall; without air it would reach about 208 mph (335 km/h) at the ground; being hit 'feels like being flicked in the forehead'.",
+    "MythBusters season 1, 'Penny Drop' (17 Oct 2003): busted; a penny's mass is not sufficient to perforate human skin (mythresults.com/episode4).",
+    "On screen, computed: no air, v = √(2gh) with g = 9.81 m/s²; 208 mph = 92.98 m/s needs h = 440.7 m (Empire State Building tip 443 m, minus the head height). Real air: v(t) = vt·tanh(g t / vt), vt = 25 mph = 11.18 m/s; fall time ≈ 40 s, shown at ×15 between the first 2.1 s and the last 0.6 s; no-air fall 9.5 s, shown at ×3."
+  ],
+  "cover_t": 1.9,
+  "short": {
+    "round": 2
+  },
+  "sound": {
+    "mode": "hybrid",
+    "find": {
+      "impact": {
+        "q": [
+          "coin drop",
+          "coin hit",
+          "coin bounce",
+          "penny drop",
+          "coin on table"
+        ],
+        "hear": "a small metal coin hitting a hard plastic surface: one short bright tick",
+        "role": "click",
+        "make": "a small coin tick"
+      },
+      "drop": {
+        "q": [
+          "coin flip",
+          "coin toss",
+          "coin release",
+          "coin flick"
+        ],
+        "hear": "a coin flicked off a finger: one tiny metallic ping",
+        "role": "click",
+        "make": "a tiny coin ping"
+      },
+      "fall": {
+        "q": [
+          "wind whoosh",
+          "wind gust",
+          "air rush",
+          "strong wind"
+        ],
+        "hear": "rushing wind high up a skyscraper: steady airy whoosh, no voices",
+        "role": "ambience",
+        "sustain": true,
+        "length": 12,
+        "span": {
+          "from": [
+            "drop",
+            "replay"
+          ],
+          "to": "impact"
+        },
+        "gain_db": -4,
+        "fade_in": 0.15,
+        "fade_out": 0.05
+      },
+      "city": {
+        "q": [
+          "city street ambience",
+          "new york street",
+          "traffic ambience",
+          "city ambience"
+        ],
+        "hear": "distant city street traffic hum, no close voices, no music",
+        "role": "ambience",
+        "sustain": true,
+        "length": 80,
+        "bed": true,
+        "level_dbfs": -46
+      }
+    },
+    "events": {
+      "impact": "impact",
+      "drop": "drop"
+    }
+  }
+}
