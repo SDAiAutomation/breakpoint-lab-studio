@@ -34,7 +34,7 @@ SCENE = "BL_coin"
 Z_HIT = 1.609                       # coin centre at the contact (engine/coin.html); headform.top_along_vertical
 HEAD_C = (0.0, 0.0, 1.50)           # head centre; tilted back 38 deg, the coin line x = y = 0 meets the upper forehead
 HEAD_TILT = math.radians(-38)
-TUBE_R, TUBE_BOT = 0.05, Z_HIT + 0.16
+TUBE_R, TUBE_BOT = 0.05, Z_HIT + 0.45                  # bottom of the drop-tower rails (crossbar), well above the head
 EL_LAB, AZ_LAB = math.radians(12), math.radians(16)    # riding camera: front, a little above and to the right
 BASE_TOP = 1.10
 WALL_Y = 8.0                        # tower facade plane (front face): the coin falls 4 m in front of it
@@ -479,9 +479,8 @@ def build(res=(1080, 1920)):
 
     rubber = _rough_var(mat("BL_Rubber", **{"Base Color": (0.025, 0.025, 0.027, 1)}), 0.55, 0.75, 20)
     steel = _rough_var(mat("BL_Steel", **{"Base Color": (0.62, 0.62, 0.63, 1), "Metallic": 1.0}), 0.28, 0.42, 14)
-    vinyl = _rough_var(mat("BL_Vinyl", **{"Base Color": (0.92, 0.62, 0.06, 1), "Coat Weight": 0.3, "Coat Roughness": 0.15,
-                                          "Subsurface Weight": 0.05}),
-                       0.28, 0.42, 12, 0.02, ((0.90, 0.58, 0.05, 1), (0.95, 0.68, 0.08, 1)))
+    vinyl = _rough_var(mat("BL_Vinyl", **{"Base Color": (0.82, 0.46, 0.03, 1), "Coat Weight": 0.3, "Coat Roughness": 0.15}),
+                       0.30, 0.45, 12, 0.02, ((0.78, 0.42, 0.025, 1), (0.86, 0.50, 0.04, 1)))
     stand = _rough_var(mat("BL_Stand", **{"Base Color": BASE_COL}), 0.75, 0.9, 6)
     tgt = target_mat()
 
@@ -494,7 +493,6 @@ def build(res=(1080, 1920)):
     for sx in (-1, 1):
         box(sc, f"Rail{sx}", (0.045, 0.045, TOWER_TOP), (sx * 0.17, 0.12, TUBE_BOT + TOWER_TOP / 2 + 0.05), hz, bevel=0.003)
     box(sc, "RailFoot", (0.42, 0.06, 0.04), (0, 0.12, TUBE_BOT + 0.05), steel, bevel=0.004)
-    box(sc, "Release", (0.10, 0.10, 0.06), (0, 0.07, TUBE_BOT + 0.10), steel, bevel=0.006)   # release gate, above the head
 
     # ---- the BREAKPOINT LAB base on a stand, the headform on its neck
     box(sc, "Stand", (0.76, 0.56, BASE_TOP - 0.16), (0, 0.0, (BASE_TOP - 0.16) / 2), stand, bevel=0.004)
