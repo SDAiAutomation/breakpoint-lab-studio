@@ -274,7 +274,7 @@ def logo_on_plank(s_mid, size, front_y):
     except RuntimeError:
         pass
     dark = mat("LogoDark", **{"Base Color": (0.02, 0.02, 0.025, 1), "Roughness": 0.6})
-    gold = mat("LogoGold", **{"Base Color": (0.80, 0.52, 0.02, 1), "Roughness": 0.5})
+    gold = mat("LogoGold", **{"Base Color": (0.55, 0.30, 0.0, 1), "Roughness": 0.5})
     o = bpy.data.objects.new("logo", cu)
     o.data.materials.append(dark)
     o.data.materials.append(gold)
@@ -301,7 +301,7 @@ def build(res=(1080, 1920)):
     mats["eye"] = mat("Eye", **{"Base Color": (0.92, 0.92, 0.90, 1), "Roughness": 0.15, "Coat Weight": 0.5})
     mats["pupil"] = mat("Pupil", **{"Base Color": (0.02, 0.02, 0.025, 1), "Roughness": 0.1})
     mats["mouth"] = mat("Mouth", **{"Base Color": (0.10, 0.02, 0.02, 1), "Roughness": 0.4})
-    mats["ink"] = mat("Ink", **{"Base Color": (0.06, 0.07, 0.09, 1), "Roughness": 0.5})
+    mats["ink"] = mat("Ink", **{"Base Color": (0.95, 0.95, 0.95, 1), "Emission Color": (1, 1, 1, 1), "Emission Strength": 1.2, "Roughness": 0.5})
     grey = mat("Plank", **{"Base Color": (0.62, 0.63, 0.65, 1), "Roughness": 0.55})
     studio = mat("Studio", **{"Base Color": (0.55, 0.56, 0.58, 1), "Roughness": 0.8})
     rope = mat("Rope", **{"Base Color": (0.55, 0.42, 0.25, 1), "Roughness": 0.85})
@@ -315,7 +315,7 @@ def build(res=(1080, 1920)):
     before = set(bpy.data.objects)
     # ---- everything tied to the ramp (turns with it, around the crate's centre)
     box((0, 0, 0), (6.0, 1.1, PLANK_T), grey, rot=(0, -TH, 0), bevel=0.02)
-    logo_on_plank(1.05, 0.15, -0.553)
+    logo_on_plank(1.05, 0.19, -0.553)
     bc = on_plank(0.0, BLUE_T / 2)
     capsule(bc, U, 0.50, BLUE_T / 2, mats["blue"])
     for s in (-0.30, 0.30):
@@ -372,7 +372,7 @@ def build(res=(1080, 1920)):
     gc = gh - Vector((0, 0, 0.55))
     character("green", (gc + Vector((-0.10, 0, -0.45)), gc + Vector((0.12, 0, -0.43))), (0, 0, 1),
               (gh + Vector((-0.04, -0.03, 0.06)), gh + Vector((0.04, -0.03, -0.04))), "worried", mats)
-    label("mg", bot + Vector((0.34, -0.05, -0.10)), mats["green"])
+    label("mg", gc + Vector((0.42, -0.05, 0.05)), mats["green"])
     S["lN"] = label("N", cc, mats["blue"], vec=True)
     S["lth"] = label("θ", cc, mats["ink"], size=0.30, font=FONT.replace("Poppins-Bold", "DejaVuSans-Bold"))
     S.update(pivot=pivot, cc=cc, mats=mats, dyn=[])
@@ -446,19 +446,19 @@ def set_pose(p):
     # dashed -N (the line the weight makes the angle with) and the theta arc between it and mg
     for k in range(5):
         a = cc + ay + Vector((0, -0.005, 0)) - n * (0.12 + 0.17 * k)
-        S["dyn"].append(seg(a, a - n * 0.10, 0.014, mats["ink"], caps=False))
+        S["dyn"].append(seg(a, a - n * 0.10, 0.02, mats["ink"], caps=False))
     pts = []
     for k in range(25):
         ang = -math.pi / 2 + th * k / 24                      # from straight down towards -N
         pts.append(cc + ay + Vector((0.55 * math.cos(ang), -0.01, 0.55 * math.sin(ang))))
     for a, b in zip(pts, pts[1:]):
-        S["dyn"].append(seg(a, b, 0.016, mats["ink"], caps=False))
+        S["dyn"].append(seg(a, b, 0.024, mats["ink"], caps=False))
     mid = -math.pi / 2 + th / 2
     S["lth"].location = cc + ay + Vector((0.80 * math.cos(mid), -0.02, 0.80 * math.sin(mid)))
 
 
 SHOTS = {                       # camera position, look-at target, lens
-    "wide": (lambda cc: (Vector((cc.x + 0.50, -9.0, cc.z + 1.0)), Vector((cc.x + 0.50, 0, cc.z - 0.55)), 45)),
+    "wide": (lambda cc: (Vector((cc.x + 0.50, -9.0, cc.z + 1.4)), Vector((cc.x + 0.50, 0, cc.z + 0.05)), 40)),
     "crate": (lambda cc: (Vector((cc.x - 0.6, -5.5, cc.z + 0.8)), Vector((cc.x, 0, cc.z - 0.2)), 50)),
     "faces": (lambda cc: (Vector((cc.x - 0.4, -4.6, cc.z + 0.7)), Vector((cc.x - 0.4, 0, cc.z + 0.05)), 50)),
 }
