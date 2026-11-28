@@ -38,8 +38,18 @@ const FPS = 30;
   } else if (mode === 'clean') {                       // scene only, no text (cover image)
     fs.mkdirSync(path.dirname(outArg), { recursive: true });
     await page.evaluate(() => { window.CLEAN = true; });
-    fs.writeFileSync(outArg, await grab(Number(extra), 'image/png'));
-    console.log(`clean t=${extra} -> ${outArg}`);
+    // Blender engines: never a cover from the grey placeholder (debug pose key on it); take the nearest frame
+    // whose real scene image exists (0, +1, -1, +2, ... frames)
+    const t0 = Math.round(Number(extra) * FPS);
+    let img = null, used = t0;
+    for (let k = 0; k <= 90 && !img; k++) for (const s of k ? [k, -k] : [0]) {
+      const f = t0 + s; if (f < 0 || f >= N || img) continue;
+      await page.evaluate(() => { window.PLACEHOLDER = false; });
+      const buf = await grab(f / FPS, 'image/png');
+      if (!(await page.evaluate(() => window.PLACEHOLDER))) { img = buf; used = f; }
+    }
+    if (!img) { console.error('clean: no real scene image near t, cover skipped'); process.exitCode = 1; }
+    else { fs.writeFileSync(outArg, img); console.log(`clean t=${(used / FPS).toFixed(2)} (asked ${extra}) -> ${outArg}`); }
   } else if (mode === 'frames') {
     fs.mkdirSync(outArg, { recursive: true });
     let [a, b] = (extra || `0-${N - 1}`).split('-').map(Number); b = Math.min(b, N - 1);
