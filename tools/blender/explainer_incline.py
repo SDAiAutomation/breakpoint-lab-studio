@@ -146,10 +146,9 @@ def face(c, up, fwd, side, r, mood, mats, gaze=0.0):
     look = {"angry": -0.25, "tired": -0.5, "worried": 0.3, "strain": 0.0}[mood]
     for s in (-1, 1):
         e = c + up * r * 0.25 + fwd * r * 0.90 + side * s * r * 0.38
-        if mood == "strain":                                # > <  squeezed eyes
-            tip = e + side * s * r * 0.06 + fwd * r * 0.10
-            for dz in (1, -1):
-                seg(tip, tip - side * s * r * 0.24 + up * dz * r * 0.13, r * 0.06, mats["pupil"])
+        if mood == "strain":                                # squinting with effort
+            ball(e, r * 0.30, mats["eye"], scale=(1, 0.6, 0.5))
+            ball(e + fwd * r * 0.14 + side * gaze * r * 0.13, r * 0.10, mats["pupil"], scale=(1, 1, 0.8))
         else:
             ball(e, r * 0.30, mats["eye"], scale=(1, 0.6, 1.15))
             ball(e + fwd * r * 0.14 + up * r * look * 0.12 + side * gaze * r * 0.13, r * 0.13, mats["pupil"])
@@ -199,11 +198,11 @@ def character(col, feet, lean, hands, mood, mats, height=0.36, r=0.17, flat=1.0,
 FONT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "engine", "fonts", "Poppins-Bold.ttf")
 
 
-def label(text, loc, m, size=0.24):
+def label(text, loc, m, size=0.36):
     cu = bpy.data.curves.new(text, type='FONT')
     cu.body = text
     cu.size = size
-    cu.extrude = 0.012
+    cu.extrude = 0.03
     cu.align_x = 'CENTER'
     cu.align_y = 'CENTER'
     try:
@@ -227,7 +226,7 @@ def arrow(start, d, length, m, name, off):
     o = bpy.context.object
     o.rotation_euler = d.to_track_quat('Z', 'Y').to_euler()
     _fin(o, m)
-    label(name, tip + d * 0.18 + off, m)
+    label(name, tip + d * 0.16 + off, m)
 
 
 # ---------------------------------------------------------------- scene
@@ -283,31 +282,30 @@ def build(res=(1080, 1920)):
     seg(cc + U * CRATE / 2, (hy[0] + hy[1]) / 2 + U * 0.25, 0.018, rope, caps=False)
 
     # red: friction f, pulling down the slope
-    fr1, fr2 = on_plank(-1.00), on_plank(-0.84)
-    lean_r = (-U * 0.95 + Vector((0, 0, 1))).normalized()
+    fr1, fr2 = on_plank(-1.10), on_plank(-0.94)
+    lean_r = (-U * 0.55 + Vector((0, 0, 1))).normalized()
     base = cc - U * (CRATE / 2 + 0.03) - N * (CRATE / 2 - 0.12)
     character("red", (fr1 + Vector((0, -0.12, 0)), fr2 + Vector((0, 0.12, 0))), lean_r,
-              (base + Vector((0, -0.16, 0)), base + Vector((0, 0.10, 0)) + N * 0.06), "strain", mats)
+              (base + Vector((0, -0.16, 0)), base + Vector((0, 0.10, 0)) + N * 0.06), "strain", mats, gaze=1.0)
 
     # green: weight mg, hanging straight down from the crate's centre, below the plank
-    top = Vector((cc.x, -0.62, cc.z))
-    bot = Vector((cc.x, -0.62, cc.z - 1.85))
+    top = Vector((cc.x, -(CRATE / 2 + 0.10), cc.z))
+    bot = Vector((cc.x, -(CRATE / 2 + 0.10), cc.z - 1.85))
     seg(top, bot, 0.04, mats["green"], caps=False)
     bpy.ops.mesh.primitive_cone_add(vertices=32, radius1=0.11, radius2=0.0, depth=0.26, location=bot - Vector((0, 0, 0.13)),
                                     rotation=(math.pi, 0, 0))
     _fin(bpy.context.object, mats["green"])
-    gh = Vector((cc.x, -0.62, cc.z - 1.05))
+    gh = Vector((cc.x, -(CRATE / 2 + 0.10), cc.z - 1.05))
     gc = gh - Vector((0, 0, 0.55))
     character("green", (gc + Vector((-0.10, 0, -0.45)), gc + Vector((0.12, 0, -0.43))), (0, 0, 1),
               (gh + Vector((-0.04, -0.03, 0.06)), gh + Vector((0.04, -0.03, -0.04))), "worried", mats)
 
     # the four forces as arrows (in front of the crate) with their names at the tips
     ay = Vector((0, -(CRATE / 2 + 0.10), 0))
-    arrow(cc + U * (CRATE / 2) + ay, U, 0.70, mats["yellow"], "F", Vector((0.06, 0, 0.14)))
-    contact = cc - N * (CRATE / 2)
-    arrow(contact - U * 0.20 + ay, -U, 0.70, mats["red"], "f", Vector((-0.10, 0, 0.12)))
-    arrow(contact + ay, N, 1.25, mats["blue"], "N", Vector((-0.14, 0, 0.06)))
-    label("mg", bot + Vector((0.20, -0.05, 0.10)), mats["green"])
+    arrow(cc + ay, U, 1.05, mats["yellow"], "F", N * 0.16)
+    arrow(cc + ay, -U, 0.85, mats["red"], "f", N * 0.20)
+    arrow(cc + ay, N, 1.00, mats["blue"], "N", Vector((0, 0, 0)))
+    label("mg", bot + Vector((0.30, -0.05, 0.12)), mats["green"])
 
     # lights
     for nm, loc, e, size in (("Key", (-3.0, -5.0, 5.0), 700, 2.0), ("Fill", (5.0, -4.0, 2.0), 150, 4.0),
