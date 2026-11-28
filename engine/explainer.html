@@ -21,41 +21,32 @@ const out=document.getElementById('out'),c=out.getContext('2d');const W=1080,H=1
 const COL={green:'#1F9D55',red:'#E0303F',ink:'#1d2126',sub:'#5b636c',brand:'#F7C21A',blue:'#2F6FE0'};
 
 // ---------------------------------------------------------------- timeline
-// hook (question, the ramp already moving) -> the ramp tilts up -> stamp -> "Remember this" (the ramp tilts back) -> save + source -> loop
-const D_={hook:2.6,tilt:4.8,stampGap:0.3,stampHold:1.3,fact:1.6,remember:3.6,save:1.7};
+// the ramp tilts from frame 0 under a one-line question -> the answer lands while it moves -> the right angle and the
+// equation -> one final image held (crate, vertical mg, N at 90 deg, the equations): the image worth saving -> loop
+const D_={tilt:3.6,answer:3.8,ra:4.6,eq:5.0,end:9.6};
 function buildTimeline(cfg){
   const T={events:[]},ev=e=>T.events.push(e);
-  const a0=cfg.angles?.from??20, a1=cfg.angles?.hook??23, a2=cfg.angles?.to??40;
-  T.ang={a0,a1,a2};
-  T.hook=[0,D_.hook];
-  ev({type:'question',t0:0.15,t1:D_.hook-0.1});
-  ev({type:'ramp',t0:0,t1:D_.hook,from:0,to:1,frac:0.2});
-  T.tilt=[D_.hook,D_.hook+D_.tilt];
-  ev({type:'ramp',t0:T.tilt[0],t1:T.tilt[1],from:0.2,to:1,frac:1.0});
-  T.stampT=T.tilt[1]+D_.stampGap;ev({type:'stamp',t:T.stampT,color:'green'});
-  T.factT=T.stampT+D_.stampHold;
-  T.remember=[T.factT+D_.fact,T.factT+D_.fact+D_.remember];ev({type:'card',t:T.remember[0]});
-  T.save=[T.remember[1],T.remember[1]+D_.save];ev({type:'cta',t:T.save[0]});
-  T.duration=T.save[1];
-  T.back=[T.remember[0],T.duration];
-  ev({type:'ramp',t0:T.back[0],t1:T.back[1],from:0,to:1,frac:0.3});
+  const a0=cfg.angles?.from??20, a2=cfg.angles?.to??40;
+  T.ang={a0,a2};
+  T.tilt=[0,D_.tilt];T.answerT=D_.answer;T.raT=D_.ra;T.eqT=D_.eq;T.duration=D_.end;
+  ev({type:'question',t0:0.15,t1:D_.answer-0.2});
+  ev({type:'ramp',t0:0,t1:D_.tilt,from:0,to:1,frac:1.0});
+  ev({type:'ok',t:D_.answer});
+  ev({type:'card',t:D_.eq});
+  ev({type:'round',t:D_.end-2.3});
   T.events.sort((a,b)=>(a.t??a.t0)-(b.t??b.t0));
   return T;
 }
 
-// ---------------------------------------------------------------- scene pose: the ramp angle (deg)
+// ---------------------------------------------------------------- scene pose: ramp angle (deg) + right angle shown
 const q=(x,s)=>Math.round(x/s)*s;
 function angleAt(T,t){
-  const {a0,a1,a2}=T.ang;
-  if(t<T.hook[1]) return lerp(a0,a1,t/T.hook[1]);                       // moving from frame 0 (slow, steady)
-  if(t<T.tilt[1]){const u=(t-T.tilt[0])/(T.tilt[1]-T.tilt[0]);           // keeps the hook's speed at the start, eases in at the top
-    const v0=(a1-a0)/T.hook[1]*(T.tilt[1]-T.tilt[0])/(a2-a1);
-    return a1+(a2-a1)*(v0*u+(3-2*v0)*u*u+(v0-2)*u*u*u);}
-  if(t<T.back[0]) return a2;
-  return lerp(a2,a0,sm(T.back[0],T.back[1],t));                         // back to the first frame's angle: seamless loop
+  const {a0,a2}=T.ang;
+  if(t<T.tilt[1]){const u=t/T.tilt[1];return a0+(a2-a0)*u*(2-u);}                            // moving from frame 0, eases out at 40
+  return a2;
 }
-const poseAt=(T,t)=>({th:q(angleAt(T,t),0.25)});
-const poseKey=p=>`t${p.th.toFixed(2)}`;
+const poseAt=(T,t)=>({th:q(Math.min(T.ang.a2,angleAt(T,t)),0.25),ra:t>=T.raT?1:0});
+const poseKey=p=>`t${p.th.toFixed(2)}${p.ra?'_r':''}`;
 
 // ---------------------------------------------------------------- drawing helpers (same look as the other engines)
 const fade=(t0,t,d=0.25)=>clamp((t-t0)/d,0,1);
@@ -79,30 +70,15 @@ function drawHandle(cfg){
 function overlay(cfg,T,t,p){
   ctxt(cfg.series,W/2,292,34,COL.sub,0.9);
   drawHandle(cfg);
-  // the bet: question + choices, while the ramp moves (gone just before the answer)
-  if(t<T.stampT){const a=fade(0,t,0.12)*(1-fade(T.stampT-0.35,t,0.25)),ql=cfg.question,n=ql.length;
-    ql.forEach((l,i)=>ctxt(l,W/2,400+i*92,fitText(l,960,80),n>1&&i===n-1?COL.red:COL.ink,a));
-    ctxt(cfg.question_sub,W/2,400+n*92,fitText(cfg.question_sub,900,44),COL.ink,a);}
-  // live instrument: the ramp angle
-  if(t<T.remember[0]){const a=fade(0,t,0.12)*(1-fade(T.remember[0]-0.3,t,0.25));
-    pill(`${cfg.angle_label||'RAMP'} ${Math.round(angleAt(T,t))}°`,W/2,660,30,'rgba(91,99,108,0.92)',a);}
-  if(t>=T.stampT&&t<T.remember[0]){
-    const s=cfg.stamp,k=clamp((t-T.stampT)/0.18,0,1),a=1-fade(T.remember[0]-0.3,t,0.25);
-    const sc2=lerp(2.2,1,k*k)+(k>=1?0.05*Math.exp(-(t-T.stampT-0.18)*10)*Math.sin((t-T.stampT-0.18)*40):0);
-    const col=s.color==='red'?COL.red:COL.green;
-    c.save();c.translate(W/2,425);c.rotate(-0.06);c.scale(sc2,sc2);c.globalAlpha=Math.min(1,k*1.5)*a;
-    c.strokeStyle=col;c.lineWidth=10;rrect(-400,-72,800,144,22);c.stroke();c.fillStyle='rgba(255,255,255,0.7)';rrect(-400,-72,800,144,22);c.fill();
-    const fs=fitText(s.text,740,80);c.font=`700 ${fs}px P, DJ`;c.textAlign='center';c.textBaseline='middle';c.fillStyle=col;c.fillText(s.text,0,5);c.restore();
-    if(t>=T.factT) (cfg.fact||[]).forEach((l,i)=>ctxt(l,W/2,560+i*50,fitText(l,980,40),COL.ink,fade(T.factT,t,0.3)*a));}
-  // the cheat sheet: what to remember (each line stays >= 1.5 s, all together at the end)
-  if(t>=T.remember[0]&&t<T.save[0]){const r=cfg.remember,t0=T.remember[0],a=1-fade(T.save[0]-0.25,t,0.25);
-    pill(r.title,W/2,345,34,COL.brand,fade(t0,t)*a,COL.ink);
-    r.lines.forEach((l,i)=>ctxt(l,W/2,440+i*66,fitText(l,980,50),i===0?COL.green:COL.ink,fade(t0+0.35+i*0.45,t,0.3)*a));}
-  if(t>=T.save[0]){const t0=T.save[0],a=fade(t0,t,0.25),pp=pop(t0,t);
-    c.save();c.translate(W/2,420);c.scale(pp,pp);panel(-380,-50,760,100,50,COL.brand,a);
-    c.font=`700 ${fitText(cfg.cta,700,42)}px P, DJ`;c.textAlign='center';c.textBaseline='middle';c.globalAlpha=a;c.fillStyle=COL.ink;c.fillText(cfg.cta,0,2);c.restore();
-    ctxt('SOURCE',W/2,515,26,COL.sub,a);
-    cfg.source.forEach((l,i)=>ctxt(l,W/2,557+i*42,fitText(l,980,30),COL.ink,a));}
+  // one line: the question while the ramp moves, then the answer in its place (green, like the weight)
+  const qa=fade(0,t,0.12)*(1-fade(T.answerT-0.2,t,0.2));
+  ctxt(cfg.question,W/2,410,fitText(cfg.question,960,74),COL.ink,qa);
+  if(t>=T.answerT-0.05){const pp=pop(T.answerT,t);c.save();c.translate(W/2,410);c.scale(pp,pp);
+    ctxt(cfg.answer,0,0,fitText(cfg.answer,960,74),COL.green,fade(T.answerT,t,0.2));c.restore();}
+  // the equations: one per visible gesture, then held together on the final image
+  (cfg.equations||[]).forEach((l,i)=>{const t0=T.eqT+i*0.9;if(t<t0)return;const pp=pop(t0,t);
+    c.save();c.translate(W/2,530+i*90);c.scale(pp,pp);ctxt(l.text,0,0,fitText(l.text,980,96),COL[l.color]||COL.ink,fade(t0,t,0.25));c.restore();});
+  if(t<T.answerT+0.6) pill(`${cfg.angle_label||'RAMP'} ${Math.round(angleAt(T,t))}°`,W/2,660,30,'rgba(91,99,108,0.92)',fade(0,t,0.12)*(1-fade(T.answerT+0.3,t,0.3)));
 }
 
 // ---------------------------------------------------------------- scene images
@@ -127,13 +103,12 @@ window.setup=function(cfg){CFG=cfg;TL=buildTimeline(cfg);
   const seen=new Map();const N=Math.round(TL.duration*FPS);
   for(let i=0;i<N;i++){const p=poseAt(TL,i/FPS),k=poseKey(p);if(!seen.has(k)) seen.set(k,{key:k,...p});}
   return {duration:TL.duration,events:TL.events,poses:[...seen.values()],
-          angles:TL.ang,stamp:TL.stampT,remember:TL.remember,save:TL.save};};
+          angles:TL.ang,answer:TL.answerT,equation:TL.eqT};};
 window.poseKeyAt=t=>poseKey(poseAt(TL,t));
 async function drawFrame(t){
   const p=poseAt(TL,t),key=poseKey(p),im=await sceneImage(key);
   let z=1;                                                // slow push-in while the ramp holds still: the picture never freezes
-  if(t>=TL.tilt[1]&&t<TL.back[0]) z=1+0.035*sm(TL.tilt[1],TL.back[0],t);
-  else if(t>=TL.back[0]) z=1+0.035*(1-sm(TL.back[0],TL.back[0]+1.2,t));
+  if(t>=TL.tilt[1]) z=1+0.05*sm(TL.tilt[1],TL.duration,t);
   if(im){c.imageSmoothingQuality='high';const zw=W*z,zh=H*z;c.drawImage(im,(W-zw)/2,(H-zh)*0.55,zw,zh);} else placeholder(key,p);
   if(!window.CLEAN) overlay(CFG,TL,t,p);
 }

@@ -303,8 +303,8 @@ def build(res=(1080, 1920)):
     mats["pupil"] = mat("Pupil", **{"Base Color": (0.02, 0.02, 0.025, 1), "Roughness": 0.1})
     mats["mouth"] = mat("Mouth", **{"Base Color": (0.10, 0.02, 0.02, 1), "Roughness": 0.4})
     mats["ink"] = mat("Ink", **{"Base Color": (0.95, 0.95, 0.95, 1), "Emission Color": (1, 1, 1, 1), "Emission Strength": 1.2, "Roughness": 0.5})
-    grey = mat("Plank", **{"Base Color": (0.62, 0.63, 0.65, 1), "Roughness": 0.55})
-    studio = mat("Studio", **{"Base Color": (0.55, 0.56, 0.58, 1), "Roughness": 0.8})
+    grey = mat("Plank", **{"Base Color": (0.46, 0.47, 0.50, 1), "Roughness": 0.55})
+    studio = mat("Studio", **{"Base Color": (0.86, 0.86, 0.85, 1), "Roughness": 0.8})
     rope = mat("Rope", **{"Base Color": (0.55, 0.42, 0.25, 1), "Roughness": 0.85})
     wood = wood_mat()
     cc = on_plank(0.0, BLUE_T + CRATE / 2)
@@ -374,6 +374,11 @@ def build(res=(1080, 1920)):
     character("green", (gc + Vector((-0.10, 0, -0.45)), gc + Vector((0.12, 0, -0.43))), (0, 0, 1),
               (gh + Vector((-0.04, -0.03, 0.06)), gh + Vector((0.04, -0.03, -0.04))), "worried", mats)
     label("mg", gc + Vector((0.42, -0.05, 0.05)), mats["green"])
+    # fixed thin vertical reference behind the arrows: what turns away from it is obvious
+    refm = mat("Ref", **{"Base Color": (0.35, 0.36, 0.38, 1), "Roughness": 0.6})
+    for k in range(16):
+        z0 = cc.z + 1.35 - k * 0.25
+        seg(Vector((cc.x, -0.58, z0)), Vector((cc.x, -0.58, z0 - 0.13)), 0.010, refm, caps=False)
     S["lN"] = label("N", cc, mats["blue"], vec=True)
     S["lth"] = label("θ", cc, mats["ink"], size=0.30, font=FONT.replace("Poppins-Bold", "DejaVuSans-Bold"))
     S.update(pivot=pivot, cc=cc, mats=mats, dyn=[])
@@ -454,6 +459,12 @@ def set_pose(p):
         pts.append(cc + ay + Vector((0.55 * math.cos(ang), -0.01, 0.55 * math.sin(ang))))
     for a, b in zip(pts, pts[1:]):
         S["dyn"].append(seg(a, b, 0.024, mats["ink"], caps=False))
+    if p.get("ra"):                                            # right angle between N and the ramp
+        u = Vector((math.cos(th), 0, math.sin(th)))
+        o0 = cc + ay + Vector((0, -0.03, 0))
+        a, b, d = o0 + n * 0.24, o0 + n * 0.24 + u * 0.24, o0 + u * 0.24
+        S["dyn"].append(seg(a, b, 0.022, mats["blue"]))
+        S["dyn"].append(seg(b, d, 0.022, mats["blue"]))
     mid = -math.pi / 2 + th / 2
     S["lth"].location = cc + ay + Vector((0.80 * math.cos(mid), -0.02, 0.80 * math.sin(mid)))
 
