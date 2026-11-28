@@ -6,12 +6,12 @@ frame shows; this script renders one image per different pose.
 
   blender -b -P tools/blender/coin_scene.py -- --poses work/timeline.json --out work/bscene --range 0-17
 
-Set: a city block seen from the top of a tower: the tower's glass-and-aluminium curtain wall, the street far below
-(sidewalk, road, cars, the neighbouring buildings), and at the foot of the tower a BREAKPOINT LAB base carrying a
-Hybrid-III-like crash-test headform (yellow vinyl, sculpted face, black neck discs, quadrant targets) looking up.
-A US penny (19.05 mm, copper). While the coin falls the camera rides with it, 0.6 m above it, looking almost straight
-down (50 mm): the curtain wall streaks past at the top of the frame, the street and the head grow below; at the end the
-face fills the frame and the coin lands on the forehead. Wide street shot (35 mm, from below) for the titles.
+Set (lab version, like the other tests): a grey studio cyclorama, a drop tower (two aluminium rails with hazard
+marks every metre, a clear acrylic guide tube with tick rings every 10 cm), and under it the BREAKPOINT LAB base
+carrying a Hybrid-III-like crash-test headform (yellow vinyl, sculpted face, black neck discs, quadrant targets)
+looking up at the tube. A US penny (19.05 mm, copper). While the coin falls the camera rides with it (front view,
+50 mm, 0.6 m): the rails and the tube's rings streak past; at the end the head rises into the frame and the coin hits
+the forehead. Wide studio shot for the titles. The 440 m height is told by the texts and the live readout.
 
 pose = {zc coin centre height (m), cx coin sideways offset (m), tilt (deg, 0 = flat), yaw (deg),
         cz camera height (m), d camera distance (m), wide 1 = street shot, hit time since the contact (s, <0 before),
@@ -31,9 +31,11 @@ from lab_set import add_logo_base, BASE_COL   # noqa: E402  (the BREAKPOINT LAB 
 import headform                                  # noqa: E402  (the face, shared with the contact computation)
 
 SCENE = "BL_coin"
-Z_HIT = 1.597                       # coin centre at the contact (engine/coin.html); headform.top_along_vertical
-HEAD_C = (0.0, -0.05, 1.50)         # head centre; tilted back 60 deg, the coin line x = y = 0 meets the upper forehead
-HEAD_TILT = math.radians(-60)
+Z_HIT = 1.609                       # coin centre at the contact (engine/coin.html); headform.top_along_vertical
+HEAD_C = (0.0, 0.0, 1.50)           # head centre; tilted back 38 deg, the coin line x = y = 0 meets the upper forehead
+HEAD_TILT = math.radians(-38)
+TUBE_R, TUBE_BOT = 0.05, Z_HIT + 0.16
+EL_LAB, AZ_LAB = math.radians(12), math.radians(16)    # riding camera: front, a little above and to the right
 BASE_TOP = 1.10
 WALL_Y = 8.0                        # tower facade plane (front face): the coin falls 4 m in front of it
 TOWER_TOP = 470.0
@@ -290,6 +292,90 @@ def target_mat():
     return m
 
 
+def rail_mat():
+    """aluminium rail, yellow/black hazard band every metre (the speed you see streaking past)"""
+    m = bpy.data.materials.get("BL_Rail")
+    if m:
+        return m
+    m = mat("BL_Rail")
+    nt = m.node_tree
+    nd, ln = nt.nodes, nt.links
+    b = nd["Principled BSDF"]
+    tc = nd.new("ShaderNodeTexCoord")
+    sp = nd.new("ShaderNodeSeparateXYZ")
+    ln.new(tc.outputs["Object"], sp.inputs[0])
+    fr = nd.new("ShaderNodeMath")
+    fr.operation = 'FRACT'
+    ln.new(sp.outputs["Z"], fr.inputs[0])
+    band = nd.new("ShaderNodeMath")
+    band.operation = 'LESS_THAN'
+    band.inputs[1].default_value = 0.12
+    ln.new(fr.outputs[0], band.inputs[0])
+    st = nd.new("ShaderNodeMath")                       # stripes inside the band
+    st.operation = 'FRACT'
+    m10 = nd.new("ShaderNodeMath")
+    m10.operation = 'MULTIPLY'
+    m10.inputs[1].default_value = 25.0
+    ln.new(sp.outputs["Z"], m10.inputs[0])
+    ln.new(m10.outputs[0], st.inputs[0])
+    st2 = nd.new("ShaderNodeMath")
+    st2.operation = 'LESS_THAN'
+    st2.inputs[1].default_value = 0.5
+    ln.new(st.outputs[0], st2.inputs[0])
+    stripe = mixc(nt, st2.outputs[0], (0.85, 0.62, 0.03, 1), (0.02, 0.02, 0.02, 1))
+    col = mixc(nt, band.outputs[0], (0.62, 0.63, 0.65, 1), stripe)
+    ln.new(col, b.inputs["Base Color"])
+    inv = nd.new("ShaderNodeMath")
+    inv.operation = 'SUBTRACT'
+    inv.inputs[0].default_value = 1.0
+    ln.new(band.outputs[0], inv.inputs[1])
+    ln.new(inv.outputs[0], b.inputs["Metallic"])
+    b.inputs["Roughness"].default_value = 0.35
+    return m
+
+
+def tube_mat():
+    """clear acrylic tube, a thin dark tick ring every 10 cm and a wider one every metre"""
+    m = bpy.data.materials.get("BL_Tube")
+    if m:
+        return m
+    m = mat("BL_Tube", **{"Base Color": (0.95, 0.97, 0.98, 1), "Transmission Weight": 1.0, "Roughness": 0.03, "IOR": 1.49})
+    nt = m.node_tree
+    nd, ln = nt.nodes, nt.links
+    b = nd["Principled BSDF"]
+    tc = nd.new("ShaderNodeTexCoord")
+    sp = nd.new("ShaderNodeSeparateXYZ")
+    ln.new(tc.outputs["Object"], sp.inputs[0])
+    out = nd["Material Output"]
+    ticks = []
+    for step, w in ((0.1, 0.03), (1.0, 0.012)):
+        dv = nd.new("ShaderNodeMath")
+        dv.operation = 'DIVIDE'
+        dv.inputs[1].default_value = step
+        ln.new(sp.outputs["Z"], dv.inputs[0])
+        fr = nd.new("ShaderNodeMath")
+        fr.operation = 'FRACT'
+        ln.new(dv.outputs[0], fr.inputs[0])
+        lt = nd.new("ShaderNodeMath")
+        lt.operation = 'LESS_THAN'
+        lt.inputs[1].default_value = w
+        ln.new(fr.outputs[0], lt.inputs[0])
+        ticks.append(lt)
+    mx = nd.new("ShaderNodeMath")
+    mx.operation = 'MAXIMUM'
+    ln.new(ticks[0].outputs[0], mx.inputs[0])
+    ln.new(ticks[1].outputs[0], mx.inputs[1])
+    dark = nd.new("ShaderNodeBsdfPrincipled")
+    dark.inputs["Base Color"].default_value = (0.03, 0.03, 0.035, 1)
+    dark.inputs["Roughness"].default_value = 0.5
+    ms = nd.new("ShaderNodeMixShader")
+    ln.new(mx.outputs[0], ms.inputs["Fac"])
+    ln.new(b.outputs[0], ms.inputs[1])
+    ln.new(dark.outputs[0], ms.inputs[2])
+    ln.new(ms.outputs[0], out.inputs["Surface"])
+    return m
+
+
 def copper_mat():
     """a circulated cent: copper, a little tarnish, worn relief (noise bump), roughness never constant"""
     m = bpy.data.materials.get("BL_Copper")
@@ -397,52 +483,34 @@ def build(res=(1080, 1920)):
                                           "Subsurface Weight": 0.05}),
                        0.28, 0.42, 12, 0.02, ((0.90, 0.58, 0.05, 1), (0.95, 0.68, 0.08, 1)))
     stand = _rough_var(mat("BL_Stand", **{"Base Color": BASE_COL}), 0.75, 0.9, 6)
-    curb = _rough_var(mat("BL_Curb", **{"Base Color": (0.30, 0.30, 0.29, 1)}), 0.7, 0.9, 5, 0.1)
-    asphalt = _rough_var(mat("BL_Asphalt", **{"Base Color": (0.05, 0.05, 0.055, 1)}), 0.75, 0.95, 40, 0.2)
     tgt = target_mat()
 
-    # ---- the tower (front face y = WALL_Y), the street in front of it, the neighbouring blocks
-    fac = facade_mat()
-    box(sc, "Tower", (60.0, 50.0, TOWER_TOP), (0, WALL_Y + 25.0, TOWER_TOP / 2), fac)
-    box(sc, "Sidewalk", (400.0, 9.0, 0.15), (0, WALL_Y - 4.5, -0.075), pavement_mat())
-    box(sc, "Curb", (400.0, 0.25, 0.17), (0, WALL_Y - 9.0, -0.065), curb, bevel=0.01)
-    box(sc, "Road", (400.0, 18.0, 0.1), (0, WALL_Y - 18.1, -0.2), asphalt)
-    box(sc, "SidewalkFar", (400.0, 6.0, 0.15), (0, WALL_Y - 30.0, -0.075), pavement_mat())
-    box(sc, "Ground", (2000.0, 2000.0, 0.1), (0, 0, -0.35), asphalt)
-    rnd = random.Random(17)
-    # across the street: a row of buildings (roofs seen from above), and towers on both sides of ours
-    x = -230.0
-    while x < 230.0:
-        w = rnd.uniform(18, 40)
-        hgt = rnd.uniform(25, 140)
-        box(sc, f"Across{int(x)}", (w - 2.0, 40.0, hgt), (x + w / 2, WALL_Y - 33.0 - 20.0, hgt / 2), fac)
-        x += w
+    # ---- studio: floor + cyclorama wall (tall: the camera rides up to 442 m)
+    cyc = _rough_var(mat("BL_Cyc", **{"Base Color": (0.42, 0.43, 0.45, 1)}), 0.75, 0.9, 0.5)
+    box(sc, "Floor", (40.0, 40.0, 0.1), (0, 0, -0.05), cyc)
+    box(sc, "Cyc", (40.0, 0.2, TOWER_TOP), (0, 3.2, TOWER_TOP / 2), cyc)
+    # ---- drop tower: two rails behind the coin line with hazard marks, a clear guide tube with tick rings
+    hz = rail_mat()
     for sx in (-1, 1):
-        x = 32.0
-        while x < 260.0:
-            w = rnd.uniform(22, 45)
-            hgt = rnd.uniform(60, 330)
-            dy = rnd.uniform(0, 12)
-            box(sc, f"Side{sx}_{int(x)}", (w - 3.0, 45.0, hgt), (sx * (x + w / 2), WALL_Y + dy + 22.5, hgt / 2), fac)
-            x += w
-    paints = [(0.6, 0.6, 0.62, 1), (0.05, 0.05, 0.06, 1), (0.75, 0.10, 0.08, 1), (0.9, 0.9, 0.88, 1),
-              (0.10, 0.18, 0.40, 1), (0.85, 0.65, 0.05, 1)]
-    for i in range(46):                                  # traffic: cars and a few yellow cabs, both lanes
-        lane = rnd.choice((-1, 1))
-        cx = rnd.uniform(-180, 180)
-        if abs(cx) < 4:
-            continue
-        pm = _rough_var(mat(f"BL_Car{i % len(paints)}", **{"Base Color": paints[i % len(paints)], "Metallic": 0.6,
-                                                             "Coat Weight": 0.8}), 0.2, 0.35, 3)
-        box(sc, f"Car{i}", (4.5, 1.85, 1.0), (cx, WALL_Y - 18.1 + lane * 4.0, 0.55), pm, bevel=0.25, seg=3)
-        box(sc, f"Cab{i}", (2.4, 1.7, 0.5), (cx - 0.2, WALL_Y - 18.1 + lane * 4.0, 1.25),
-            mat("BL_CarGlass", **{"Base Color": (0.02, 0.025, 0.03, 1), "Roughness": 0.05}), bevel=0.18, seg=3)
+        box(sc, f"Rail{sx}", (0.045, 0.045, TOWER_TOP), (sx * 0.17, 0.12, TUBE_BOT + TOWER_TOP / 2 + 0.05), hz, bevel=0.003)
+    box(sc, "RailFoot", (0.42, 0.06, 0.04), (0, 0.12, TUBE_BOT + 0.05), steel, bevel=0.004)
+    bpy.ops.mesh.primitive_cylinder_add(vertices=64, radius=TUBE_R, depth=TOWER_TOP, location=(0, 0, TUBE_BOT + TOWER_TOP / 2))
+    tube = bpy.context.object
+    sl = tube.modifiers.new("Solid", 'SOLIDIFY')
+    sl.thickness = 0.003
+    tube.data.materials.append(tube_mat())
+    for p in tube.data.polygons:
+        p.use_smooth = True
+    _link(sc, tube, "Tube")
+    bpy.ops.mesh.primitive_torus_add(major_radius=TUBE_R + 0.002, minor_radius=0.006, location=(0, 0, TUBE_BOT))
+    _link(sc, bpy.context.object, "TubeLip").data.materials.append(steel)
+    box(sc, "TubeArm", (0.06, 0.12, 0.03), (0, 0.07, TUBE_BOT + 0.03), steel, bevel=0.004)
 
     # ---- the BREAKPOINT LAB base on a stand, the headform on its neck
     box(sc, "Stand", (0.76, 0.56, BASE_TOP - 0.16), (0, 0.0, (BASE_TOP - 0.16) / 2), stand, bevel=0.004)
     add_logo_base(sc, width=0.80, height=0.16, depth=0.60, top_z=BASE_TOP)
-    box(sc, "Bracket", (0.16, 0.16, 0.03), (0, -0.05, BASE_TOP + 0.015), steel, bevel=0.004)
-    n0 = Vector((0, -0.05, BASE_TOP + 0.03))
+    box(sc, "Bracket", (0.16, 0.16, 0.03), (0, 0.02, BASE_TOP + 0.015), steel, bevel=0.004)
+    n0 = Vector((0, 0.02, BASE_TOP + 0.03))
     n1 = head_point(headform.surface((0, 0.15, -1)))
     place(cone(sc, "NeckCore", 0.017, 0.017, steel, 12), n0, n1)
     for i in range(4):
@@ -477,23 +545,27 @@ def build(res=(1080, 1920)):
         _link(sc, rim, f"Rim{sz}")
         rim.parent = coin
 
-    # ---- light: a low afternoon sun from the front left (rim on the coin and the head), sky fill
-    sun = bpy.data.lights.new("Sun", 'SUN')
-    sun.energy = 6.5
-    sun.angle = math.radians(1.2)
-    sun.color = (1.0, 0.93, 0.84)
-    so = bpy.data.objects.new("Sun", sun)
-    so.rotation_euler = (math.radians(52), 0.0, math.radians(-38))
-    sc.collection.objects.link(so)
-    so["bb"] = "Sun"
-    fl = bpy.data.lights.new("Bounce", 'AREA')          # the street bounces light back up on the face
-    fl.energy = 60
-    fl.size = 2.0
-    fo = bpy.data.objects.new("Bounce", fl)
-    fo.location = (0.4, -1.6, 0.4)
-    fo.rotation_euler = (math.radians(-60), 0, 0)
-    sc.collection.objects.link(fo)
-    fo["bb"] = "Bounce"
+    # ---- light: studio softboxes that ride with the camera (key front left, rim back right, top), the set lit for the logo
+    for nm, e, size, off, col in (("Key", 120, 1.2, (-1.4, -1.6, 0.9), (1.0, 0.97, 0.93)),
+                                  ("Rim", 90, 0.8, (1.3, 1.6, 0.6), (0.92, 0.95, 1.0)),
+                                  ("Top", 70, 1.0, (0.0, -0.2, 1.8), (1.0, 0.98, 0.95))):
+        lt = bpy.data.lights.new(nm, 'AREA')
+        lt.energy = e
+        lt.size = size
+        lt.color = col
+        lo = bpy.data.objects.new(nm, lt)
+        lo["bb"] = nm
+        lo["mv"] = 1
+        lo["off"] = off
+        sc.collection.objects.link(lo)
+    lt = bpy.data.lights.new("SetKey", 'AREA')
+    lt.energy = 400
+    lt.size = 2.5
+    lo = bpy.data.objects.new("SetKey", lt)
+    lo.location = (-2.2, -3.2, 2.6)
+    lo.rotation_euler = (Vector((0, 0, 1.2)) - lo.location).to_track_quat('-Z', 'Y').to_euler()
+    lo["bb"] = "SetKey"
+    sc.collection.objects.link(lo)
 
     cam = bpy.data.cameras.new("Cam")
     cam.lens = 50
@@ -506,24 +578,10 @@ def build(res=(1080, 1920)):
     sc.collection.objects.link(co)
     sc.camera = co
 
-    wd = bpy.data.worlds.get("BL_World") or bpy.data.worlds.new("BL_World")
+    wd = bpy.data.worlds.get("BL_LabWorld") or bpy.data.worlds.new("BL_LabWorld")
     wd.use_nodes = True
-    nt = wd.node_tree
-    bg = nt.nodes["Background"]
-    tc = nt.nodes.new("ShaderNodeTexCoord")
-    spz = nt.nodes.new("ShaderNodeSeparateXYZ")
-    nt.links.new(tc.outputs["Generated"], spz.inputs[0])
-    mp = nt.nodes.new("ShaderNodeMapRange")
-    mp.inputs["From Min"].default_value = -1.0
-    nt.links.new(spz.outputs["Z"], mp.inputs["Value"])
-    rp = nt.nodes.new("ShaderNodeValToRGB")              # clear sky: pale at the horizon, deeper blue up high
-    rp.color_ramp.elements[0].position = 0.5
-    rp.color_ramp.elements[0].color = (0.70, 0.76, 0.84, 1)
-    rp.color_ramp.elements[1].position = 0.85
-    rp.color_ramp.elements[1].color = (0.26, 0.45, 0.80, 1)
-    nt.links.new(mp.outputs["Result"], rp.inputs["Fac"])
-    nt.links.new(rp.outputs["Color"], bg.inputs["Color"])
-    bg.inputs["Strength"].default_value = 1.2
+    wd.node_tree.nodes["Background"].inputs[0].default_value = (0.55, 0.57, 0.60, 1)
+    wd.node_tree.nodes["Background"].inputs[1].default_value = 0.35
     sc.world = wd
 
     r = sc.render
@@ -544,7 +602,7 @@ def build(res=(1080, 1920)):
         sc.view_settings.look = 'AgX - Base Contrast'
     except TypeError:
         pass
-    sc.view_settings.exposure = 0.8                      # bright afternoon street
+    sc.view_settings.exposure = 0.0
     try:
         bpy.context.preferences.edit.keyframe_new_interpolation_type = 'LINEAR'
     except Exception:
@@ -567,15 +625,20 @@ def set_pose(p, sc=None):
     wide = int(p.get("wide", 0))
     cz, d = float(p["cz"]), float(p["d"])
     cam = ob["Cam"]
-    if wide:                                             # street shot from below: base, headform, the tower rising into the sky
-        cam.location = (0.55, -3.3, 0.75)
-        look = Vector((0.0, 0.0, 1.70))
-        cam.data.lens = 35
-    else:                                                # rides with the coin, looking almost straight down
+    if wide:                                             # studio shot: base + logo, headform, the drop tower going up
+        cam.location = (0.45, -3.6, 1.55)
+        look = Vector((0.0, 0.0, 1.62))
+        cam.data.lens = 50
+    else:                                                # rides with the coin, front view, a little above
         look = Vector((0.0, 0.0, cz))
-        cam.location = look + d * Vector((math.sin(AZ) * math.cos(EL), -math.cos(AZ) * math.cos(EL), math.sin(EL)))
+        cam.location = look + d * Vector((math.sin(AZ_LAB) * math.cos(EL_LAB), -math.cos(AZ_LAB) * math.cos(EL_LAB),
+                                          math.sin(EL_LAB)))
         cam.data.lens = 50
     cam.rotation_euler = (look - cam.location).to_track_quat('-Z', 'Y').to_euler()
+    for nm in ("Key", "Rim", "Top"):                     # the softboxes ride with the camera target
+        lo = ob[nm]
+        lo.location = look + Vector(tuple(lo["off"]))
+        lo.rotation_euler = (look - lo.location).to_track_quat('-Z', 'Y').to_euler()
     speed_blur(sc, float(p.get("mb", 0)))
 
 

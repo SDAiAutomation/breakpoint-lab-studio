@@ -24,7 +24,7 @@ const COL={green:'#1F9D55',red:'#E0303F',ink:'#1d2126',sub:'#5b636c',brand:'#F7C
 
 // ---------------------------------------------------------------- physics (SI, z up; the coin's centre touches the forehead at Z_HIT)
 const G=9.81, MPH=1/0.44704;
-const Z_HIT=1.597;                                     // forehead top of the headform (tools/blender/headform.py, coin_scene.py)
+const Z_HIT=1.609;                                     // forehead top of the headform (tools/blender/headform.py, coin_scene.py)
 const V_VAC=208*0.44704, H_DROP=V_VAC*V_VAC/(2*G);     // 208 mph at the street (Bloomfield) -> drop height 440.7 m
 const VT=25*0.44704;                                   // terminal speed of a tumbling penny: 25 mph (Bloomfield)
 function simulate(r){
@@ -37,13 +37,13 @@ function simulate(r){
   return {air,h,tf,vImp,mph:Math.round(vImp*MPH),
     A:air?2.1:0.5, B:0.6, K:air?15:3,                  // real time for the first A s and the last B s, fast-forward xK between
     coin(u){                                           // coin centre (x, z), tilt (deg, 0 = flat), yaw (deg)
-      if(u<=0) return {x:0,z:Z_HIT+h,tilt:air?8:14,yaw:0};
+      if(u<=0) return {x:0,z:Z_HIT+h,tilt:air?8:35,yaw:0};
       if(u<tf){const z=Z_HIT+h-fallen(u);
-        if(!air) return {x:0,z,tilt:14,yaw:40*u};
+        if(!air) return {x:0,z,tilt:35,yaw:40*u};
         const k=1-Math.exp(-(tf-u)*6);                 // the flutter dies out over the last fraction of a second: it hits the forehead
         return {x:0.035*Math.sin(u*7.3)*k*sm(0,1,u),z,tilt:8+46*Math.abs(Math.sin(u*9.4))*sm(0,0.6,u),yaw:90*u};}
       const v=u-tf;                                    // bounce: up and away, flipping
-      return {x:0.25*vb*v,z:Z_HIT+vb*v-0.5*G*v*v,tilt:14+2400*v*(air?0.5:1),yaw:40*tf+300*v};},
+      return {x:0.25*vb*v,z:Z_HIT+vb*v-0.5*G*v*v,tilt:(air?20:35)+2400*v*(air?0.5:1),yaw:40*tf+300*v};},
     vel};
 }
 
