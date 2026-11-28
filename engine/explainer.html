@@ -23,7 +23,7 @@ const COL={green:'#1F9D55',red:'#E0303F',ink:'#1d2126',sub:'#5b636c',brand:'#F7C
 // ---------------------------------------------------------------- timeline
 // the ramp tilts from frame 0 under a one-line question -> the answer lands while it moves -> the right angle and the
 // equation -> one final image held (crate, vertical mg, N at 90 deg, the equations): the image worth saving -> loop
-const D_={tilt:3.6,answer:3.8,ra:4.6,eq:5.0,end:9.6};
+const D_={tilt:3.6,answer:3.0,ra:4.5,eq:4.9,end:9.6};
 function buildTimeline(cfg){
   const T={events:[]},ev=e=>T.events.push(e);
   const a0=cfg.angles?.from??20, a2=cfg.angles?.to??40;
@@ -78,7 +78,7 @@ function overlay(cfg,T,t,p){
   // the equations: one per visible gesture, then held together on the final image
   (cfg.equations||[]).forEach((l,i)=>{const t0=T.eqT+i*0.9;if(t<t0)return;const pp=pop(t0,t);
     c.save();c.translate(W/2,530+i*90);c.scale(pp,pp);ctxt(l.text,0,0,fitText(l.text,980,96),COL[l.color]||COL.ink,fade(t0,t,0.25));c.restore();});
-  if(t<T.answerT+0.6) pill(`${cfg.angle_label||'RAMP'} ${Math.round(angleAt(T,t))}°`,W/2,660,30,'rgba(91,99,108,0.92)',fade(0,t,0.12)*(1-fade(T.answerT+0.3,t,0.3)));
+  if(t<T.tilt[1]+0.6) pill(`${cfg.angle_label||'RAMP'} ${Math.round(angleAt(T,t))}°`,W/2,660,30,'rgba(91,99,108,0.92)',fade(0,t,0.12)*(1-fade(T.tilt[1]+0.3,t,0.3)));
 }
 
 // ---------------------------------------------------------------- scene images
@@ -108,7 +108,7 @@ window.poseKeyAt=t=>poseKey(poseAt(TL,t));
 async function drawFrame(t){
   const p=poseAt(TL,t),key=poseKey(p),im=await sceneImage(key);
   let z=1;                                                // slow push-in while the ramp holds still: the picture never freezes
-  if(t>=TL.tilt[1]) z=1+0.05*sm(TL.tilt[1],TL.duration,t);
+  if(t>=TL.tilt[1]) z=1+0.04*sm(TL.tilt[1],TL.duration-3,t);   // the last 3 s hold still: time to read both lines
   if(im){c.imageSmoothingQuality='high';const zw=W*z,zh=H*z;c.drawImage(im,(W-zw)/2,(H-zh)*0.55,zw,zh);} else placeholder(key,p);
   if(!window.CLEAN) overlay(CFG,TL,t,p);
 }
