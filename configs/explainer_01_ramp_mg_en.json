@@ -1,0 +1,36 @@
+{
+  "id": "explainer-01-ramp-mg-en",
+  "engine": "explainer",
+  "blender_scene": "tools/blender/explainer_incline.py",
+  "series": "BREAKPOINT LAB · EXPLAINER 01",
+  "handle": "@BreakpointLabTV",
+  "angles": {"from": 20, "hook": 23, "to": 40},
+  "question": ["Tilt the ramp.", "Which arrow never turns?"],
+  "question_sub": "N, F or mg?",
+  "angle_label": "RAMP",
+  "stamp": {"text": "mg NEVER TURNS", "color": "green"},
+  "fact": ["Gravity always points straight down"],
+  "remember": {
+    "title": "REMEMBER THIS",
+    "lines": ["mg: always straight down", "N ⊥ ramp: N = mg cos θ", "Down the ramp: mg sin θ"]
+  },
+  "cta": "Save it for your exam",
+  "source": ["Newton's laws: free-body diagram", "N = mg cos θ, along ramp mg sin θ"],
+  "sources_detail": [
+    "Weight W = mg acts toward the Earth's centre, so it stays vertical whatever the ramp angle.",
+    "On a ramp at angle θ, the weight splits into mg sin θ along the ramp and mg cos θ into it; with no other push perpendicular to the ramp, N = mg cos θ (OpenStax University Physics Vol. 1, §6.1, 'Solving Problems with Newton's Laws').",
+    "On screen: the N arrow is drawn with length proportional to cos θ; the arc marks θ between mg and the dashed −N line, equal to the ramp angle."
+  ],
+  "caption": "Tilt the ramp: which arrow never turns? N, F or mg? 👇 #physics #newtonslaws #studytok",
+  "send_line": "Save this for your physics exam 📌 and send it to your lab partner",
+  "keywords": "physics, free body diagram, inclined plane, normal force, weight, Newton's laws",
+  "description": [
+    "A crate on a ramp with its four forces played by characters: F (yellow) pulls up the ramp, friction f (red) holds it back, the normal force N (blue) pushes it off the ramp, the weight mg (green) hangs straight down.",
+    "As the ramp tilts from 20° to 40°, N, F and f turn with the ramp, but mg never turns: gravity always points straight down, toward the Earth's centre.",
+    "What to remember: N is perpendicular to the ramp and N = mg cos θ; the part of the weight pulling down the ramp is mg sin θ. Animation made in 3D (Blender), not filmed."
+  ],
+  "cover_t": 6.0,
+  "cover_question": "Tilt the ramp. Which arrow never turns?",
+  "cover_bet": "N, F or mg?",
+  "sound": {"mode": "synth"}
+}

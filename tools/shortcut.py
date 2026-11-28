@@ -65,6 +65,11 @@ def main():
     cfg_p, tl_p, src, dst = args[:4]
     cfg = json.load(open(cfg_p, encoding="utf-8"))
     tl = json.load(open(tl_p, encoding="utf-8"))
+    if float(tl["duration"]) <= 40:                # already short (explainers, ~15 s, loop built in): nothing to cut
+        import shutil
+        shutil.copyfile(src, dst)
+        print(f"short cut: video already {float(tl['duration']):.1f} s, copied as is")
+        return
     segs = segments(cfg, tl, end)
     f, parts = [], []
     for i, (a, b) in enumerate(segs):

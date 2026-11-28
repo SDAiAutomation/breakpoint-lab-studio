@@ -1,0 +1,150 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<!-- Explainer engine (Breakpoint Lab · Explainers, Instagram): a free-body diagram played by characters.
+     The scene is rendered in Blender (tools/blender/explainer_incline.py, one image per ramp angle); this page lays out the
+     ~15 s video (timeline), says which ramp angle each frame shows, and draws the texts.
+     Episode 01: tilt the ramp, which arrow never turns? The weight mg always points straight down (gravity points to the
+     Earth's centre); N stays perpendicular to the ramp, N = mg cos(theta); the angle between mg and -N is the ramp angle. -->
+<style>
+@font-face{font-family:P;src:url("fonts/Poppins-Bold.ttf");font-weight:700}
+@font-face{font-family:DJ;src:url("fonts/DejaVuSans-Bold.ttf");font-weight:700}
+html,body{margin:0;background:#000}canvas{display:block}
+</style></head>
+<body>
+<canvas id="out" width="1080" height="1920"></canvas>
+<script>
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const sm=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);};
+const lerp=(a,b,t)=>a+(b-a)*t;
+const FPS=30;
+const out=document.getElementById('out'),c=out.getContext('2d');const W=1080,H=1920;
+const COL={green:'#1F9D55',red:'#E0303F',ink:'#1d2126',sub:'#5b636c',brand:'#F7C21A',blue:'#2F6FE0'};
+
+// ---------------------------------------------------------------- timeline
+// hook (question, the ramp already moving) -> the ramp tilts up -> stamp -> "Remember this" (the ramp tilts back) -> save + source -> loop
+const D_={hook:2.6,tilt:4.8,stampGap:0.3,stampHold:1.3,fact:1.6,remember:3.6,save:1.7};
+function buildTimeline(cfg){
+  const T={events:[]},ev=e=>T.events.push(e);
+  const a0=cfg.angles?.from??20, a1=cfg.angles?.hook??23, a2=cfg.angles?.to??40;
+  T.ang={a0,a1,a2};
+  T.hook=[0,D_.hook];
+  ev({type:'question',t0:0.15,t1:D_.hook-0.1});
+  ev({type:'ramp',t0:0,t1:D_.hook,from:0,to:1,frac:0.2});
+  T.tilt=[D_.hook,D_.hook+D_.tilt];
+  ev({type:'ramp',t0:T.tilt[0],t1:T.tilt[1],from:0.2,to:1,frac:1.0});
+  T.stampT=T.tilt[1]+D_.stampGap;ev({type:'stamp',t:T.stampT,color:'green'});
+  T.factT=T.stampT+D_.stampHold;
+  T.remember=[T.factT+D_.fact,T.factT+D_.fact+D_.remember];ev({type:'card',t:T.remember[0]});
+  T.save=[T.remember[1],T.remember[1]+D_.save];ev({type:'cta',t:T.save[0]});
+  T.duration=T.save[1];
+  T.back=[T.remember[0],T.duration];
+  ev({type:'ramp',t0:T.back[0],t1:T.back[1],from:0,to:1,frac:0.3});
+  T.events.sort((a,b)=>(a.t??a.t0)-(b.t??b.t0));
+  return T;
+}
+
+// ---------------------------------------------------------------- scene pose: the ramp angle (deg)
+const q=(x,s)=>Math.round(x/s)*s;
+function angleAt(T,t){
+  const {a0,a1,a2}=T.ang;
+  if(t<T.hook[1]) return lerp(a0,a1,t/T.hook[1]);                       // moving from frame 0 (slow, steady)
+  if(t<T.tilt[1]){const u=(t-T.tilt[0])/(T.tilt[1]-T.tilt[0]);           // keeps the hook's speed at the start, eases in at the top
+    const v0=(a1-a0)/T.hook[1]*(T.tilt[1]-T.tilt[0])/(a2-a1);
+    return a1+(a2-a1)*(v0*u+(3-2*v0)*u*u+(v0-2)*u*u*u);}
+  if(t<T.back[0]) return a2;
+  return lerp(a2,a0,sm(T.back[0],T.back[1],t));                         // back to the first frame's angle: seamless loop
+}
+const poseAt=(T,t)=>({th:q(angleAt(T,t),0.25)});
+const poseKey=p=>`t${p.th.toFixed(2)}`;
+
+// ---------------------------------------------------------------- drawing helpers (same look as the other engines)
+const fade=(t0,t,d=0.25)=>clamp((t-t0)/d,0,1);
+const pop=(t0,t)=>{const k=clamp((t-t0)/0.25,0,1);return 1+0.18*Math.sin(k*Math.PI)*(1-k);};
+function rrect(x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+function panel(x,y,w,h,r,fill,a=1){if(a<=0)return;c.save();c.globalAlpha=a;c.fillStyle=fill;rrect(x,y,w,h,r);c.fill();c.restore();}
+function fitText(s,maxW,size){c.font=`700 ${size}px P, DJ`;while(c.measureText(s).width>maxW&&size>18){size-=2;c.font=`700 ${size}px P, DJ`;}return size;}
+function ctxt(s,x,y,size,color,a=1){if(a<=0)return;c.save();c.globalAlpha=a;c.font=`700 ${size}px P, DJ`;c.textAlign='center';c.textBaseline='middle';
+  c.lineJoin='round';c.lineWidth=size*0.16;c.strokeStyle='rgba(255,255,255,0.85)';c.strokeText(s,x,y);
+  c.shadowColor='rgba(0,0,0,0.18)';c.shadowBlur=size*0.12;c.shadowOffsetY=size*0.04;c.fillStyle=color;c.fillText(s,x,y);c.restore();}
+function pill(s,x,y,size,fill,a=1,ink='#fff'){if(a<=0)return;const fs=size;c.font=`700 ${fs}px P, DJ`;const w=c.measureText(s).width+fs*1.1;
+  panel(x-w/2,y-fs*0.85,w,fs*1.7,fs*0.85,fill,a);c.save();c.globalAlpha=a;c.font=`700 ${fs}px P, DJ`;c.textAlign='center';c.textBaseline='middle';c.fillStyle=ink;c.fillText(s,x,y+1);c.restore();}
+function drawHandle(cfg){
+  if(!cfg.handle) return;
+  c.save(); c.font='700 24px P, DJ'; c.textBaseline='middle'; c.textAlign='left';
+  const tw=c.measureText(cfg.handle).width, gap=12, dot=7, y=256, x=W/2-(tw+gap+2*dot)/2;
+  c.fillStyle='#f5c400'; c.beginPath(); c.arc(x+dot,y,dot,0,Math.PI*2); c.fill();
+  c.lineWidth=2; c.strokeStyle='rgba(22,24,29,0.85)'; c.stroke();
+  c.globalAlpha=0.8; c.fillStyle='#2a2e36'; c.fillText(cfg.handle,x+2*dot+gap,y+1); c.restore();
+}
+function overlay(cfg,T,t,p){
+  ctxt(cfg.series,W/2,292,34,COL.sub,0.9);
+  drawHandle(cfg);
+  // the bet: question + choices, while the ramp moves (gone just before the answer)
+  if(t<T.stampT){const a=fade(0,t,0.12)*(1-fade(T.stampT-0.35,t,0.25)),ql=cfg.question,n=ql.length;
+    ql.forEach((l,i)=>ctxt(l,W/2,400+i*92,fitText(l,960,80),n>1&&i===n-1?COL.red:COL.ink,a));
+    ctxt(cfg.question_sub,W/2,400+n*92,fitText(cfg.question_sub,900,44),COL.ink,a);}
+  // live instrument: the ramp angle
+  if(t<T.remember[0]){const a=fade(0,t,0.12)*(1-fade(T.remember[0]-0.3,t,0.25));
+    pill(`${cfg.angle_label||'RAMP'} ${Math.round(angleAt(T,t))}°`,W/2,660,30,'rgba(91,99,108,0.92)',a);}
+  if(t>=T.stampT&&t<T.remember[0]){
+    const s=cfg.stamp,k=clamp((t-T.stampT)/0.18,0,1),a=1-fade(T.remember[0]-0.3,t,0.25);
+    const sc2=lerp(2.2,1,k*k)+(k>=1?0.05*Math.exp(-(t-T.stampT-0.18)*10)*Math.sin((t-T.stampT-0.18)*40):0);
+    const col=s.color==='red'?COL.red:COL.green;
+    c.save();c.translate(W/2,425);c.rotate(-0.06);c.scale(sc2,sc2);c.globalAlpha=Math.min(1,k*1.5)*a;
+    c.strokeStyle=col;c.lineWidth=10;rrect(-400,-72,800,144,22);c.stroke();c.fillStyle='rgba(255,255,255,0.7)';rrect(-400,-72,800,144,22);c.fill();
+    const fs=fitText(s.text,740,80);c.font=`700 ${fs}px P, DJ`;c.textAlign='center';c.textBaseline='middle';c.fillStyle=col;c.fillText(s.text,0,5);c.restore();
+    if(t>=T.factT) (cfg.fact||[]).forEach((l,i)=>ctxt(l,W/2,560+i*50,fitText(l,980,40),COL.ink,fade(T.factT,t,0.3)*a));}
+  // the cheat sheet: what to remember (each line stays >= 1.5 s, all together at the end)
+  if(t>=T.remember[0]&&t<T.save[0]){const r=cfg.remember,t0=T.remember[0],a=1-fade(T.save[0]-0.25,t,0.25);
+    pill(r.title,W/2,345,34,COL.brand,fade(t0,t)*a,COL.ink);
+    r.lines.forEach((l,i)=>ctxt(l,W/2,440+i*66,fitText(l,980,50),i===0?COL.green:COL.ink,fade(t0+0.35+i*0.45,t,0.3)*a));}
+  if(t>=T.save[0]){const t0=T.save[0],a=fade(t0,t,0.25),pp=pop(t0,t);
+    c.save();c.translate(W/2,420);c.scale(pp,pp);panel(-380,-50,760,100,50,COL.brand,a);
+    c.font=`700 ${fitText(cfg.cta,700,42)}px P, DJ`;c.textAlign='center';c.textBaseline='middle';c.globalAlpha=a;c.fillStyle=COL.ink;c.fillText(cfg.cta,0,2);c.restore();
+    ctxt('SOURCE',W/2,515,26,COL.sub,a);
+    cfg.source.forEach((l,i)=>ctxt(l,W/2,557+i*42,fitText(l,980,30),COL.ink,a));}
+}
+
+// ---------------------------------------------------------------- scene images
+const IMG={};
+function loadImg(src){return new Promise(res=>{const im=new Image();im.onload=()=>res(im);im.onerror=()=>res(null);im.src=src;});}
+async function sceneImage(key){
+  if(!(key in IMG)) IMG[key]=await loadImg((CFG.scene_dir||'../work/bscene')+'/'+key+'.jpg');
+  return IMG[key];
+}
+function placeholder(key,p){window.PLACEHOLDER=true;       // before the Blender render: the ramp at its angle, so overlays can be checked
+  const g=c.createLinearGradient(0,0,0,H);g.addColorStop(0,'#c9ced4');g.addColorStop(1,'#8d949c');c.fillStyle=g;c.fillRect(0,0,W,H);
+  const cx=470,cy=1000,a=p.th*Math.PI/180;
+  c.save();c.translate(cx,cy);c.rotate(-a);c.fillStyle='#a3a8ae';c.fillRect(-700,95,1400,70);c.fillStyle='#b08850';c.fillRect(-60,-60,120,120);c.restore();
+  c.save();c.lineWidth=10;c.strokeStyle=COL.green;c.beginPath();c.moveTo(cx,cy);c.lineTo(cx,cy+520);c.stroke();
+  c.strokeStyle=COL.blue;c.beginPath();c.moveTo(cx,cy);c.lineTo(cx-300*Math.sin(a),cy-300*Math.cos(a));c.stroke();c.restore();
+  c.save();c.font='700 22px P, DJ';c.textAlign='center';c.fillStyle='#1d2126';c.fillText(key,W/2,1500);c.restore();
+}
+
+// ---------------------------------------------------------------- API used by render.js
+let CFG=null,TL=null;
+window.setup=function(cfg){CFG=cfg;TL=buildTimeline(cfg);
+  const seen=new Map();const N=Math.round(TL.duration*FPS);
+  for(let i=0;i<N;i++){const p=poseAt(TL,i/FPS),k=poseKey(p);if(!seen.has(k)) seen.set(k,{key:k,...p});}
+  return {duration:TL.duration,events:TL.events,poses:[...seen.values()],
+          angles:TL.ang,stamp:TL.stampT,remember:TL.remember,save:TL.save};};
+window.poseKeyAt=t=>poseKey(poseAt(TL,t));
+async function drawFrame(t){
+  const p=poseAt(TL,t),key=poseKey(p),im=await sceneImage(key);
+  let z=1;                                                // slow push-in while the ramp holds still: the picture never freezes
+  if(t>=TL.tilt[1]&&t<TL.back[0]) z=1+0.035*sm(TL.tilt[1],TL.back[0],t);
+  else if(t>=TL.back[0]) z=1+0.035*(1-sm(TL.back[0],TL.back[0]+1.2,t));
+  if(im){c.imageSmoothingQuality='high';const zw=W*z,zh=H*z;c.drawImage(im,(W-zw)/2,(H-zh)*0.55,zw,zh);} else placeholder(key,p);
+  if(!window.CLEAN) overlay(CFG,TL,t,p);
+}
+window.renderFrame=async function(t,type='image/jpeg'){
+  const L=0.45;
+  if(t>TL.duration-L){
+    await drawFrame(0);const first=document.createElement('canvas');first.width=W;first.height=H;first.getContext('2d').drawImage(out,0,0);
+    await drawFrame(t);c.save();c.globalAlpha=clamp((t-(TL.duration-L))/L,0,1);c.drawImage(first,0,0);c.restore();
+    return out.toDataURL(type,0.93);}
+  await drawFrame(t);return out.toDataURL(type,0.93);
+};
+window.ready=Promise.all([document.fonts.load('700 40px P'),document.fonts.load('700 40px DJ')]).then(()=>true);
+</script>
+</body></html>
