@@ -226,8 +226,8 @@ def label(text, loc, m, size=0.38, vec=False):
     o.rotation_euler = (math.pi / 2, 0, 0)     # faces the camera (-y)
     bpy.context.scene.collection.objects.link(o)
     if vec:                                     # the vector arrow over the letter
-        a = Vector(loc) + Vector((-size * 0.32, -0.02, size * 0.62))
-        b = a + Vector((size * 0.55, 0, 0))
+        a = Vector(loc) + Vector((-size * 0.26, -0.02, size * 0.50))
+        b = a + Vector((size * 0.42, 0, 0))
         seg(a, b, size * 0.035, lm)
         bpy.ops.mesh.primitive_cone_add(vertices=24, radius1=size * 0.09, radius2=0, depth=size * 0.2,
                                         location=b + Vector((size * 0.08, 0, 0)), rotation=(0, math.pi / 2, 0))
@@ -288,7 +288,7 @@ def build(res=(1080, 1920)):
         pa = cc + U * a[0] * CRATE * 0.44 + N * a[1] * CRATE * 0.44 + Vector((0, fy, 0))
         pb = cc + U * b[0] * CRATE * 0.44 + N * b[1] * CRATE * 0.44 + Vector((0, fy, 0))
         v = pb - pa
-        o = box((pa + pb) / 2, (0.075, 0.03, v.length + 0.075), wood)
+        o = box((pa + pb) / 2, (0.075, 0.03, v.length), wood)
         o.rotation_euler = v.to_track_quat('Z', 'Y').to_euler()
 
     # yellow: applied force F, pulling the rope up the slope
@@ -300,7 +300,7 @@ def build(res=(1080, 1920)):
     seg(cc + U * CRATE / 2, (hy[0] + hy[1]) / 2 + U * 0.25, 0.018, rope, caps=False)
 
     # red: friction f, pulling down the slope
-    fr1, fr2 = on_plank(-1.10), on_plank(-0.94)
+    fr1, fr2 = on_plank(-1.40), on_plank(-1.24)
     lean_r = (-U * 0.55 + Vector((0, 0, 1))).normalized()
     base = cc - U * (CRATE / 2 + 0.03) - N * (CRATE / 2 - 0.12)
     character("red", (fr1 + Vector((0, -0.12, 0)), fr2 + Vector((0, 0.12, 0))), lean_r,
@@ -321,7 +321,7 @@ def build(res=(1080, 1920)):
     # the four forces as arrows (in front of the crate) with their names at the tips
     ay = Vector((0, -0.62, 0))
     arrow(cc + ay, U, 1.05, mats["yellow"], "F", N * 0.16)
-    arrow(cc + ay, -U, 0.85, mats["red"], "f", -N * 0.30)
+    arrow(cc + ay, -U, 0.62, mats["red"], "f", N * 0.22)
     arrow(cc + ay, N, 1.00, mats["blue"], "N", Vector((0, 0, 0)))
     label("mg", bot + Vector((0.34, -0.05, -0.10)), mats["green"])
 
