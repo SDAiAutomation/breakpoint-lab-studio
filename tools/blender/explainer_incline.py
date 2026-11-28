@@ -74,8 +74,8 @@ def wood_mat():
     wv.inputs["Distortion"].default_value = 5.0
     wv.inputs["Detail"].default_value = 3.0
     ramp = nt.nodes.new("ShaderNodeValToRGB")
-    ramp.color_ramp.elements[0].color = (0.40, 0.23, 0.10, 1)
-    ramp.color_ramp.elements[1].color = (0.58, 0.37, 0.18, 1)
+    ramp.color_ramp.elements[0].color = (0.46, 0.28, 0.12, 1)
+    ramp.color_ramp.elements[1].color = (0.55, 0.35, 0.17, 1)
     nt.links.new(tc.outputs["Object"], mp.inputs["Vector"])
     nt.links.new(mp.outputs["Vector"], wv.inputs["Vector"])
     nt.links.new(wv.outputs["Fac"], ramp.inputs["Fac"])
@@ -139,7 +139,7 @@ def capsule(center, axis, length, r, m, flat=1.0):
 
 
 # ---------------------------------------------------------------- characters
-def face(c, up, fwd, side, r, mood, mats, gaze=0.0):
+def face(c, up, fwd, side, r, mood, mats, gaze=0.0, lid=None):
     """eyes, pupils, brows and mouth on the front of a body (fwd = towards the camera);
     gaze < 0 looks towards -side, > 0 towards +side; mood "strain" = eyes squeezed shut (effort)"""
     up, fwd, side = Vector(up).normalized(), Vector(fwd).normalized(), Vector(side).normalized()
@@ -152,6 +152,9 @@ def face(c, up, fwd, side, r, mood, mats, gaze=0.0):
         else:
             ball(e, r * 0.30, mats["eye"], scale=(1, 0.6, 1.15))
             ball(e + fwd * r * 0.14 + up * r * look * 0.12 + side * gaze * r * 0.13, r * 0.13, mats["pupil"])
+        if lid is not None and mood in ("angry", "strain", "tired"):   # upper lid, body colour: a frown, not stuck-on eyes
+            drop = {"angry": 0.10, "strain": 0.06, "tired": 0.02}[mood]
+            ball(e + up * r * (0.20 - drop) + fwd * r * 0.03, r * 0.33, lid, scale=(1.08, 0.66, 0.55))
         # brows: angry = inner end down, tired/worried = inner end up
         tilt = {"angry": -1.6, "tired": 0.8, "worried": 1.2, "strain": -1.2}[mood] * s
         bc = e + up * r * 0.44 + fwd * r * 0.06
@@ -183,22 +186,28 @@ def character(col, feet, lean, hands, mood, mats, height=0.36, r=0.17, flat=1.0,
     fwd = up.cross(side).normalized()
     if fwd.y > 0:
         fwd = -fwd
+    pull = Vector((up.x, up.y, 0))                  # knees bend against the lean (towards the load)
+    knee_dir = -pull.normalized() if pull.length > 0.05 else fwd
     for s, f in zip((-1, 1), feet):
         h = hip + side * s * r * 0.45
-        seg(h, f, r * 0.24, m)
+        k = (h + Vector(f)) / 2 + knee_dir * r * 0.45
+        seg(h, k, r * 0.24, m)
+        seg(k, f, r * 0.24, m)
         ball(Vector(f) + fwd * r * 0.12, r * 0.30, m, scale=(1.1, 1.4, 0.7))
     for s, hd in zip((-1, 1), hands):
         sh = c + up * height * 0.18 + side * s * r * 0.85
-        seg(sh, hd, r * 0.20, m)
+        el = (sh + Vector(hd)) / 2 - up * r * 0.35 + fwd * r * 0.15 * s
+        seg(sh, el, r * 0.20, m)
+        seg(el, hd, r * 0.20, m)
         ball(hd, r * 0.30, m)
-    face(c + up * height * 0.12, up, fwd, side, r, mood, mats, gaze)
+    face(c + up * height * 0.12, up, fwd, side, r, mood, mats, gaze, lid=m)
     return c
 
 
 FONT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "engine", "fonts", "Poppins-Bold.ttf")
 
 
-def label(text, loc, m, size=0.36):
+def label(text, loc, m, size=0.38, vec=False):
     cu = bpy.data.curves.new(text, type='FONT')
     cu.body = text
     cu.size = size
@@ -210,10 +219,19 @@ def label(text, loc, m, size=0.36):
     except RuntimeError:
         pass
     o = bpy.data.objects.new(text, cu)
-    o.data.materials.append(m)
+    col = m.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value[:]
+    lm = mat("L_" + m.name, **{"Base Color": col, "Emission Color": col, "Emission Strength": 0.9, "Roughness": 0.5})
+    o.data.materials.append(lm)
     o.location = loc
     o.rotation_euler = (math.pi / 2, 0, 0)     # faces the camera (-y)
     bpy.context.scene.collection.objects.link(o)
+    if vec:                                     # the vector arrow over the letter
+        a = Vector(loc) + Vector((-size * 0.32, -0.02, size * 0.62))
+        b = a + Vector((size * 0.55, 0, 0))
+        seg(a, b, size * 0.035, lm)
+        bpy.ops.mesh.primitive_cone_add(vertices=24, radius1=size * 0.09, radius2=0, depth=size * 0.2,
+                                        location=b + Vector((size * 0.08, 0, 0)), rotation=(0, math.pi / 2, 0))
+        _fin(bpy.context.object, lm)
     return o
 
 
@@ -226,7 +244,7 @@ def arrow(start, d, length, m, name, off):
     o = bpy.context.object
     o.rotation_euler = d.to_track_quat('Z', 'Y').to_euler()
     _fin(o, m)
-    label(name, tip + d * 0.16 + off, m)
+    label(name, tip + d * 0.16 + off, m, vec=True)
 
 
 # ---------------------------------------------------------------- scene
@@ -247,7 +265,7 @@ def build(res=(1080, 1920)):
     wood = wood_mat()
 
     # floor + curved backdrop
-    box((0, 3, -1.62), (40, 40, 0.1), studio)
+    box((0, 3, -2.10), (40, 40, 0.1), studio)
     box((0, 4.5, 6), (40, 0.1, 16), studio)
     # the incline plank, resting on the floor at its low end
     box((0, 0, 0), (7.0, 1.1, PLANK_T), grey, rot=(0, -TH, 0), bevel=0.02)
@@ -259,7 +277,7 @@ def build(res=(1080, 1920)):
         hand = bc + U * s * 1.05 + N * (BLUE_T / 2 - 0.02) + Vector((0, -0.17, 0))
         seg(bc + U * s * 0.8 + Vector((0, -0.08, 0)), hand, 0.04, mats["blue"])
         ball(hand, 0.06, mats["blue"], scale=(1.3, 1.3, 0.6))
-    face(bc, N, Vector((0, -1, 0)), U, BLUE_T / 2, "tired", mats)
+    face(bc, N, Vector((0, -1, 0)), U, BLUE_T / 2, "tired", mats, lid=mats["blue"])
 
     # the crate, sitting on the blue character
     cc = on_plank(0.0, BLUE_T + CRATE / 2)
@@ -289,23 +307,23 @@ def build(res=(1080, 1920)):
               (base + Vector((0, -0.16, 0)), base + Vector((0, 0.10, 0)) + N * 0.06), "strain", mats, gaze=1.0)
 
     # green: weight mg, hanging straight down from the crate's centre, below the plank
-    top = Vector((cc.x, -(CRATE / 2 + 0.10), cc.z))
-    bot = Vector((cc.x, -(CRATE / 2 + 0.10), cc.z - 1.85))
+    top = Vector((cc.x, -0.62, cc.z))
+    bot = Vector((cc.x, -0.62, cc.z - 2.30))
     seg(top, bot, 0.04, mats["green"], caps=False)
     bpy.ops.mesh.primitive_cone_add(vertices=32, radius1=0.11, radius2=0.0, depth=0.26, location=bot - Vector((0, 0, 0.13)),
                                     rotation=(math.pi, 0, 0))
     _fin(bpy.context.object, mats["green"])
-    gh = Vector((cc.x, -(CRATE / 2 + 0.10), cc.z - 1.05))
+    gh = Vector((cc.x, -0.62, cc.z - 1.15))
     gc = gh - Vector((0, 0, 0.55))
     character("green", (gc + Vector((-0.10, 0, -0.45)), gc + Vector((0.12, 0, -0.43))), (0, 0, 1),
               (gh + Vector((-0.04, -0.03, 0.06)), gh + Vector((0.04, -0.03, -0.04))), "worried", mats)
 
     # the four forces as arrows (in front of the crate) with their names at the tips
-    ay = Vector((0, -(CRATE / 2 + 0.10), 0))
+    ay = Vector((0, -0.62, 0))
     arrow(cc + ay, U, 1.05, mats["yellow"], "F", N * 0.16)
-    arrow(cc + ay, -U, 0.85, mats["red"], "f", N * 0.20)
+    arrow(cc + ay, -U, 0.85, mats["red"], "f", -N * 0.30)
     arrow(cc + ay, N, 1.00, mats["blue"], "N", Vector((0, 0, 0)))
-    label("mg", bot + Vector((0.30, -0.05, 0.12)), mats["green"])
+    label("mg", bot + Vector((0.34, -0.05, -0.10)), mats["green"])
 
     # lights
     for nm, loc, e, size in (("Key", (-3.0, -5.0, 5.0), 700, 2.0), ("Fill", (5.0, -4.0, 2.0), 150, 4.0),
@@ -351,7 +369,7 @@ def build(res=(1080, 1920)):
 
 
 SHOTS = {                       # camera position, look-at target, lens
-    "wide": (lambda cc: (Vector((cc.x + 0.35, -9.0, cc.z + 1.3)), Vector((cc.x + 0.35, 0, cc.z + 0.05)), 50)),
+    "wide": (lambda cc: (Vector((cc.x + 0.55, -9.0, cc.z + 1.2)), Vector((cc.x + 0.55, 0, cc.z - 0.25)), 48)),
     "crate": (lambda cc: (Vector((cc.x - 0.6, -5.5, cc.z + 0.8)), Vector((cc.x, 0, cc.z - 0.2)), 50)),
     "faces": (lambda cc: (Vector((cc.x - 0.4, -4.6, cc.z + 0.7)), Vector((cc.x - 0.4, 0, cc.z + 0.05)), 50)),
 }
