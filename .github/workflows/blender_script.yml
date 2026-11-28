@@ -1,0 +1,63 @@
+name: Blender script stills (style tests)
+
+# Runs one Blender script that writes images to work/stills (e.g. tools/blender/explainer_incline.py) and pushes
+# them to the branch previews/<run id>. For style tests of a new scene, before any engine or timeline exists.
+on:
+  workflow_dispatch:
+    inputs:
+      script:
+        description: "Blender script (in the repo)"
+        default: "tools/blender/explainer_incline.py"
+      args:
+        description: "Extra arguments for the script"
+        default: "--shots wide,crate,faces"
+      samples:
+        description: "Cycles samples"
+        default: "96"
+      blender_version:
+        description: "Blender version (download.blender.org)"
+        default: "5.3.0"
+
+permissions:
+  contents: write
+
+jobs:
+  stills:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: /tmp/blender-${{ inputs.blender_version }}-linux-x64.tar.xz
+          key: blender-${{ inputs.blender_version }}
+      - name: Blender
+        env:
+          V: ${{ inputs.blender_version }}
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libxkbcommon0 libsm6 libegl1 > /dev/null
+          MM=$(echo "$V" | cut -d. -f1,2)
+          F="blender-${V}-linux-x64.tar.xz"
+          if [ ! -s "/tmp/$F" ]; then for U in "https://download.blender.org/release/Blender${MM}/$F" "https://mirrors.ocf.berkeley.edu/blender/release/Blender${MM}/$F" \
+                   "https://ftp.halifax.rwth-aachen.de/blender/release/Blender${MM}/$F" "https://mirror.clarkson.edu/blender/release/Blender${MM}/$F"; do
+            for i in 1 2; do curl -sSfL --retry 3 -o "/tmp/$F" "$U" && break 2; echo "retry $U"; sleep 10; done
+          done; fi
+          tar -xJf "/tmp/$F" -C "$HOME"
+          echo "BLENDER=$HOME/blender-${V}-linux-x64/blender" >> "$GITHUB_ENV"
+      - name: Render
+        env:
+          SCRIPT: ${{ inputs.script }}
+          ARGS: ${{ inputs.args }}
+          SAMPLES: ${{ inputs.samples }}
+        run: |
+          START=$(date +%s)
+          "$BLENDER" -b -P "$SCRIPT" -- --out work/stills --samples "$SAMPLES" $ARGS 2>&1 | grep -E "rendered|Error|Traceback|error|line [0-9]" || true
+          N=$(ls work/stills/*.jpg 2>/dev/null | wc -l); echo "$N images in $(( $(date +%s) - START )) s"
+          test "$N" -gt 0
+      - name: Push to previews/<run>
+        run: |
+          B="previews/${{ github.run_id }}"
+          mkdir -p /tmp/pv && cp work/stills/* /tmp/pv/
+          git config user.name "github-actions[bot]" && git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan "$B" && git rm -rfq . && cp /tmp/pv/* . && git add -A && git commit -qm "Blender script stills ${{ github.run_id }}" && git push -q origin "$B"
+          echo "pushed to $B"
