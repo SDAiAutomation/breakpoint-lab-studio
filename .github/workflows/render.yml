@@ -79,8 +79,9 @@ jobs:
       - name: Cover image (Instagram / profile grid)
         run: |
           T=$(python3 tools/cover.py time work/config.json work/timeline.json)
-          node engine/render.js clean work/config.json work/cover_scene.png "$T"
-          python3 tools/cover.py build work/config.json work/cover_scene.png work/cover.jpg
+          rm -f work/cover_scene.png work/cover.jpg
+          node engine/render.js clean work/config.json work/cover_scene.png "$T" || echo "cover: no real scene image yet"
+          if [ -f work/cover_scene.png ]; then python3 tools/cover.py build work/config.json work/cover_scene.png work/cover.jpg; fi
       - name: Split frames across machines
         id: shards
         run: |
@@ -171,8 +172,9 @@ jobs:
           pip install -q pillow
           python3 tools/review_sheet.py work/previews work/review_sheet.png
           T=$(python3 tools/cover.py time work/config.json work/timeline.json)
-          node engine/render.js clean work/config.json work/cover_scene.png "$T"
-          python3 tools/cover.py build work/config.json work/cover_scene.png work/cover.jpg
+          rm -f work/cover_scene.png work/cover.jpg
+          node engine/render.js clean work/config.json work/cover_scene.png "$T" || echo "cover: no real scene image yet"
+          if [ -f work/cover_scene.png ]; then python3 tools/cover.py build work/config.json work/cover_scene.png work/cover.jpg; fi
       - uses: actions/upload-artifact@v4
         with:
           name: qc-bprev

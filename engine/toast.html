@@ -237,7 +237,7 @@ async function sceneImage(key){
   if(!(key in IMG)) IMG[key]=await loadImg((CFG.scene_dir||'../work/bscene')+'/'+key+'.jpg');
   return IMG[key];
 }
-function placeholder(key,p){                              // before the Blender render: a rough side view, so overlays can be checked
+function placeholder(key,p){window.PLACEHOLDER=true;                              // before the Blender render: a rough side view, so overlays can be checked
   const g=c.createLinearGradient(0,0,0,H);g.addColorStop(0,'#c9ced4');g.addColorStop(1,'#8d949c');c.fillStyle=g;c.fillRect(0,0,W,H);
   const s=1920/(0.425*p.d), X=x=>W/2+(x-p.cx)*s, Y=z=>H/2-(z-p.cz)*s;
   c.save();c.fillStyle='#d9dbde';c.fillRect(0,Y(0),W,H);c.fillStyle='#7a5a3a';c.fillRect(X(-0.9),Y(p.H),X(0)-X(-0.9),0.03*s);

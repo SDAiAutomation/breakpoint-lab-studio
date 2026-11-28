@@ -218,12 +218,12 @@ async function sceneImage(key){
   if(!(key in IMG)) IMG[key]=await loadImg((CFG.scene_dir||'../work/bscene')+'/'+key+'.jpg');
   return IMG[key];
 }
-function placeholder(key,p){                              // before the Blender render: a rough front view, so overlays can be checked
+function placeholder(key,p){window.PLACEHOLDER=true;                              // before the Blender render: a rough front view, so overlays can be checked
   const g=c.createLinearGradient(0,0,0,H);g.addColorStop(0,'#c9d4df');g.addColorStop(1,'#8d949c');c.fillStyle=g;c.fillRect(0,0,W,H);
   const s=1920/(0.4235*p.d), X=x=>W/2+x*s, Y=z=>H/2-(z-p.cz)*s;
   c.save();c.fillStyle='#bfc3c8';c.fillRect(X(-0.45),Y(1.10),0.9*s,1.10*s);
   c.fillStyle='#e9c46a';c.beginPath();c.ellipse(X(0),Y(1.55),0.118*s,0.128*s,0,0,Math.PI*2);c.fill();
-  c.fillStyle='#b5651d';c.beginPath();c.ellipse(X(p.cx),Y(p.zc),0.0095*s,0.0095*s*Math.cos(p.tilt*Math.PI/180)+1,0,0,Math.PI*2);c.fill();
+  c.fillStyle='#b5651d';c.beginPath();c.ellipse(X(p.cx),Y(p.zc),0.0095*s,Math.abs(0.0095*s*Math.cos(p.tilt*Math.PI/180))+1,0,0,Math.PI*2);c.fill();
   c.restore();c.save();c.font='700 22px P, DJ';c.textAlign='center';c.fillStyle='#1d2126';c.fillText(key,W/2,1500);c.restore();
 }
 
