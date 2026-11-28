@@ -21,13 +21,13 @@ U = Vector((math.cos(TH), 0, math.sin(TH)))   # up the slope
 N = Vector((-math.sin(TH), 0, math.cos(TH)))  # out of the slope
 PLANK_T = 0.16
 CRATE = 0.78
-BLUE_T = 0.20                                  # the squeezed blue character between plank and crate
+BLUE_T = 0.28                                  # the squeezed blue character between plank and crate
 
 COLS = {
-    "yellow": (0.93, 0.66, 0.06, 1),
-    "red": (0.80, 0.10, 0.07, 1),
-    "blue": (0.08, 0.30, 0.82, 1),
-    "green": (0.16, 0.58, 0.16, 1),
+    "yellow": (0.90, 0.55, 0.02, 1),
+    "red": (0.72, 0.05, 0.03, 1),
+    "blue": (0.03, 0.18, 0.75, 1),
+    "green": (0.07, 0.42, 0.07, 1),
 }
 
 
@@ -68,10 +68,10 @@ def wood_mat():
     b = nt.nodes["Principled BSDF"]
     tc = nt.nodes.new("ShaderNodeTexCoord")
     mp = nt.nodes.new("ShaderNodeMapping")
-    mp.inputs["Scale"].default_value = (1.0, 1.0, 9.0)
+    mp.inputs["Scale"].default_value = (1.0, 1.0, 1.0)
     wv = nt.nodes.new("ShaderNodeTexWave")
-    wv.inputs["Scale"].default_value = 3.0
-    wv.inputs["Distortion"].default_value = 6.0
+    wv.inputs["Scale"].default_value = 7.0
+    wv.inputs["Distortion"].default_value = 1.5
     wv.inputs["Detail"].default_value = 3.0
     ramp = nt.nodes.new("ShaderNodeValToRGB")
     ramp.color_ramp.elements[0].color = (0.30, 0.16, 0.06, 1)
@@ -116,7 +116,7 @@ def box(loc, size, m, rot=(0, 0, 0), bevel=0.0):
     bpy.ops.mesh.primitive_cube_add(size=1, location=loc, rotation=rot)
     o = bpy.context.object
     o.scale = size
-    bpy.ops.object.transform_apply(scale=True)
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
     if bevel:
         md = o.modifiers.new("Bevel", 'BEVEL')
         md.width = bevel
@@ -144,25 +144,25 @@ def face(c, up, fwd, side, r, mood, mats):
     up, fwd, side = Vector(up).normalized(), Vector(fwd).normalized(), Vector(side).normalized()
     look = {"angry": -0.25, "tired": -0.5, "worried": 0.3}[mood]
     for s in (-1, 1):
-        e = c + up * (0.18 * r * 4) * 0.35 + fwd * r * 0.80 + side * s * r * 0.38
-        ball(e, r * 0.30, mats["eye"], scale=(1, 0.55, 1.15))
+        e = c + up * r * 0.25 + fwd * r * 0.90 + side * s * r * 0.38
+        ball(e, r * 0.30, mats["eye"], scale=(1, 0.6, 1.15))
         ball(e + fwd * r * 0.14 + up * r * look * 0.12 + side * s * 0.0, r * 0.13, mats["pupil"])
         # brows: angry = inner end down, tired/worried = inner end up
-        tilt = {"angry": -0.55, "tired": 0.35, "worried": 0.55}[mood] * s
-        bc = e + up * r * 0.40 + fwd * r * 0.06
+        tilt = {"angry": -1.6, "tired": 0.8, "worried": 1.2}[mood] * s
+        bc = e + up * r * 0.44 + fwd * r * 0.06
         a = bc - side * r * 0.20 + up * tilt * r * 0.12
         b = bc + side * r * 0.20 - up * tilt * r * 0.12
         if s < 0:
             a, b = b, a
-        seg(a, b, r * 0.055, mats["pupil"])
-    mc = c - up * r * 0.30 + fwd * r * 0.88
+        seg(a, b, r * 0.075, mats["pupil"])
+    mc = c - up * r * 0.30 + fwd * r * 0.97
     if mood == "angry":                                     # gritted teeth
-        ball(mc, r * 0.22, mats["mouth"], scale=(1.0, 0.4, 0.45))
-        ball(mc + fwd * r * 0.05, r * 0.17, mats["eye"], scale=(1.0, 0.3, 0.22))
+        ball(mc, r * 0.28, mats["mouth"], scale=(1.0, 0.45, 0.5))
+        ball(mc + fwd * r * 0.06, r * 0.22, mats["eye"], scale=(1.0, 0.35, 0.25))
     elif mood == "worried":
-        ball(mc, r * 0.12, mats["mouth"], scale=(1.0, 0.4, 1.2))
+        ball(mc, r * 0.14, mats["mouth"], scale=(1.0, 0.45, 1.3))
     else:
-        seg(mc - side * r * 0.14 - up * r * 0.03, mc + side * r * 0.14 - up * r * 0.03, r * 0.035, mats["mouth"])
+        seg(mc - side * r * 0.16 - up * r * 0.03, mc + side * r * 0.16 - up * r * 0.03, r * 0.05, mats["mouth"])
 
 
 def character(col, feet, lean, hands, mood, mats, height=0.36, r=0.17, flat=1.0):
@@ -202,8 +202,8 @@ def build(res=(1080, 1920)):
     mats["eye"] = mat("Eye", **{"Base Color": (0.92, 0.92, 0.90, 1), "Roughness": 0.15, "Coat Weight": 0.5})
     mats["pupil"] = mat("Pupil", **{"Base Color": (0.02, 0.02, 0.025, 1), "Roughness": 0.1})
     mats["mouth"] = mat("Mouth", **{"Base Color": (0.10, 0.02, 0.02, 1), "Roughness": 0.4})
-    grey = mat("Plank", **{"Base Color": (0.62, 0.62, 0.64, 1), "Roughness": 0.55})
-    studio = mat("Studio", **{"Base Color": (0.80, 0.80, 0.81, 1), "Roughness": 0.8})
+    grey = mat("Plank", **{"Base Color": (0.30, 0.31, 0.33, 1), "Roughness": 0.55})
+    studio = mat("Studio", **{"Base Color": (0.55, 0.56, 0.58, 1), "Roughness": 0.8})
     rope = mat("Rope", **{"Base Color": (0.55, 0.42, 0.25, 1), "Roughness": 0.85})
     wood = wood_mat()
 
@@ -218,7 +218,7 @@ def build(res=(1080, 1920)):
     capsule(bc, U, 0.42, BLUE_T / 2, mats["blue"])
     for s in (-0.22, 0.22):
         seg(bc + U * s + N * 0.03, bc + U * s + N * (BLUE_T / 2 + 0.02) + Vector((0, -0.15, 0)), 0.035, mats["blue"])
-    face(bc, N, Vector((0, -1, 0)), U, 0.11, "tired", mats)
+    face(bc, N, Vector((0, -1, 0)), U, BLUE_T / 2, "tired", mats)
 
     # the crate, sitting on the blue character
     cc = on_plank(0.0, BLUE_T + CRATE / 2)
@@ -250,7 +250,7 @@ def build(res=(1080, 1920)):
 
     # green: weight mg, hanging straight down from the crate's centre, below the plank
     top = Vector((cc.x, -0.62, cc.z))
-    bot = Vector((cc.x, -0.62, cc.z - 2.15))
+    bot = Vector((cc.x, -0.62, cc.z - 1.85))
     seg(top, bot, 0.03, mats["green"], caps=False)
     bpy.ops.mesh.primitive_cone_add(vertices=32, radius1=0.09, radius2=0.0, depth=0.22, location=bot - Vector((0, 0, 0.11)),
                                     rotation=(math.pi, 0, 0))
@@ -261,8 +261,8 @@ def build(res=(1080, 1920)):
               (gh + Vector((-0.04, -0.03, 0.06)), gh + Vector((0.04, -0.03, -0.04))), "worried", mats)
 
     # lights
-    for nm, loc, e, size in (("Key", (-3.0, -5.0, 5.0), 900, 3.0), ("Fill", (5.0, -4.0, 2.0), 300, 4.0),
-                             ("Rim", (2.0, 3.0, 4.0), 500, 2.0)):
+    for nm, loc, e, size in (("Key", (-3.0, -5.0, 5.0), 700, 2.0), ("Fill", (5.0, -4.0, 2.0), 150, 4.0),
+                             ("Rim", (2.0, 3.0, 4.0), 600, 1.5)):
         ld = bpy.data.lights.new(nm, 'AREA')
         ld.energy = e
         ld.size = size
@@ -274,7 +274,7 @@ def build(res=(1080, 1920)):
     wd = bpy.data.worlds.new("W")
     wd.use_nodes = True
     wd.node_tree.nodes["Background"].inputs[0].default_value = (0.85, 0.86, 0.88, 1)
-    wd.node_tree.nodes["Background"].inputs[1].default_value = 0.6
+    wd.node_tree.nodes["Background"].inputs[1].default_value = 0.25
     sc.world = wd
 
     cam = bpy.data.cameras.new("Cam")
@@ -297,15 +297,16 @@ def build(res=(1080, 1920)):
         sc.view_settings.look = 'AgX - Base Contrast'
     except TypeError:
         pass
+    sc.view_settings.exposure = -0.3
     r.image_settings.file_format = 'JPEG'
     r.image_settings.quality = 92
     return sc, cc
 
 
 SHOTS = {                       # camera position, look-at target, lens
-    "wide": (lambda cc: (Vector((cc.x + 0.1, -11.5, cc.z + 0.9)), Vector((cc.x + 0.1, 0, cc.z - 0.15)), 50)),
-    "crate": (lambda cc: (Vector((cc.x - 0.9, -5.2, cc.z + 0.6)), Vector((cc.x, 0, cc.z - 0.45)), 50)),
-    "faces": (lambda cc: (Vector((cc.x + 1.8, -3.6, cc.z + 0.9)), Vector((cc.x + 1.55, 0, cc.z + 0.25)), 60)),
+    "wide": (lambda cc: (Vector((cc.x + 0.15, -10.5, cc.z + 1.6)), Vector((cc.x + 0.15, 0, cc.z + 0.2)), 50)),
+    "crate": (lambda cc: (Vector((cc.x - 0.6, -5.5, cc.z + 0.8)), Vector((cc.x, 0, cc.z - 0.2)), 50)),
+    "faces": (lambda cc: (Vector((cc.x + 1.6, -3.8, cc.z + 1.0)), Vector((cc.x + 2.12, 0, cc.z + 0.8)), 70)),
 }
 
 
