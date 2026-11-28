@@ -195,7 +195,7 @@ async function sceneImage(key){
   if(!(key in IMG)) IMG[key]=await loadImg((CFG.scene_dir||'../work/bscene')+'/'+key+'.jpg');
   return IMG[key];
 }
-function placeholder(key,p){                              // before the Blender render: grey stage + the pose, so overlays can be checked
+function placeholder(key,p){window.PLACEHOLDER=true;                              // before the Blender render: grey stage + the pose, so overlays can be checked
   const g=c.createLinearGradient(0,0,0,H);g.addColorStop(0,'#c9ced4');g.addColorStop(1,'#8d949c');c.fillStyle=g;c.fillRect(0,0,W,H);
   c.save();c.fillStyle='rgba(255,255,255,0.35)';const bw=180,bh=560,by=p.cam==='close'?820:900;rrect(W/2-bw/2,by,bw,bh,40);c.fill();
   c.font='700 26px P, DJ';c.textAlign='center';c.fillStyle='#1d2126';c.fillText(key,W/2,1500);c.restore();
